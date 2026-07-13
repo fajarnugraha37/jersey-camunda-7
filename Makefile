@@ -67,7 +67,7 @@ openapi-generate:
 	throw "openapi-generate is not wired yet; the current increment keeps the contract in docs/api/openapi.yaml."
 
 openapi-validate:
-	mvn -q org.openapitools:openapi-generator-maven-plugin:$(openapi.generator.version):validate -DinputSpec=docs/api/openapi.yaml
+	mvn -q org.openapitools:openapi-generator-maven-plugin:7.12.0:validate -DinputSpec=docs/api/openapi.yaml
 
 up:
 	docker compose up -d --build postgres app

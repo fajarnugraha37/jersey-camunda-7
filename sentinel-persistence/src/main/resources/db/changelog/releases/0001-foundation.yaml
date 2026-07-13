@@ -1,0 +1,80 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0001-report-foundation
+      author: codex
+      changes:
+        - createTable:
+            tableName: report
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: title
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: description
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: jurisdiction_code
+                  type: VARCHAR(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: reporter_name
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+        - sql:
+            sql: ALTER TABLE report ADD CONSTRAINT ck_report_version_non_negative CHECK (version >= 0);
+        - createIndex:
+            tableName: report
+            indexName: idx_report_jurisdiction_created_at
+            columns:
+              - column:
+                  name: jurisdiction_code
+              - column:
+                  name: created_at
+      rollback:
+        - sql:
+            sql: ALTER TABLE report DROP CONSTRAINT IF EXISTS ck_report_version_non_negative;
+        - dropTable:
+            tableName: report

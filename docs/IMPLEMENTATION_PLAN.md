@@ -2,11 +2,11 @@
 
 ## Ordered tasks
 
-1. Replace the starter single-module layout with a minimal Maven multi-module foundation.
-2. Implement bootstrap wiring, health endpoint, and database configuration.
-3. Add Liquibase changelog and PostgreSQL-backed report persistence with MyBatis.
-4. Expose create/get report API with validation and consistent error envelope.
-5. Add unit and integration tests, then verify with Maven and Docker-backed checks.
+1. Verify Docker Compose startup and smoke-test flow for the current foundation slice.
+2. Wire OpenAPI Generator into compile-time generated models or interfaces.
+3. Introduce Keycloak-based authentication and JWT validation.
+4. Add centralized authorization rules with jurisdiction-aware access checks.
+5. Extend the domain into case lifecycle and optimistic locking.
 
 ## Dependencies
 
@@ -26,3 +26,7 @@
 - `GET /api/v1/reports/{reportId}` returns the persisted report.
 - Invalid request bodies return the standard error envelope.
 - Liquibase migration runs on an empty database.
+
+## Current status
+
+The acceptance criteria above are implemented and locally verified through Maven commands. Docker Compose runtime verification is still pending.

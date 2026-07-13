@@ -17,7 +17,8 @@ RUN mvn -q -pl sentinel-bootstrap -am -DskipTests package
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-RUN useradd --system --uid 10001 sentinel
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --uid 10001 sentinel
 COPY --from=build /workspace/sentinel-bootstrap/target/sentinel-bootstrap-0.1.0-SNAPSHOT.jar app.jar
 USER sentinel
 EXPOSE 8080
