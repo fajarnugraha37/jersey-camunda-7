@@ -29,6 +29,7 @@ import org.glassfish.grizzly.http.server.HttpServer;
 import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpServerFactory;
 import org.glassfish.jersey.jackson.JacksonFeature;
 import org.glassfish.jersey.server.ResourceConfig;
+import org.glassfish.jersey.server.ServerProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -83,7 +84,8 @@ public final class ApplicationRuntime implements AutoCloseable {
             .register(ReportNotFoundExceptionMapper.class)
             .register(GenericExceptionMapper.class)
             .register(HealthResource.class)
-            .register(ReportResource.class);
+            .register(ReportResource.class)
+            .property(ServerProperties.WADL_FEATURE_DISABLE, true);
 
     HttpServer server =
         GrizzlyHttpServerFactory.createHttpServer(

@@ -16,6 +16,12 @@
       <groupId>com.sentinel.enforcement</groupId>
       <artifactId>sentinel-bootstrap</artifactId>
       <version>${project.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>com.sentinel.enforcement</groupId>
+          <artifactId>sentinel-persistence</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>com.sentinel.enforcement</groupId>

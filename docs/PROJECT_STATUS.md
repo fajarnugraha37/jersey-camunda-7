@@ -29,8 +29,6 @@ Phase 2 authentication and authorization implemented and verified.
 ## Known defects
 
 - Original repository started as a Jersey hello-world template and did not match the required architecture.
-- Liquibase emits duplicate changelog warnings during multi-module test classpath execution because both persistence and shaded bootstrap artifacts expose the same changelog resources.
-- Jersey still emits a non-blocking WADL/JAXB warning at startup because WADL support is present without a JAXB implementation.
 
 ## Architecture deviations
 
@@ -47,6 +45,7 @@ Phase 2 authentication and authorization implemented and verified.
 - `mvn -q verify` completed successfully.
 - `mvn -q -pl sentinel-api -am generate-sources` completed successfully and produced compile-consumed generated models.
 - Integration verification now covers `GET /health`, `POST /api/v1/reports`, and `GET /api/v1/reports/{reportId}` under authenticated and unauthorized scenarios.
+- Liquibase duplicate changelog detection is now fail-fast via `ERROR`, and the integration-test classpath no longer carries the duplicate persistence changelog source.
 
 ## Infrastructure status
 

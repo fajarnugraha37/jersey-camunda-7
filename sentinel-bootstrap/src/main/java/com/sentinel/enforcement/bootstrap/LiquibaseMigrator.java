@@ -14,8 +14,9 @@ public final class LiquibaseMigrator {
   private LiquibaseMigrator() {}
 
   public static void migrate(DataSource dataSource) {
+    String previousDuplicateFileMode = System.getProperty("liquibase.duplicateFileMode");
     try (Connection connection = dataSource.getConnection()) {
-      System.setProperty("liquibase.duplicateFileMode", "WARN");
+      System.setProperty("liquibase.duplicateFileMode", "ERROR");
       var database =
           DatabaseFactory.getInstance()
               .findCorrectDatabaseImplementation(new JdbcConnection(connection));
@@ -25,6 +26,12 @@ public final class LiquibaseMigrator {
       }
     } catch (Exception exception) {
       throw new IllegalStateException("Liquibase migration failed", exception);
+    } finally {
+      if (previousDuplicateFileMode == null) {
+        System.clearProperty("liquibase.duplicateFileMode");
+      } else {
+        System.setProperty("liquibase.duplicateFileMode", previousDuplicateFileMode);
+      }
     }
   }
 }
