@@ -1,5 +1,7 @@
 package com.sentinel.enforcement.api.error;
 
+import com.sentinel.enforcement.api.generated.model.ErrorResponse;
+import com.sentinel.enforcement.api.generated.model.Violation;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Response;
 import java.util.List;
@@ -13,16 +15,16 @@ public final class ErrorResponseFactory {
       String detail,
       String instance,
       String correlationId,
-      List<ViolationResponse> violations) {
-    return new ErrorResponse(
-        "https://sentinel.local/errors/" + code.toLowerCase().replace('_', '-'),
-        status.getReasonPhrase(),
-        status.getStatusCode(),
-        code,
-        detail,
-        instance,
-        correlationId,
-        violations);
+      List<Violation> violations) {
+    return new ErrorResponse()
+        .type("https://sentinel.local/errors/" + code.toLowerCase().replace('_', '-'))
+        .title(status.getReasonPhrase())
+        .status(status.getStatusCode())
+        .code(code)
+        .detail(detail)
+        .instance(instance)
+        .correlationId(correlationId)
+        .violations(violations);
   }
 
   public static String correlationId(ContainerRequestContext requestContext) {

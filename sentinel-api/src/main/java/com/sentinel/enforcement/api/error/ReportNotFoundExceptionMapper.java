@@ -1,5 +1,6 @@
 package com.sentinel.enforcement.api.error;
 
+import com.sentinel.enforcement.api.generated.model.ErrorResponse;
 import com.sentinel.enforcement.application.report.ReportNotFoundException;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Context;

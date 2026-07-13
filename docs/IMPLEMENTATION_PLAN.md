@@ -2,11 +2,11 @@
 
 ## Ordered tasks
 
-1. Wire OpenAPI Generator into compile-time generated models or interfaces.
-2. Introduce Keycloak-based authentication and JWT validation.
-3. Add centralized authorization rules with jurisdiction-aware access checks.
-4. Extend the domain into case lifecycle and optimistic locking.
-5. Add case status history and audit foundation for lifecycle changes.
+1. Introduce Keycloak-based authentication and JWT validation.
+2. Add centralized authorization rules with jurisdiction-aware access checks.
+3. Extend the domain into case lifecycle and optimistic locking.
+4. Add case status history and audit foundation for lifecycle changes.
+5. Start the first workflow orchestration slice after lifecycle rules are stable.
 
 ## Dependencies
 
@@ -29,4 +29,4 @@
 
 ## Current status
 
-The acceptance criteria above are implemented and locally verified through Maven commands and Docker Compose smoke verification.
+The acceptance criteria above are implemented and locally verified through Maven commands and Docker Compose smoke verification. OpenAPI-generated models are now part of the build and enforce the current request/response contract.

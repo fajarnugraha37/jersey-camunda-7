@@ -1,5 +1,6 @@
 package com.sentinel.enforcement.api.error;
 
+import com.sentinel.enforcement.api.generated.model.ErrorResponse;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.Response;

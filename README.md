@@ -56,6 +56,8 @@ Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory
 - `make unit-test`
 - `make integration-test`
 - `make verify`
+- `make openapi-generate`
+- `make openapi-validate`
 - `make up`
 - `make down`
 - `make logs`
@@ -69,6 +71,7 @@ Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory
 - `GET /api/v1/reports/{reportId}`
 
 Spesifikasi kontrak saat ini ada di [docs/api/openapi.yaml](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/api/openapi.yaml).
+Generated request/response model untuk layer API dibangun dari spec tersebut pada phase `generate-sources`.
 
 ## Default Runtime Configuration
 

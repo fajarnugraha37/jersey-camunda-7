@@ -1,5 +1,7 @@
 package com.sentinel.enforcement.api.report;
 
+import com.sentinel.enforcement.api.generated.model.CreateReportRequest;
+import com.sentinel.enforcement.api.generated.model.ReportResponse;
 import com.sentinel.enforcement.application.report.ReportApplicationService;
 import com.sentinel.enforcement.domain.report.Report;
 import jakarta.inject.Inject;

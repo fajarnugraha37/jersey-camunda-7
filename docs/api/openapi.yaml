@@ -79,15 +79,19 @@ components:
       properties:
         title:
           type: string
+          minLength: 1
           maxLength: 200
         description:
           type: string
+          minLength: 1
           maxLength: 4000
         jurisdictionCode:
           type: string
+          minLength: 1
           maxLength: 16
         reporterName:
           type: string
+          minLength: 1
           maxLength: 100
     ReportResponse:
       type: object

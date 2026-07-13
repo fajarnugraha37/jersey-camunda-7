@@ -3,10 +3,10 @@ package com.sentinel.enforcement.integration;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-import com.sentinel.enforcement.api.error.ErrorResponse;
-import com.sentinel.enforcement.api.health.HealthResponse;
-import com.sentinel.enforcement.api.report.CreateReportRequest;
-import com.sentinel.enforcement.api.report.ReportResponse;
+import com.sentinel.enforcement.api.generated.model.CreateReportRequest;
+import com.sentinel.enforcement.api.generated.model.ErrorResponse;
+import com.sentinel.enforcement.api.generated.model.HealthResponse;
+import com.sentinel.enforcement.api.generated.model.ReportResponse;
 import com.sentinel.enforcement.bootstrap.AppConfiguration;
 import com.sentinel.enforcement.bootstrap.ApplicationRuntime;
 import jakarta.ws.rs.client.Client;
@@ -63,26 +63,26 @@ class ReportApiIT {
             .request(MediaType.APPLICATION_JSON_TYPE)
             .post(
                 Entity.entity(
-                    new CreateReportRequest(
-                        "Improper gift disclosure",
-                        "Potential violation involving unreported gifts.",
-                        "JKT",
-                        "Analyst A"),
+                    new CreateReportRequest()
+                        .title("Improper gift disclosure")
+                        .description("Potential violation involving unreported gifts.")
+                        .jurisdictionCode("JKT")
+                        .reporterName("Analyst A"),
                     MediaType.APPLICATION_JSON_TYPE),
                 ReportResponse.class);
 
-    assertNotNull(created.id());
-    assertEquals("SUBMITTED", created.status());
+    assertNotNull(created.getId());
+    assertEquals("SUBMITTED", created.getStatus());
 
     ReportResponse fetched =
         client
             .target(applicationRuntime.baseUri())
-            .path("/api/v1/reports/" + created.id())
+            .path("/api/v1/reports/" + created.getId())
             .request(MediaType.APPLICATION_JSON_TYPE)
             .get(ReportResponse.class);
 
-    assertEquals(created.id(), fetched.id());
-    assertEquals("Improper gift disclosure", fetched.title());
+    assertEquals(created.getId(), fetched.getId());
+    assertEquals("Improper gift disclosure", fetched.getTitle());
   }
 
   @Test
@@ -94,15 +94,18 @@ class ReportApiIT {
             .request(MediaType.APPLICATION_JSON_TYPE)
             .post(
                 Entity.entity(
-                    new CreateReportRequest(
-                        "", "Potential violation involving unreported gifts.", "JKT", "Analyst A"),
+                    new CreateReportRequest()
+                        .title("")
+                        .description("Potential violation involving unreported gifts.")
+                        .jurisdictionCode("JKT")
+                        .reporterName("Analyst A"),
                     MediaType.APPLICATION_JSON_TYPE));
 
     ErrorResponse error = response.readEntity(ErrorResponse.class);
 
     assertEquals(400, response.getStatus());
-    assertEquals("VALIDATION_ERROR", error.code());
-    assertNotNull(error.correlationId());
+    assertEquals("VALIDATION_ERROR", error.getCode());
+    assertNotNull(error.getCorrelationId());
   }
 
   @Test
@@ -114,8 +117,8 @@ class ReportApiIT {
             .request(MediaType.APPLICATION_JSON_TYPE)
             .get(HealthResponse.class);
 
-    assertEquals("UP", response.status());
-    assertEquals("UP", response.database());
-    assertNotNull(response.timestamp());
+    assertEquals("UP", response.getStatus());
+    assertEquals("UP", response.getDatabase());
+    assertNotNull(response.getTimestamp());
   }
 }

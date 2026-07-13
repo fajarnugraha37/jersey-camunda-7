@@ -1,5 +1,6 @@
 package com.sentinel.enforcement.api.health;
 
+import com.sentinel.enforcement.api.generated.model.HealthResponse;
 import com.sentinel.enforcement.application.health.HealthStatus;
 import com.sentinel.enforcement.application.health.HealthStatusService;
 import jakarta.inject.Inject;
@@ -8,6 +9,8 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 @Path("/health")
 @Produces(MediaType.APPLICATION_JSON)
@@ -29,7 +32,9 @@ public final class HealthResource {
     return Response.status(httpStatus)
         .entity(
             new HealthResponse(
-                status.healthy() ? "UP" : "DOWN", status.database(), status.timestamp()))
+                status.healthy() ? "UP" : "DOWN",
+                status.database(),
+                OffsetDateTime.ofInstant(status.timestamp(), ZoneOffset.UTC)))
         .build();
   }
 }

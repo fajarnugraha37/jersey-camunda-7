@@ -1,5 +1,7 @@
 package com.sentinel.enforcement.api.error;
 
+import com.sentinel.enforcement.api.generated.model.ErrorResponse;
+import com.sentinel.enforcement.api.generated.model.Violation;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.ws.rs.container.ContainerRequestContext;
@@ -17,7 +19,7 @@ public final class ConstraintViolationExceptionMapper
 
   @Override
   public Response toResponse(ConstraintViolationException exception) {
-    List<ViolationResponse> violations =
+    List<Violation> violations =
         exception.getConstraintViolations().stream()
             .sorted(Comparator.comparing(violation -> violation.getPropertyPath().toString()))
             .map(this::toViolation)
@@ -34,7 +36,9 @@ public final class ConstraintViolationExceptionMapper
     return Response.status(Response.Status.BAD_REQUEST).entity(error).build();
   }
 
-  private ViolationResponse toViolation(ConstraintViolation<?> violation) {
-    return new ViolationResponse(violation.getPropertyPath().toString(), violation.getMessage());
+  private Violation toViolation(ConstraintViolation<?> violation) {
+    return new Violation()
+        .field(violation.getPropertyPath().toString())
+        .message(violation.getMessage());
   }
 }
