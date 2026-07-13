@@ -10,4 +10,12 @@
 
   <artifactId>sentinel-domain</artifactId>
   <name>sentinel-domain</name>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
 </project>

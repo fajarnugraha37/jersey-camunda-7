@@ -100,6 +100,46 @@
       "realmRoles": ["CASE_INTAKE_OFFICER"]
     },
     {
+      "username": "triage-jkt",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Triage",
+      "lastName": "Jakarta",
+      "email": "triage-jkt@sentinel.local",
+      "requiredActions": [],
+      "attributes": {
+        "jurisdictions": ["JKT"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "sentinel",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["TRIAGE_OFFICER"]
+    },
+    {
+      "username": "triage-bdg",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Triage",
+      "lastName": "Bandung",
+      "email": "triage-bdg@sentinel.local",
+      "requiredActions": [],
+      "attributes": {
+        "jurisdictions": ["BDG"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "sentinel",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["TRIAGE_OFFICER"]
+    },
+    {
       "username": "investigator-jkt",
       "enabled": true,
       "emailVerified": true,
@@ -118,6 +158,86 @@
         }
       ],
       "realmRoles": ["INVESTIGATOR"]
+    },
+    {
+      "username": "reviewer-jkt",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Reviewer",
+      "lastName": "Jakarta",
+      "email": "reviewer-jkt@sentinel.local",
+      "requiredActions": [],
+      "attributes": {
+        "jurisdictions": ["JKT"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "sentinel",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["CASE_REVIEWER"]
+    },
+    {
+      "username": "decision-jkt",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Decision",
+      "lastName": "Jakarta",
+      "email": "decision-jkt@sentinel.local",
+      "requiredActions": [],
+      "attributes": {
+        "jurisdictions": ["JKT"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "sentinel",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["DECISION_MAKER"]
+    },
+    {
+      "username": "appeal-jkt",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Appeal",
+      "lastName": "Jakarta",
+      "email": "appeal-jkt@sentinel.local",
+      "requiredActions": [],
+      "attributes": {
+        "jurisdictions": ["JKT"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "sentinel",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["APPEAL_OFFICER"]
+    },
+    {
+      "username": "supervisor-jkt",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Supervisor",
+      "lastName": "Jakarta",
+      "email": "supervisor-jkt@sentinel.local",
+      "requiredActions": [],
+      "attributes": {
+        "jurisdictions": ["JKT"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "sentinel",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["SUPERVISOR"]
     },
     {
       "username": "auditor-jkt",

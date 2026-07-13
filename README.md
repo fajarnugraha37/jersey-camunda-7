@@ -1,6 +1,6 @@
 # Sentinel Enforcement Platform
 
-Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory enforcement dan complex case management. Fokus increment saat ini sudah mencakup Phase 1 foundation vertical slice plus Phase 2 authentication dan authorization untuk report intake.
+Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory enforcement dan complex case management. Fokus increment saat ini sudah mencakup foundation, authentication/authorization, dan Phase 3 case lifecycle vertical slice dengan optimistic locking, status history, assignment history, dan audit foundation.
 
 ## Architecture Overview
 
@@ -73,8 +73,14 @@ Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory
 - `GET /health`
 - `POST /api/v1/reports`
 - `GET /api/v1/reports/{reportId}`
+- `POST /api/v1/cases`
+- `GET /api/v1/cases`
+- `GET /api/v1/cases/{caseId}`
+- `POST /api/v1/cases/{caseId}/assignments`
+- `POST /api/v1/cases/{caseId}/transitions`
+- `GET /api/v1/cases/{caseId}/audit-events`
 
-`/health` tetap public. Endpoint report sekarang memerlukan bearer JWT dari Keycloak dan menerapkan authorization berbasis role plus jurisdiction.
+`/health` tetap public. Endpoint report dan case memerlukan bearer JWT dari Keycloak dan menerapkan authorization berbasis role, jurisdiction, dan direct assignment untuk actor investigator-only.
 
 Spesifikasi kontrak saat ini ada di [docs/api/openapi.yaml](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/api/openapi.yaml).
 Generated request/response model untuk layer API dibangun dari spec tersebut pada phase `generate-sources`.
@@ -93,15 +99,25 @@ Untuk local Compose:
 
 - `intake-jkt` / `sentinel` dengan role `CASE_INTAKE_OFFICER` dan jurisdiction `JKT`
 - `intake-bdg` / `sentinel` dengan role `CASE_INTAKE_OFFICER` dan jurisdiction `BDG`
+- `triage-jkt` / `sentinel` dengan role `TRIAGE_OFFICER` dan jurisdiction `JKT`
+- `triage-bdg` / `sentinel` dengan role `TRIAGE_OFFICER` dan jurisdiction `BDG`
 - `investigator-jkt` / `sentinel` dengan role `INVESTIGATOR` dan jurisdiction `JKT`
+- `reviewer-jkt` / `sentinel` dengan role `CASE_REVIEWER` dan jurisdiction `JKT`
+- `decision-jkt` / `sentinel` dengan role `DECISION_MAKER` dan jurisdiction `JKT`
+- `appeal-jkt` / `sentinel` dengan role `APPEAL_OFFICER` dan jurisdiction `JKT`
+- `supervisor-jkt` / `sentinel` dengan role `SUPERVISOR` dan jurisdiction `JKT`
 - `auditor-jkt` / `sentinel` dengan role `AUDITOR` dan jurisdiction `JKT`
 - `system-admin` / `sentinel` dengan role `SYSTEM_ADMIN`
 
 ## Testing Strategy
 
-- Unit test untuk application service dan authorization policy.
+- Unit test untuk application service, domain transition policy, optimistic locking guards, dan authorization policy.
 - Integration test dengan Testcontainers PostgreSQL + Keycloak untuk:
   - happy path authorized create/get report
+  - happy path case lifecycle from create through close
+  - investigator visibility filtered to directly assigned cases
+  - `409` invalid transition
+  - `409` stale optimistic-lock version
   - `401` tanpa bearer token
   - `403` role salah
   - `403` jurisdiction salah

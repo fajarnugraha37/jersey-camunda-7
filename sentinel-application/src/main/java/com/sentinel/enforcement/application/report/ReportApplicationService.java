@@ -28,7 +28,7 @@ public final class ReportApplicationService {
     authorizationService.requirePermission(
         actor,
         Permission.CREATE_REPORT,
-        new AuthorizationContext(command.jurisdictionCode(), REPORT_RESOURCE_TYPE, null));
+        new AuthorizationContext(command.jurisdictionCode(), REPORT_RESOURCE_TYPE, null, null));
 
     Instant now = clock.instant();
     Report report =
@@ -57,7 +57,7 @@ public final class ReportApplicationService {
         actor,
         Permission.READ_REPORT,
         new AuthorizationContext(
-            report.jurisdictionCode(), REPORT_RESOURCE_TYPE, report.id().toString()));
+            report.jurisdictionCode(), REPORT_RESOURCE_TYPE, report.id().toString(), null));
     return report;
   }
 }

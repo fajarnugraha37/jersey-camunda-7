@@ -24,7 +24,9 @@ class RoleBasedAuthorizationServiceTest {
     assertDoesNotThrow(
         () ->
             authorizationService.requirePermission(
-                actor, Permission.CREATE_REPORT, new AuthorizationContext("JKT", "REPORT", null)));
+                actor,
+                Permission.CREATE_REPORT,
+                new AuthorizationContext("JKT", "REPORT", null, null)));
   }
 
   @Test
@@ -37,7 +39,9 @@ class RoleBasedAuthorizationServiceTest {
         AuthorizationDeniedException.class,
         () ->
             authorizationService.requirePermission(
-                actor, Permission.CREATE_REPORT, new AuthorizationContext("JKT", "REPORT", null)));
+                actor,
+                Permission.CREATE_REPORT,
+                new AuthorizationContext("JKT", "REPORT", null, null)));
   }
 
   @Test
@@ -50,6 +54,37 @@ class RoleBasedAuthorizationServiceTest {
         AuthorizationDeniedException.class,
         () ->
             authorizationService.requirePermission(
-                actor, Permission.CREATE_REPORT, new AuthorizationContext("JKT", "REPORT", null)));
+                actor,
+                Permission.CREATE_REPORT,
+                new AuthorizationContext("JKT", "REPORT", null, null)));
+  }
+
+  @Test
+  void allowsAssignedInvestigatorToReadCase() {
+    ApplicationActor actor =
+        new ApplicationActor(
+            "subject-4", "investigator-jkt", Set.of("INVESTIGATOR"), Set.of("JKT"));
+
+    assertDoesNotThrow(
+        () ->
+            authorizationService.requirePermission(
+                actor,
+                Permission.READ_CASE,
+                new AuthorizationContext("JKT", "CASE", "case-1", "investigator-jkt")));
+  }
+
+  @Test
+  void rejectsInvestigatorWithoutDirectAssignment() {
+    ApplicationActor actor =
+        new ApplicationActor(
+            "subject-5", "investigator-jkt", Set.of("INVESTIGATOR"), Set.of("JKT"));
+
+    assertThrows(
+        AuthorizationDeniedException.class,
+        () ->
+            authorizationService.requirePermission(
+                actor,
+                Permission.READ_CASE,
+                new AuthorizationContext("JKT", "CASE", "case-1", "other-investigator")));
   }
 }

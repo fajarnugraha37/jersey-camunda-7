@@ -1,5 +1,6 @@
 package com.sentinel.enforcement.persistence;
 
+import com.sentinel.enforcement.persistence.casefile.CaseMyBatisMapper;
 import com.sentinel.enforcement.persistence.report.ReportMyBatisMapper;
 import com.sentinel.enforcement.persistence.typehandler.UuidTypeHandler;
 import java.util.UUID;
@@ -24,6 +25,7 @@ public final class PersistenceModule {
         .getTypeHandlerRegistry()
         .register(UUID.class, JdbcType.OTHER, UuidTypeHandler.class);
     configuration.setMapUnderscoreToCamelCase(true);
+    configuration.addMapper(CaseMyBatisMapper.class);
     configuration.addMapper(ReportMyBatisMapper.class);
     return new SqlSessionFactoryBuilder().build(configuration);
   }

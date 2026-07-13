@@ -1,7 +1,10 @@
 package com.sentinel.enforcement.bootstrap;
 
+import com.sentinel.enforcement.api.casefile.CaseResource;
 import com.sentinel.enforcement.api.error.AuthorizationDeniedExceptionMapper;
 import com.sentinel.enforcement.api.error.BadRequestExceptionMapper;
+import com.sentinel.enforcement.api.error.CaseConflictExceptionMapper;
+import com.sentinel.enforcement.api.error.CaseNotFoundExceptionMapper;
 import com.sentinel.enforcement.api.error.ConstraintViolationExceptionMapper;
 import com.sentinel.enforcement.api.error.CorrelationIdFilter;
 import com.sentinel.enforcement.api.error.GenericExceptionMapper;
@@ -11,11 +14,13 @@ import com.sentinel.enforcement.api.health.HealthResource;
 import com.sentinel.enforcement.api.json.ObjectMapperContextResolver;
 import com.sentinel.enforcement.api.report.ReportResource;
 import com.sentinel.enforcement.api.security.BearerAuthenticationFilter;
+import com.sentinel.enforcement.application.casefile.CaseApplicationService;
 import com.sentinel.enforcement.application.health.HealthStatusService;
 import com.sentinel.enforcement.application.report.ReportApplicationService;
 import com.sentinel.enforcement.application.security.AuthorizationService;
 import com.sentinel.enforcement.application.security.TokenVerifier;
 import com.sentinel.enforcement.persistence.PersistenceModule;
+import com.sentinel.enforcement.persistence.casefile.CaseRepositoryMyBatisAdapter;
 import com.sentinel.enforcement.persistence.report.ReportRepositoryMyBatisAdapter;
 import com.sentinel.enforcement.security.KeycloakSecurityConfiguration;
 import com.sentinel.enforcement.security.KeycloakTokenVerifier;
@@ -63,6 +68,12 @@ public final class ApplicationRuntime implements AutoCloseable {
     ReportApplicationService reportApplicationService =
         new ReportApplicationService(
             authorizationService, new ReportRepositoryMyBatisAdapter(sqlSessionFactory), clock);
+    CaseApplicationService caseApplicationService =
+        new CaseApplicationService(
+            authorizationService,
+            new CaseRepositoryMyBatisAdapter(sqlSessionFactory),
+            new ReportRepositoryMyBatisAdapter(sqlSessionFactory),
+            clock);
     HealthStatusService healthStatusService = new DatabaseHealthService(dataSource, clock);
 
     ResourceConfig resourceConfig =
@@ -70,6 +81,7 @@ public final class ApplicationRuntime implements AutoCloseable {
             .register(
                 new ApplicationBinder(
                     healthStatusService,
+                    caseApplicationService,
                     reportApplicationService,
                     authorizationService,
                     tokenVerifier))
@@ -81,9 +93,12 @@ public final class ApplicationRuntime implements AutoCloseable {
             .register(BadRequestExceptionMapper.class)
             .register(UnauthenticatedExceptionMapper.class)
             .register(AuthorizationDeniedExceptionMapper.class)
+            .register(CaseConflictExceptionMapper.class)
+            .register(CaseNotFoundExceptionMapper.class)
             .register(ReportNotFoundExceptionMapper.class)
             .register(GenericExceptionMapper.class)
             .register(HealthResource.class)
+            .register(CaseResource.class)
             .register(ReportResource.class)
             .property(ServerProperties.WADL_FEATURE_DISABLE, true);
 

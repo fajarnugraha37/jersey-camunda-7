@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Sentinel Enforcement Platform API
   version: 0.1.0
-  description: Foundation vertical slice for health and report intake.
+  description: Foundation vertical slice for health, report intake, and case lifecycle.
 servers:
   - url: http://localhost:8080
 paths:
@@ -83,6 +83,301 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/cases:
+    post:
+      operationId: createCase
+      tags:
+        - cases
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCaseRequest'
+      responses:
+        '201':
+          description: Case created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseResponse'
+        '400':
+          description: Request body failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to create the case.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Source report not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request conflicts with current case state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      operationId: listCases
+      tags:
+        - cases
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: cursor
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: Case page loaded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseListResponse'
+        '400':
+          description: Invalid pagination request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to list cases.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/cases/{caseId}:
+    get:
+      operationId: getCase
+      tags:
+        - cases
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: caseId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Case found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to read the case.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Case not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/cases/{caseId}/assignments:
+    post:
+      operationId: assignCase
+      tags:
+        - cases
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: caseId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignCaseRequest'
+      responses:
+        '200':
+          description: Case assignment updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseResponse'
+        '400':
+          description: Request body failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to assign the case.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Case not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request conflicts with current case state or version.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/cases/{caseId}/transitions:
+    post:
+      operationId: transitionCase
+      tags:
+        - cases
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: caseId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransitionCaseRequest'
+      responses:
+        '200':
+          description: Case transitioned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseResponse'
+        '400':
+          description: Request body failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to transition the case.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Case not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Request conflicts with current case state or version.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/cases/{caseId}/audit-events:
+    get:
+      operationId: getCaseAuditEvents
+      tags:
+        - cases
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: caseId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: Audit events loaded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseAuditEventListResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to read case audit events.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Case not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   securitySchemes:
     bearerAuth:
@@ -155,6 +450,210 @@ components:
         version:
           type: integer
           format: int64
+    CreateCaseRequest:
+      type: object
+      required:
+        - reportId
+        - title
+        - summary
+      properties:
+        reportId:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        summary:
+          type: string
+          minLength: 1
+          maxLength: 4000
+    AssignCaseRequest:
+      type: object
+      required:
+        - assignedUnitId
+        - assigneeUserId
+        - expectedVersion
+        - reason
+      properties:
+        assignedUnitId:
+          type: string
+          minLength: 1
+          maxLength: 64
+        assigneeUserId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 0
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+    TransitionCaseRequest:
+      type: object
+      required:
+        - targetStatus
+        - expectedVersion
+        - reason
+      properties:
+        targetStatus:
+          $ref: '#/components/schemas/CaseStatusValue'
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 0
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+    CaseStatusValue:
+      type: string
+      enum:
+        - CREATED
+        - UNDER_TRIAGE
+        - UNDER_INVESTIGATION
+        - PENDING_REVIEW
+        - PENDING_DECISION
+        - DECIDED
+        - UNDER_APPEAL
+        - ENFORCEMENT_IN_PROGRESS
+        - CLOSED
+        - CANCELLED
+    CaseResponse:
+      type: object
+      required:
+        - id
+        - caseNumber
+        - reportId
+        - title
+        - summary
+        - jurisdictionCode
+        - status
+        - createdAt
+        - createdBy
+        - updatedAt
+        - updatedBy
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        caseNumber:
+          type: string
+        reportId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        summary:
+          type: string
+        jurisdictionCode:
+          type: string
+        status:
+          $ref: '#/components/schemas/CaseStatusValue'
+        assignedUnitId:
+          type: string
+          nullable: true
+        assigneeUserId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+        updatedBy:
+          type: string
+        version:
+          type: integer
+          format: int64
+    CaseListResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CaseResponse'
+        nextCursor:
+          type: string
+          nullable: true
+    CaseAuditEventResponse:
+      type: object
+      required:
+        - eventId
+        - eventType
+        - actorType
+        - actorId
+        - actorRoles
+        - action
+        - resourceType
+        - resourceId
+        - caseId
+        - timestamp
+        - correlationId
+        - result
+        - metadata
+      properties:
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+        actorType:
+          type: string
+        actorId:
+          type: string
+        actorRoles:
+          type: array
+          items:
+            type: string
+        action:
+          type: string
+        resourceType:
+          type: string
+        resourceId:
+          type: string
+        caseId:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+        correlationId:
+          type: string
+        sourceIp:
+          type: string
+          nullable: true
+        result:
+          type: string
+        reason:
+          type: string
+          nullable: true
+        beforeSummary:
+          type: string
+          nullable: true
+        afterSummary:
+          type: string
+          nullable: true
+        metadata:
+          type: string
+    CaseAuditEventListResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CaseAuditEventResponse'
     HealthResponse:
       type: object
       required:
