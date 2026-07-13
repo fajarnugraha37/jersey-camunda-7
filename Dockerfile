@@ -5,6 +5,7 @@ COPY sentinel-domain/pom.xml sentinel-domain/pom.xml
 COPY sentinel-application/pom.xml sentinel-application/pom.xml
 COPY sentinel-api/pom.xml sentinel-api/pom.xml
 COPY sentinel-persistence/pom.xml sentinel-persistence/pom.xml
+COPY sentinel-security/pom.xml sentinel-security/pom.xml
 COPY sentinel-bootstrap/pom.xml sentinel-bootstrap/pom.xml
 COPY sentinel-integration-tests/pom.xml sentinel-integration-tests/pom.xml
 COPY docs/api/openapi.yaml docs/api/openapi.yaml
@@ -12,6 +13,7 @@ COPY sentinel-domain/src sentinel-domain/src
 COPY sentinel-application/src sentinel-application/src
 COPY sentinel-api/src sentinel-api/src
 COPY sentinel-persistence/src sentinel-persistence/src
+COPY sentinel-security/src sentinel-security/src
 COPY sentinel-bootstrap/src sentinel-bootstrap/src
 RUN mvn -q -pl sentinel-bootstrap -am -DskipTests package
 

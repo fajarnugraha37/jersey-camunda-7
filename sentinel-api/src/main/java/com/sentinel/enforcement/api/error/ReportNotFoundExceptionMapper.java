@@ -21,7 +21,7 @@ public final class ReportNotFoundExceptionMapper
             Response.Status.NOT_FOUND,
             "REPORT_NOT_FOUND",
             exception.getMessage(),
-            requestContext.getUriInfo().getRequestUri().getPath(),
+            ErrorResponseFactory.requestPath(requestContext),
             ErrorResponseFactory.correlationId(requestContext),
             List.of());
     return Response.status(Response.Status.NOT_FOUND).entity(error).build();

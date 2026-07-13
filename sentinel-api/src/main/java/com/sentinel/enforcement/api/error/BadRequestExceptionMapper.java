@@ -20,7 +20,7 @@ public final class BadRequestExceptionMapper implements ExceptionMapper<BadReque
             Response.Status.BAD_REQUEST,
             "MALFORMED_REQUEST",
             "Request could not be parsed.",
-            requestContext.getUriInfo().getRequestUri().getPath(),
+            ErrorResponseFactory.requestPath(requestContext),
             ErrorResponseFactory.correlationId(requestContext),
             List.of());
     return Response.status(Response.Status.BAD_REQUEST).entity(error).build();

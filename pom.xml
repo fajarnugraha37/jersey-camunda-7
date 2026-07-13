@@ -14,6 +14,7 @@
     <module>sentinel-application</module>
     <module>sentinel-api</module>
     <module>sentinel-persistence</module>
+    <module>sentinel-security</module>
     <module>sentinel-bootstrap</module>
     <module>sentinel-integration-tests</module>
   </modules>
@@ -32,6 +33,7 @@
     <logstash.logback.version>8.0</logstash.logback.version>
     <postgres.version>42.7.5</postgres.version>
     <hibernate.validator.version>9.0.0.Final</hibernate.validator.version>
+    <nimbus.version>10.0.2</nimbus.version>
     <junit.version>5.11.4</junit.version>
     <testcontainers.version>1.20.5</testcontainers.version>
     <openapi.generator.version>7.12.0</openapi.generator.version>

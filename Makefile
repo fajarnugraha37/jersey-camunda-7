@@ -70,7 +70,7 @@ openapi-validate:
 	mvn -q -pl sentinel-api -am generate-sources
 
 up:
-	docker compose up -d --build postgres app
+	docker compose up -d --build postgres keycloak app
 
 down:
 	docker compose down
@@ -131,7 +131,7 @@ minio-init:
 	throw "minio-init is not implemented in the current phase."
 
 keycloak-import:
-	throw "keycloak-import is not implemented in the current phase."
+	docker compose up -d keycloak
 
 bpmn-validate:
 	throw "bpmn-validate is not implemented in the current phase."

@@ -23,6 +23,8 @@ paths:
       operationId: createReport
       tags:
         - reports
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -42,11 +44,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to create the report.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/reports/{reportId}:
     get:
       operationId: getReport
       tags:
         - reports
+      security:
+        - bearerAuth: []
       parameters:
         - in: path
           name: reportId
@@ -68,6 +84,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   schemas:
     CreateReportRequest:
       type: object

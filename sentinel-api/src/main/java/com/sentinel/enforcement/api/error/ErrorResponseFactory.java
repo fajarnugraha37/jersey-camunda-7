@@ -28,7 +28,25 @@ public final class ErrorResponseFactory {
   }
 
   public static String correlationId(ContainerRequestContext requestContext) {
-    Object correlationId = requestContext.getProperty(CorrelationIdFilter.REQUEST_PROPERTY);
-    return correlationId == null ? "unknown" : correlationId.toString();
+    if (requestContext == null) {
+      return "unknown";
+    }
+    try {
+      Object correlationId = requestContext.getProperty(CorrelationIdFilter.REQUEST_PROPERTY);
+      return correlationId == null ? "unknown" : correlationId.toString();
+    } catch (RuntimeException exception) {
+      return "unknown";
+    }
+  }
+
+  public static String requestPath(ContainerRequestContext requestContext) {
+    if (requestContext == null) {
+      return "unknown";
+    }
+    try {
+      return requestContext.getUriInfo().getRequestUri().getPath();
+    } catch (RuntimeException exception) {
+      return "unknown";
+    }
   }
 }

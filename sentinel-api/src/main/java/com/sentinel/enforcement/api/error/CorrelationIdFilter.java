@@ -1,5 +1,7 @@
 package com.sentinel.enforcement.api.error;
 
+import jakarta.annotation.Priority;
+import jakarta.ws.rs.Priorities;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerRequestFilter;
 import jakarta.ws.rs.container.ContainerResponseContext;
@@ -11,6 +13,7 @@ import java.util.regex.Pattern;
 import org.slf4j.MDC;
 
 @Provider
+@Priority(Priorities.AUTHENTICATION - 10)
 public final class CorrelationIdFilter implements ContainerRequestFilter, ContainerResponseFilter {
   public static final String HEADER_NAME = "X-Correlation-Id";
   public static final String REQUEST_PROPERTY = "correlationId";

@@ -1,0 +1,163 @@
+{
+  "realm": "sentinel",
+  "enabled": true,
+  "roles": {
+    "realm": [
+      { "name": "CASE_INTAKE_OFFICER" },
+      { "name": "TRIAGE_OFFICER" },
+      { "name": "INVESTIGATOR" },
+      { "name": "CASE_REVIEWER" },
+      { "name": "DECISION_MAKER" },
+      { "name": "APPEAL_OFFICER" },
+      { "name": "SUPERVISOR" },
+      { "name": "AUDITOR" },
+      { "name": "SYSTEM_ADMIN" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "sentinel-api",
+      "name": "sentinel-api",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "implicitFlowEnabled": false,
+      "redirectUris": ["*"],
+      "webOrigins": ["*"],
+      "protocolMappers": [
+        {
+          "name": "audience-sentinel-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "sentinel-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        },
+        {
+          "name": "jurisdictions",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "jurisdictions",
+            "claim.name": "jurisdictions",
+            "jsonType.label": "String",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "true",
+            "aggregate.attrs": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "intake-jkt",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Intake",
+      "lastName": "Jakarta",
+      "email": "intake-jkt@sentinel.local",
+      "requiredActions": [],
+      "attributes": {
+        "jurisdictions": ["JKT"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "sentinel",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["CASE_INTAKE_OFFICER"]
+    },
+    {
+      "username": "intake-bdg",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Intake",
+      "lastName": "Bandung",
+      "email": "intake-bdg@sentinel.local",
+      "requiredActions": [],
+      "attributes": {
+        "jurisdictions": ["BDG"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "sentinel",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["CASE_INTAKE_OFFICER"]
+    },
+    {
+      "username": "investigator-jkt",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Investigator",
+      "lastName": "Jakarta",
+      "email": "investigator-jkt@sentinel.local",
+      "requiredActions": [],
+      "attributes": {
+        "jurisdictions": ["JKT"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "sentinel",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["INVESTIGATOR"]
+    },
+    {
+      "username": "auditor-jkt",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Auditor",
+      "lastName": "Jakarta",
+      "email": "auditor-jkt@sentinel.local",
+      "requiredActions": [],
+      "attributes": {
+        "jurisdictions": ["JKT"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "sentinel",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["AUDITOR"]
+    },
+    {
+      "username": "system-admin",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "System",
+      "lastName": "Admin",
+      "email": "system-admin@sentinel.local",
+      "requiredActions": [],
+      "attributes": {
+        "jurisdictions": ["JKT", "BDG"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "sentinel",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["SYSTEM_ADMIN"]
+    }
+  ]
+}

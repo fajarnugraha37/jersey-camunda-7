@@ -13,8 +13,7 @@ import org.mapstruct.factory.Mappers;
 public interface ApiReportMapper {
   ApiReportMapper INSTANCE = Mappers.getMapper(ApiReportMapper.class);
 
-  @Mapping(target = "actorId", source = "actorId")
-  CreateReportCommand toCommand(CreateReportRequest request, String actorId);
+  CreateReportCommand toCommand(CreateReportRequest request);
 
   @Mapping(target = "status", expression = "java(report.status().name())")
   @Mapping(

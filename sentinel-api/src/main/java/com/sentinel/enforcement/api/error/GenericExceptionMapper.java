@@ -24,7 +24,7 @@ public final class GenericExceptionMapper implements ExceptionMapper<Throwable> 
             Response.Status.INTERNAL_SERVER_ERROR,
             "UNEXPECTED_ERROR",
             "Unexpected server error.",
-            requestContext.getUriInfo().getRequestUri().getPath(),
+            ErrorResponseFactory.requestPath(requestContext),
             ErrorResponseFactory.correlationId(requestContext),
             List.of());
     return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(error).build();

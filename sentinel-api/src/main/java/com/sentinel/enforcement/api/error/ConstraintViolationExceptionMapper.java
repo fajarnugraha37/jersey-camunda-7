@@ -30,7 +30,7 @@ public final class ConstraintViolationExceptionMapper
             Response.Status.BAD_REQUEST,
             "VALIDATION_ERROR",
             "Request validation failed.",
-            requestContext.getUriInfo().getRequestUri().getPath(),
+            ErrorResponseFactory.requestPath(requestContext),
             ErrorResponseFactory.correlationId(requestContext),
             violations);
     return Response.status(Response.Status.BAD_REQUEST).entity(error).build();

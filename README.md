@@ -1,6 +1,6 @@
 # Sentinel Enforcement Platform
 
-Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory enforcement dan complex case management. Fokus increment saat ini adalah foundation vertical slice: health endpoint, koneksi PostgreSQL, Liquibase migration, dan API create/get report.
+Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory enforcement dan complex case management. Fokus increment saat ini sudah mencakup Phase 1 foundation vertical slice plus Phase 2 authentication dan authorization untuk report intake.
 
 ## Architecture Overview
 
@@ -10,13 +10,15 @@ Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory
   - `sentinel-application`
   - `sentinel-api`
   - `sentinel-persistence`
+  - `sentinel-security`
   - `sentinel-bootstrap`
   - `sentinel-integration-tests`
 - Boundary saat ini:
   - `sentinel-api` menangani Jersey resource, validation, JSON, dan error envelope.
-  - `sentinel-application` menangani use case create/get report.
+  - `sentinel-application` menangani use case create/get report dan authorization contract.
   - `sentinel-domain` memegang model domain report.
   - `sentinel-persistence` memegang MyBatis adapter dan Liquibase changelog.
+  - `sentinel-security` memegang JWT verification Keycloak dan role/jurisdiction authorization.
   - `sentinel-bootstrap` merakit dependency, start server, dan menjalankan migration.
 
 ## Technology Stack
@@ -30,6 +32,7 @@ Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory
 - Jackson
 - Hibernate Validator
 - PostgreSQL
+- Keycloak
 - Testcontainers
 - Docker Compose
 - Maven
@@ -44,9 +47,10 @@ Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory
 ## Local Setup
 
 1. Copy `.env.example` menjadi `.env` bila ingin override default local config.
-2. Jalankan `make up` untuk menyalakan PostgreSQL dan aplikasi.
+2. Jalankan `make up` untuk menyalakan PostgreSQL, Keycloak, dan aplikasi.
 3. Jalankan `make migrate` bila ingin apply migration manual dari local host.
 4. Cek `http://localhost:8080/health`.
+5. Ambil token dari Keycloak realm `sentinel` bila ingin memanggil endpoint report yang sudah diproteksi.
 
 ## Commands
 
@@ -70,6 +74,8 @@ Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory
 - `POST /api/v1/reports`
 - `GET /api/v1/reports/{reportId}`
 
+`/health` tetap public. Endpoint report sekarang memerlukan bearer JWT dari Keycloak dan menerapkan authorization berbasis role plus jurisdiction.
+
 Spesifikasi kontrak saat ini ada di [docs/api/openapi.yaml](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/api/openapi.yaml).
 Generated request/response model untuk layer API dibangun dari spec tersebut pada phase `generate-sources`.
 
@@ -77,13 +83,34 @@ Generated request/response model untuk layer API dibangun dari spec tersebut pad
 
 Konfigurasi default untuk local development ada di `.env.example`. Credential di sana adalah dummy local-only credential dan tidak untuk production.
 
+Untuk local Compose:
+
+- `KEYCLOAK_ISSUER` tetap mengacu ke `http://localhost:8081/realms/sentinel` agar cocok dengan issuer token yang didapat client lokal.
+- `KEYCLOAK_JWKS_URL` di container app diarahkan ke `host.docker.internal` agar aplikasi di Docker tetap bisa mengambil JWKS dari Keycloak host port.
+- Saat meminta token dan memanggil app dari host, gunakan `localhost` secara konsisten, bukan campuran `localhost` dan `127.0.0.1`, karena issuer JWT diverifikasi secara exact-match.
+
+## Default Users
+
+- `intake-jkt` / `sentinel` dengan role `CASE_INTAKE_OFFICER` dan jurisdiction `JKT`
+- `intake-bdg` / `sentinel` dengan role `CASE_INTAKE_OFFICER` dan jurisdiction `BDG`
+- `investigator-jkt` / `sentinel` dengan role `INVESTIGATOR` dan jurisdiction `JKT`
+- `auditor-jkt` / `sentinel` dengan role `AUDITOR` dan jurisdiction `JKT`
+- `system-admin` / `sentinel` dengan role `SYSTEM_ADMIN`
+
 ## Testing Strategy
 
-- Unit test untuk application service.
-- Integration test dengan Testcontainers PostgreSQL untuk migration dan round-trip HTTP API.
+- Unit test untuk application service dan authorization policy.
+- Integration test dengan Testcontainers PostgreSQL + Keycloak untuk:
+  - happy path authorized create/get report
+  - `401` tanpa bearer token
+  - `403` role salah
+  - `403` jurisdiction salah
+  - public health endpoint
 
 ## Troubleshooting
 
 - Jika aplikasi gagal start, pastikan `DB_URL`, `DB_USERNAME`, dan `DB_PASSWORD` sesuai.
+- Jika request report selalu `401`, cek `KEYCLOAK_ISSUER`, `KEYCLOAK_JWKS_URL`, dan token issuer dari Keycloak.
+- Jika token dari host gagal dengan `Access token issuer is invalid`, pastikan URL yang dipakai konsisten dengan `localhost` seperti di `.env.example`.
 - Jika integration test gagal karena Docker, pastikan Docker Desktop aktif.
 - Jika migration gagal, cek changelog di `sentinel-persistence/src/main/resources/db/changelog`.

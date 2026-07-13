@@ -2,7 +2,14 @@ package com.sentinel.enforcement.bootstrap;
 
 import java.util.Map;
 
-public record AppConfiguration(int httpPort, String dbUrl, String dbUsername, String dbPassword) {
+public record AppConfiguration(
+    int httpPort,
+    String dbUrl,
+    String dbUsername,
+    String dbPassword,
+    String keycloakIssuer,
+    String keycloakAudience,
+    String keycloakJwksUrl) {
 
   public static AppConfiguration fromEnvironment() {
     return fromEnvironment(System.getenv());
@@ -13,7 +20,10 @@ public record AppConfiguration(int httpPort, String dbUrl, String dbUsername, St
         Integer.parseInt(required(environment, "HTTP_PORT")),
         required(environment, "DB_URL"),
         required(environment, "DB_USERNAME"),
-        required(environment, "DB_PASSWORD"));
+        required(environment, "DB_PASSWORD"),
+        required(environment, "KEYCLOAK_ISSUER"),
+        required(environment, "KEYCLOAK_AUDIENCE"),
+        required(environment, "KEYCLOAK_JWKS_URL"));
   }
 
   private static String required(Map<String, String> environment, String key) {

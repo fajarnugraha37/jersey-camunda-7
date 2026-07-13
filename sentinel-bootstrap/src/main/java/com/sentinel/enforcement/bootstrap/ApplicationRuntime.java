@@ -1,17 +1,25 @@
 package com.sentinel.enforcement.bootstrap;
 
+import com.sentinel.enforcement.api.error.AuthorizationDeniedExceptionMapper;
 import com.sentinel.enforcement.api.error.BadRequestExceptionMapper;
 import com.sentinel.enforcement.api.error.ConstraintViolationExceptionMapper;
 import com.sentinel.enforcement.api.error.CorrelationIdFilter;
 import com.sentinel.enforcement.api.error.GenericExceptionMapper;
 import com.sentinel.enforcement.api.error.ReportNotFoundExceptionMapper;
+import com.sentinel.enforcement.api.error.UnauthenticatedExceptionMapper;
 import com.sentinel.enforcement.api.health.HealthResource;
 import com.sentinel.enforcement.api.json.ObjectMapperContextResolver;
 import com.sentinel.enforcement.api.report.ReportResource;
+import com.sentinel.enforcement.api.security.BearerAuthenticationFilter;
 import com.sentinel.enforcement.application.health.HealthStatusService;
 import com.sentinel.enforcement.application.report.ReportApplicationService;
+import com.sentinel.enforcement.application.security.AuthorizationService;
+import com.sentinel.enforcement.application.security.TokenVerifier;
 import com.sentinel.enforcement.persistence.PersistenceModule;
 import com.sentinel.enforcement.persistence.report.ReportRepositoryMyBatisAdapter;
+import com.sentinel.enforcement.security.KeycloakSecurityConfiguration;
+import com.sentinel.enforcement.security.KeycloakTokenVerifier;
+import com.sentinel.enforcement.security.RoleBasedAuthorizationService;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import java.net.URI;
@@ -41,21 +49,37 @@ public final class ApplicationRuntime implements AutoCloseable {
     HikariDataSource dataSource = createDataSource(configuration);
     LiquibaseMigrator.migrate(dataSource);
 
+    Clock clock = Clock.systemUTC();
     SqlSessionFactory sqlSessionFactory = PersistenceModule.createSqlSessionFactory(dataSource);
+    AuthorizationService authorizationService = new RoleBasedAuthorizationService();
+    TokenVerifier tokenVerifier =
+        new KeycloakTokenVerifier(
+            new KeycloakSecurityConfiguration(
+                URI.create(configuration.keycloakIssuer()),
+                configuration.keycloakAudience(),
+                URI.create(configuration.keycloakJwksUrl())),
+            clock);
     ReportApplicationService reportApplicationService =
         new ReportApplicationService(
-            new ReportRepositoryMyBatisAdapter(sqlSessionFactory), Clock.systemUTC());
-    HealthStatusService healthStatusService =
-        new DatabaseHealthService(dataSource, Clock.systemUTC());
+            authorizationService, new ReportRepositoryMyBatisAdapter(sqlSessionFactory), clock);
+    HealthStatusService healthStatusService = new DatabaseHealthService(dataSource, clock);
 
     ResourceConfig resourceConfig =
         new ResourceConfig()
-            .register(new ApplicationBinder(healthStatusService, reportApplicationService))
+            .register(
+                new ApplicationBinder(
+                    healthStatusService,
+                    reportApplicationService,
+                    authorizationService,
+                    tokenVerifier))
             .register(JacksonFeature.class)
             .register(ObjectMapperContextResolver.class)
             .register(CorrelationIdFilter.class)
+            .register(BearerAuthenticationFilter.class)
             .register(ConstraintViolationExceptionMapper.class)
             .register(BadRequestExceptionMapper.class)
+            .register(UnauthenticatedExceptionMapper.class)
+            .register(AuthorizationDeniedExceptionMapper.class)
             .register(ReportNotFoundExceptionMapper.class)
             .register(GenericExceptionMapper.class)
             .register(HealthResource.class)

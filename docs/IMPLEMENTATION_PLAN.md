@@ -2,11 +2,11 @@
 
 ## Ordered tasks
 
-1. Introduce Keycloak-based authentication and JWT validation.
-2. Add centralized authorization rules with jurisdiction-aware access checks.
-3. Extend the domain into case lifecycle and optimistic locking.
-4. Add case status history and audit foundation for lifecycle changes.
-5. Start the first workflow orchestration slice after lifecycle rules are stable.
+1. Extend the domain into case lifecycle and optimistic locking.
+2. Add case status history and audit foundation for lifecycle changes.
+3. Start the first workflow orchestration slice after lifecycle rules are stable.
+4. Add storage-backed evidence intake with presigned upload and finalize flow.
+5. Introduce outbox and messaging foundation after case transitions are stable.
 
 ## Dependencies
 
@@ -20,13 +20,17 @@
 
 - `make compile` succeeds.
 - `make unit-test` succeeds.
-- `make integration-test` succeeds with PostgreSQL Testcontainers.
+- `make integration-test` succeeds with PostgreSQL + Keycloak Testcontainers.
 - `GET /health` returns application and database health.
-- `POST /api/v1/reports` persists a report and returns `201`.
-- `GET /api/v1/reports/{reportId}` returns the persisted report.
+- `POST /api/v1/reports` persists a report and returns `201` for an authorized intake officer.
+- `GET /api/v1/reports/{reportId}` returns the persisted report for an authorized reader.
+- Missing token returns `401`.
+- Wrong role returns `403`.
+- Wrong jurisdiction returns `403`.
 - Invalid request bodies return the standard error envelope.
 - Liquibase migration runs on an empty database.
+- Keycloak local realm bootstrap provides reusable dummy users for local development.
 
 ## Current status
 
-The acceptance criteria above are implemented and locally verified through Maven commands and Docker Compose smoke verification. OpenAPI-generated models are now part of the build and enforce the current request/response contract.
+The acceptance criteria above are implemented and locally verified through Maven commands and Testcontainers. OpenAPI-generated models are part of the build, report endpoints are protected by JWT bearer auth, and authorization is enforced centrally in the application layer.

@@ -18,6 +18,30 @@ services:
       retries: 10
       start_period: 10s
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.6
+    container_name: sentinel-keycloak
+    hostname: keycloak
+    command: ["start-dev", "--http-port=8080", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "${KEYCLOAK_PORT:-8081}:8080"
+    volumes:
+      - ./deployment/keycloak/realm/sentinel-realm.json:/opt/keycloak/data/import/sentinel-realm.json:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/9000'"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 90s
+
   app:
     build:
       context: .
@@ -27,11 +51,16 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      keycloak:
+        condition: service_healthy
     environment:
       HTTP_PORT: ${HTTP_PORT:-8080}
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-sentinel}
       DB_USERNAME: ${POSTGRES_USER:-sentinel}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-sentinel}
+      KEYCLOAK_ISSUER: http://localhost:${KEYCLOAK_PORT:-8081}/realms/sentinel
+      KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-sentinel-api}
+      KEYCLOAK_JWKS_URL: http://host.docker.internal:${KEYCLOAK_PORT:-8081}/realms/sentinel/protocol/openid-connect/certs
     ports:
       - "${HTTP_PORT:-8080}:8080"
     healthcheck:
