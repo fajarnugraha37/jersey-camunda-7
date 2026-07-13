@@ -2,6 +2,7 @@ package com.sentinel.enforcement.api.health;
 
 import com.sentinel.enforcement.application.health.HealthStatus;
 import com.sentinel.enforcement.application.health.HealthStatusService;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
@@ -13,6 +14,7 @@ import jakarta.ws.rs.core.Response;
 public final class HealthResource {
   private final HealthStatusService healthStatusService;
 
+  @Inject
   public HealthResource(HealthStatusService healthStatusService) {
     this.healthStatusService = healthStatusService;
   }

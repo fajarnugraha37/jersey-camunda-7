@@ -8,6 +8,7 @@ import com.sentinel.enforcement.api.error.ReportNotFoundExceptionMapper;
 import com.sentinel.enforcement.api.health.HealthResource;
 import com.sentinel.enforcement.api.json.ObjectMapperContextResolver;
 import com.sentinel.enforcement.api.report.ReportResource;
+import com.sentinel.enforcement.application.health.HealthStatusService;
 import com.sentinel.enforcement.application.report.ReportApplicationService;
 import com.sentinel.enforcement.persistence.PersistenceModule;
 import com.sentinel.enforcement.persistence.report.ReportRepositoryMyBatisAdapter;
@@ -44,19 +45,21 @@ public final class ApplicationRuntime implements AutoCloseable {
     ReportApplicationService reportApplicationService =
         new ReportApplicationService(
             new ReportRepositoryMyBatisAdapter(sqlSessionFactory), Clock.systemUTC());
+    HealthStatusService healthStatusService =
+        new DatabaseHealthService(dataSource, Clock.systemUTC());
 
     ResourceConfig resourceConfig =
         new ResourceConfig()
+            .register(new ApplicationBinder(healthStatusService, reportApplicationService))
             .register(JacksonFeature.class)
             .register(ObjectMapperContextResolver.class)
             .register(CorrelationIdFilter.class)
             .register(ConstraintViolationExceptionMapper.class)
             .register(BadRequestExceptionMapper.class)
             .register(ReportNotFoundExceptionMapper.class)
-            .register(GenericExceptionMapper.class);
-    resourceConfig.registerInstances(
-        new HealthResource(new DatabaseHealthService(dataSource, Clock.systemUTC())),
-        new ReportResource(reportApplicationService));
+            .register(GenericExceptionMapper.class)
+            .register(HealthResource.class)
+            .register(ReportResource.class);
 
     HttpServer server =
         GrizzlyHttpServerFactory.createHttpServer(

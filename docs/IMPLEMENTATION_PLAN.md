@@ -2,11 +2,11 @@
 
 ## Ordered tasks
 
-1. Verify Docker Compose startup and smoke-test flow for the current foundation slice.
-2. Wire OpenAPI Generator into compile-time generated models or interfaces.
-3. Introduce Keycloak-based authentication and JWT validation.
-4. Add centralized authorization rules with jurisdiction-aware access checks.
-5. Extend the domain into case lifecycle and optimistic locking.
+1. Wire OpenAPI Generator into compile-time generated models or interfaces.
+2. Introduce Keycloak-based authentication and JWT validation.
+3. Add centralized authorization rules with jurisdiction-aware access checks.
+4. Extend the domain into case lifecycle and optimistic locking.
+5. Add case status history and audit foundation for lifecycle changes.
 
 ## Dependencies
 
@@ -29,4 +29,4 @@
 
 ## Current status
 
-The acceptance criteria above are implemented and locally verified through Maven commands. Docker Compose runtime verification is still pending.
+The acceptance criteria above are implemented and locally verified through Maven commands and Docker Compose smoke verification.

@@ -2,6 +2,7 @@ package com.sentinel.enforcement.api.report;
 
 import com.sentinel.enforcement.application.report.ReportApplicationService;
 import com.sentinel.enforcement.domain.report.Report;
+import jakarta.inject.Inject;
 import jakarta.validation.Valid;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -23,6 +24,7 @@ public final class ReportResource {
   private final ReportApplicationService reportApplicationService;
   private final ApiReportMapper mapper = ApiReportMapper.INSTANCE;
 
+  @Inject
   public ReportResource(ReportApplicationService reportApplicationService) {
     this.reportApplicationService = reportApplicationService;
   }
