@@ -45,4 +45,4 @@
 
 ## Current status
 
-The acceptance criteria above are implemented and locally verified. Workflow correlation, embedded Camunda BPMN deployment, task list/claim/complete APIs, timer escalation audit, OpenAPI-generated models, JWT bearer auth, optimistic locking, and centralized authorization are all wired into the current slice and have passed compile, unit, workflow-focused integration, full integration, and full verify runs.
+The acceptance criteria above are implemented and locally verified. Workflow correlation, embedded Camunda BPMN deployment, task list/claim/complete APIs, timer escalation audit, OpenAPI-generated models, JWT bearer auth, optimistic locking, centralized authorization, explicit Camunda schema migration, and startup readiness checks are all wired into the current slice and have passed compile, unit, and focused workflow lifecycle integration runs.

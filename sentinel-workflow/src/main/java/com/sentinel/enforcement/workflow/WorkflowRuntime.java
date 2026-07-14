@@ -1,23 +1,31 @@
 package com.sentinel.enforcement.workflow;
 
 import com.sentinel.enforcement.application.workflow.CaseWorkflowPort;
-import org.camunda.bpm.engine.ProcessEngine;
 
 public final class WorkflowRuntime implements AutoCloseable {
-  private final ProcessEngine processEngine;
+  private final ProcessEngineProvider processEngineProvider;
   private final CaseWorkflowPort caseWorkflowPort;
+  private final WorkflowReadinessProbe workflowReadinessProbe;
 
-  WorkflowRuntime(ProcessEngine processEngine, CaseWorkflowPort caseWorkflowPort) {
-    this.processEngine = processEngine;
+  WorkflowRuntime(
+      ProcessEngineProvider processEngineProvider,
+      CaseWorkflowPort caseWorkflowPort,
+      WorkflowReadinessProbe workflowReadinessProbe) {
+    this.processEngineProvider = processEngineProvider;
     this.caseWorkflowPort = caseWorkflowPort;
+    this.workflowReadinessProbe = workflowReadinessProbe;
   }
 
   public CaseWorkflowPort caseWorkflowPort() {
     return caseWorkflowPort;
   }
 
+  public boolean isReady() {
+    return workflowReadinessProbe.isReady();
+  }
+
   @Override
   public void close() {
-    processEngine.close();
+    processEngineProvider.close();
   }
 }

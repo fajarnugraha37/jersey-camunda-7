@@ -19,9 +19,9 @@ Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory
   - `sentinel-application` menangani use case create/get report dan authorization contract.
   - `sentinel-domain` memegang model domain report.
   - `sentinel-persistence` memegang MyBatis adapter dan Liquibase changelog.
-  - `sentinel-workflow` memegang embedded Camunda runtime, BPMN deployment, workflow correlation, task query adapter, dan escalation delegate.
+  - `sentinel-workflow` memegang embedded Camunda runtime, BPMN deployment, workflow correlation, task query adapter, escalation delegate, dan application-scoped Camunda service/provider boundary.
   - `sentinel-security` memegang JWT verification Keycloak dan role/jurisdiction authorization.
-  - `sentinel-bootstrap` merakit dependency, start server, dan menjalankan migration.
+  - `sentinel-bootstrap` merakit dependency, start server, readiness, dan migration entrypoint terpisah.
 
 ## Technology Stack
 
@@ -49,8 +49,8 @@ Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory
 ## Local Setup
 
 1. Copy `.env.example` menjadi `.env` bila ingin override default local config.
-2. Jalankan `make up` untuk menyalakan PostgreSQL, Keycloak, dan aplikasi.
-3. Jalankan `make migrate` bila ingin apply migration manual dari local host.
+2. Jalankan `make up` untuk menyalakan PostgreSQL dan Keycloak.
+3. Jalankan `make migrate` untuk menjalankan migration aplikasi + schema Camunda official, lalu start aplikasi.
 4. Cek `http://localhost:8080/health`.
 5. Ambil token dari Keycloak realm `sentinel` bila ingin memanggil endpoint report yang sudah diproteksi.
 
@@ -104,6 +104,7 @@ Untuk local Compose:
 - `WORKFLOW_INVESTIGATION_ESCALATION_DURATION` mengontrol boundary timer escalation untuk task investigasi dan harus berupa ISO-8601 duration seperti `PT30M`.
 - Saat meminta token dan memanggil app dari host, gunakan `localhost` secara konsisten, bukan campuran `localhost` dan `127.0.0.1`, karena issuer JWT diverifikasi secara exact-match.
 - BPMN `regulatory-enforcement-case.bpmn` dideploy otomatis saat aplikasi start. Tidak ada deployment step terpisah karena Camunda runtime berjalan embedded di aplikasi.
+- Camunda runtime sekarang start dengan `databaseSchemaUpdate=false`. Schema Camunda harus sudah dibuat lebih dulu melalui `make migrate`; aplikasi tidak lagi membuat tabel `ACT_*` saat startup.
 
 ## Default Users
 
@@ -138,6 +139,7 @@ Untuk local Compose:
 ## Troubleshooting
 
 - Jika aplikasi gagal start, pastikan `DB_URL`, `DB_USERNAME`, dan `DB_PASSWORD` sesuai.
+- Jika aplikasi gagal start dengan pesan tidak ada tabel Camunda, jalankan `make migrate` terlebih dahulu. Ini expected karena schema Camunda sekarang dipisahkan dari app startup.
 - Jika request report selalu `401`, cek `KEYCLOAK_ISSUER`, `KEYCLOAK_JWKS_URL`, dan token issuer dari Keycloak.
 - Jika token dari host gagal dengan `Access token issuer is invalid`, pastikan URL yang dipakai konsisten dengan `localhost` seperti di `.env.example`.
 - Jika integration test gagal karena Docker, pastikan Docker Desktop aktif.

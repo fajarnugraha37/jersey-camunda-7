@@ -67,8 +67,6 @@ public final class ApplicationRuntime implements AutoCloseable {
     HikariDataSource dataSource = createDataSource(configuration);
     WorkflowRuntime workflowRuntime = null;
     try {
-      LiquibaseMigrator.migrate(dataSource);
-
       Clock clock = Clock.systemUTC();
       SqlSessionFactory sqlSessionFactory = PersistenceModule.createSqlSessionFactory(dataSource);
       AuthorizationService authorizationService = new RoleBasedAuthorizationService();
@@ -102,7 +100,9 @@ public final class ApplicationRuntime implements AutoCloseable {
               caseRepository,
               caseApplicationService,
               workflowRuntime.caseWorkflowPort());
-      HealthStatusService healthStatusService = new DatabaseHealthService(dataSource, clock);
+      HealthStatusService healthStatusService =
+          new WorkflowAwareHealthStatusService(
+              new DatabaseHealthService(dataSource, clock), workflowRuntime, clock);
 
       ResourceConfig resourceConfig =
           new ResourceConfig()
@@ -163,6 +163,7 @@ public final class ApplicationRuntime implements AutoCloseable {
   public static void migrate(AppConfiguration configuration) {
     try (HikariDataSource dataSource = createDataSource(configuration)) {
       LiquibaseMigrator.migrate(dataSource);
+      CamundaSchemaMigrator.migrate(dataSource);
     }
   }
 
@@ -187,8 +188,14 @@ public final class ApplicationRuntime implements AutoCloseable {
     hikariConfig.setUsername(configuration.dbUsername());
     hikariConfig.setPassword(configuration.dbPassword());
     hikariConfig.setMaximumPoolSize(4);
+    hikariConfig.setMinimumIdle(1);
     hikariConfig.setConnectionTimeout(5000);
     hikariConfig.setValidationTimeout(2000);
+    hikariConfig.setInitializationFailTimeout(5000);
+    hikariConfig.setLeakDetectionThreshold(30000);
+    hikariConfig.setConnectionInitSql("SET statement_timeout = '10s'");
+    hikariConfig.addDataSourceProperty("connectTimeout", "5");
+    hikariConfig.addDataSourceProperty("socketTimeout", "30");
     hikariConfig.setPoolName("sentinel-hikari");
     return new HikariDataSource(hikariConfig);
   }

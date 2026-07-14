@@ -19,13 +19,13 @@ help:
 	Write-Host "  package            Build distributable artifacts"
 	Write-Host "  format             Apply Java and pom formatting"
 	Write-Host "  openapi-validate   Validate docs/api/openapi.yaml"
-	Write-Host "  up                 Start postgres and app containers"
+	Write-Host "  up                 Start postgres and keycloak containers for schema migration"
 	Write-Host "  down               Stop compose services"
 	Write-Host "  restart            Restart compose services"
 	Write-Host "  ps                 Show compose service status"
 	Write-Host "  logs               Tail compose logs"
 	Write-Host "  app-logs           Tail app logs"
-	Write-Host "  migrate            Run Liquibase migration from local Maven runtime"
+	Write-Host "  migrate            Run application plus Camunda schema migration, then start app"
 	Write-Host "  db-status          Show PostgreSQL container status"
 	Write-Host "  db-shell           Open psql shell inside postgres container"
 	Write-Host "  seed               No-op for current phase"
@@ -74,7 +74,7 @@ openapi-validate:
 	mvn -q -pl sentinel-api -am generate-sources
 
 up:
-	docker compose up -d --build postgres keycloak app
+	docker compose up -d --build postgres keycloak
 
 down:
 	docker compose down
@@ -102,6 +102,7 @@ docker-push-local:
 
 migrate:
 	mvn -q -pl sentinel-bootstrap -am exec:java -Dexec.mainClass=com.sentinel.enforcement.bootstrap.DatabaseMigrationMain
+	docker compose up -d --build app
 
 rollback:
 	throw "rollback is not implemented in the current phase."

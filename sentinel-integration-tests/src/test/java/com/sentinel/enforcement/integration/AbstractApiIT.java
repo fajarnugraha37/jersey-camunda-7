@@ -54,6 +54,7 @@ abstract class AbstractApiIT {
 
   protected static ApplicationRuntime applicationRuntime;
   protected static Client client;
+  protected static AppConfiguration testConfiguration;
 
   @BeforeAll
   static void setUp() {
@@ -63,19 +64,22 @@ abstract class AbstractApiIT {
     if (!KEYCLOAK.isRunning()) {
       KEYCLOAK.start();
     }
+    if (testConfiguration == null) {
+      testConfiguration =
+          AppConfiguration.fromEnvironment(
+              Map.of(
+                  "HTTP_PORT", "0",
+                  "DB_URL", POSTGRES.getJdbcUrl(),
+                  "DB_USERNAME", POSTGRES.getUsername(),
+                  "DB_PASSWORD", POSTGRES.getPassword(),
+                  "KEYCLOAK_ISSUER", keycloakIssuer(),
+                  "KEYCLOAK_AUDIENCE", CLIENT_ID,
+                  "KEYCLOAK_JWKS_URL", keycloakJwksUrl(),
+                  "WORKFLOW_INVESTIGATION_ESCALATION_DURATION", "PT2S"));
+    }
     if (applicationRuntime == null) {
-      applicationRuntime =
-          ApplicationRuntime.start(
-              AppConfiguration.fromEnvironment(
-                  Map.of(
-                      "HTTP_PORT", "0",
-                      "DB_URL", POSTGRES.getJdbcUrl(),
-                      "DB_USERNAME", POSTGRES.getUsername(),
-                      "DB_PASSWORD", POSTGRES.getPassword(),
-                      "KEYCLOAK_ISSUER", keycloakIssuer(),
-                      "KEYCLOAK_AUDIENCE", CLIENT_ID,
-                      "KEYCLOAK_JWKS_URL", keycloakJwksUrl(),
-                      "WORKFLOW_INVESTIGATION_ESCALATION_DURATION", "PT2S")));
+      ApplicationRuntime.migrate(testConfiguration);
+      applicationRuntime = ApplicationRuntime.start(testConfiguration);
     }
     if (client == null) {
       client =
@@ -96,6 +100,7 @@ abstract class AbstractApiIT {
       applicationRuntime.close();
       applicationRuntime = null;
     }
+    testConfiguration = null;
     KEYCLOAK.stop();
     POSTGRES.stop();
   }

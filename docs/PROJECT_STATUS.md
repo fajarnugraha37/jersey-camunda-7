@@ -10,6 +10,7 @@ Phase 4 workflow orchestration implemented and verified.
 - Maven multi-module foundation created for `domain`, `application`, `api`, `persistence`, `bootstrap`, and `integration-tests`.
 - `sentinel-security` module added for JWT verification and centralized authorization logic.
 - `sentinel-workflow` module added for embedded Camunda runtime, BPMN deployment, workflow correlation, task query, and escalation handling.
+- Camunda integration no longer relies on `databaseSchemaUpdate=true`; schema creation is now routed through an explicit migration step using official Camunda SQL resources.
 - Health endpoint implemented.
 - PostgreSQL-backed report create/get API implemented.
 - Liquibase migration implemented for the initial `report` table.
@@ -25,6 +26,7 @@ Phase 4 workflow orchestration implemented and verified.
 - Investigator list visibility now filters to directly assigned cases; direct case read also enforces assignment on investigator-only actors.
 - Case creation now starts the `regulatoryEnforcementCase` workflow and persists correlation in `workflow_instance`.
 - Investigation task escalation is modeled with a non-interrupting boundary timer and writes deterministic audit evidence through an idempotent delegate path.
+- Workflow readiness is now part of the health decision, so the app will not report healthy when the embedded process engine is unavailable or the required process definition is missing.
 - Unit and integration tests implemented and locally verified with Maven and Testcontainers.
 - Docker Compose runtime now includes PostgreSQL, Keycloak, and the application container.
 - PostgreSQL 18 volume mount aligned with the image's required `/var/lib/postgresql` layout.
@@ -51,6 +53,7 @@ Phase 4 workflow orchestration implemented and verified.
 - `mvn -q -DskipTests compile` completed successfully.
 - `mvn -q test` completed successfully.
 - `mvn -q -pl sentinel-integration-tests -am "-Dit.test=WorkflowTaskApiIT" verify` completed successfully.
+- `mvn -q -pl sentinel-integration-tests -am "-Dit.test=ApplicationRuntimeSchemaLifecycleIT,WorkflowTaskApiIT" verify` completed successfully.
 - `make workflow-test` completed successfully after fixing the multi-module Surefire pattern issue in `bpmn-validate`.
 - `make bpmn-validate` completed successfully.
 - `make bpmn-deploy` completed successfully and documents the embedded deployment behavior.

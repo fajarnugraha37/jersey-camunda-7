@@ -18,30 +18,23 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.camunda.bpm.engine.HistoryService;
-import org.camunda.bpm.engine.ProcessEngine;
 import org.camunda.bpm.engine.ProcessEngineException;
-import org.camunda.bpm.engine.RepositoryService;
-import org.camunda.bpm.engine.RuntimeService;
-import org.camunda.bpm.engine.TaskService;
 import org.camunda.bpm.engine.repository.ProcessDefinition;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
 import org.camunda.bpm.engine.task.Task;
 
 final class CamundaCaseWorkflowAdapter implements CaseWorkflowPort {
-  private static final String PROCESS_DEFINITION_KEY = "regulatoryEnforcementCase";
-
-  private final ProcessEngine processEngine;
+  private final CamundaServices camundaServices;
   private final WorkflowInstanceJdbcStore workflowInstanceStore;
   private final CaseRepository caseRepository;
   private final Clock clock;
 
   CamundaCaseWorkflowAdapter(
-      ProcessEngine processEngine,
+      CamundaServices camundaServices,
       WorkflowInstanceJdbcStore workflowInstanceStore,
       CaseRepository caseRepository,
       Clock clock) {
-    this.processEngine = processEngine;
+    this.camundaServices = camundaServices;
     this.workflowInstanceStore = workflowInstanceStore;
     this.caseRepository = caseRepository;
     this.clock = clock;
@@ -55,9 +48,6 @@ final class CamundaCaseWorkflowAdapter implements CaseWorkflowPort {
       String caseTitle,
       Duration investigationEscalationDuration,
       String startedBy) {
-    RuntimeService runtimeService = processEngine.getRuntimeService();
-    RepositoryService repositoryService = processEngine.getRepositoryService();
-
     Map<String, Object> variables = new HashMap<>();
     variables.put("caseId", caseId.toString());
     variables.put("jurisdictionCode", jurisdictionCode);
@@ -67,10 +57,14 @@ final class CamundaCaseWorkflowAdapter implements CaseWorkflowPort {
     variables.put("investigationEscalationDuration", investigationEscalationDuration.toString());
 
     ProcessInstance processInstance =
-        runtimeService.startProcessInstanceByKey(
-            PROCESS_DEFINITION_KEY, caseId.toString(), variables);
+        camundaServices
+            .runtimeService()
+            .startProcessInstanceByKey(
+                WorkflowModule.PROCESS_DEFINITION_KEY, caseId.toString(), variables);
     ProcessDefinition processDefinition =
-        repositoryService.getProcessDefinition(processInstance.getProcessDefinitionId());
+        camundaServices
+            .repositoryService()
+            .getProcessDefinition(processInstance.getProcessDefinitionId());
     StartedWorkflowInstance startedWorkflow =
         new StartedWorkflowInstance(
             caseId,
@@ -82,16 +76,17 @@ final class CamundaCaseWorkflowAdapter implements CaseWorkflowPort {
       workflowInstanceStore.saveStarted(startedWorkflow, clock.instant());
       return startedWorkflow;
     } catch (RuntimeException exception) {
-      runtimeService.deleteProcessInstance(
-          processInstance.getProcessInstanceId(),
-          "Workflow correlation persistence failed during case creation.");
+      camundaServices
+          .runtimeService()
+          .deleteProcessInstance(
+              processInstance.getProcessInstanceId(),
+              "Workflow correlation persistence failed during case creation.");
       throw exception;
     }
   }
 
   @Override
   public void cancelCaseWorkflow(UUID caseId, String reason) {
-    RuntimeService runtimeService = processEngine.getRuntimeService();
     Optional<WorkflowInstanceRecord> workflowInstance = workflowInstanceStore.findByCaseId(caseId);
     String processInstanceId =
         workflowInstance
@@ -99,23 +94,28 @@ final class CamundaCaseWorkflowAdapter implements CaseWorkflowPort {
             .orElseGet(
                 () -> {
                   ProcessInstance runningInstance =
-                      runtimeService
+                      camundaServices
+                          .runtimeService()
                           .createProcessInstanceQuery()
                           .processInstanceBusinessKey(caseId.toString())
                           .singleResult();
                   return runningInstance == null ? null : runningInstance.getProcessInstanceId();
                 });
     if (processInstanceId != null
-        && runtimeService.createProcessInstanceQuery().processInstanceId(processInstanceId).count()
+        && camundaServices
+                .runtimeService()
+                .createProcessInstanceQuery()
+                .processInstanceId(processInstanceId)
+                .count()
             > 0) {
-      runtimeService.deleteProcessInstance(processInstanceId, reason);
+      camundaServices.runtimeService().deleteProcessInstance(processInstanceId, reason);
     }
     workflowInstanceStore.markCancelled(caseId, clock.instant());
   }
 
   @Override
   public List<WorkflowTaskView> listActiveTasks() {
-    List<Task> tasks = processEngine.getTaskService().createTaskQuery().active().list();
+    List<Task> tasks = camundaServices.taskService().createTaskQuery().active().list();
     Map<UUID, CaseRecord> casesById = loadCases(tasks);
     return tasks.stream()
         .map(task -> toWorkflowTaskView(task, casesById.get(resolveCaseId(task))))
@@ -127,7 +127,7 @@ final class CamundaCaseWorkflowAdapter implements CaseWorkflowPort {
   @Override
   public Optional<WorkflowTaskView> findActiveTask(String taskId) {
     Task task =
-        processEngine.getTaskService().createTaskQuery().taskId(taskId).active().singleResult();
+        camundaServices.taskService().createTaskQuery().taskId(taskId).active().singleResult();
     if (task == null) {
       return Optional.empty();
     }
@@ -138,13 +138,18 @@ final class CamundaCaseWorkflowAdapter implements CaseWorkflowPort {
 
   @Override
   public boolean isTaskCompleted(String taskId) {
-    HistoryService historyService = processEngine.getHistoryService();
-    return historyService.createHistoricTaskInstanceQuery().taskId(taskId).finished().count() > 0;
+    return camundaServices
+            .historyService()
+            .createHistoricTaskInstanceQuery()
+            .taskId(taskId)
+            .finished()
+            .count()
+        > 0;
   }
 
   @Override
   public WorkflowTaskView claimTask(String taskId, String username) {
-    TaskService taskService = processEngine.getTaskService();
+    var taskService = camundaServices.taskService();
     Task currentTask = taskService.createTaskQuery().taskId(taskId).active().singleResult();
     if (currentTask == null) {
       if (isTaskCompleted(taskId)) {
@@ -164,7 +169,7 @@ final class CamundaCaseWorkflowAdapter implements CaseWorkflowPort {
 
   @Override
   public void completeTask(String taskId) {
-    TaskService taskService = processEngine.getTaskService();
+    var taskService = camundaServices.taskService();
     Task currentTask = taskService.createTaskQuery().taskId(taskId).active().singleResult();
     if (currentTask == null) {
       if (isTaskCompleted(taskId)) {
@@ -182,8 +187,8 @@ final class CamundaCaseWorkflowAdapter implements CaseWorkflowPort {
       throw new WorkflowTaskConflictException(
           "TASK_COMPLETE_FAILED", "Workflow task " + taskId + " could not be completed.");
     }
-    if (processEngine
-            .getRuntimeService()
+    if (camundaServices
+            .runtimeService()
             .createProcessInstanceQuery()
             .processInstanceId(processInstanceId)
             .count()
@@ -220,7 +225,7 @@ final class CamundaCaseWorkflowAdapter implements CaseWorkflowPort {
   }
 
   private UUID resolveCaseId(Task task) {
-    Object variableValue = processEngine.getTaskService().getVariable(task.getId(), "caseId");
+    Object variableValue = camundaServices.taskService().getVariable(task.getId(), "caseId");
     if (!(variableValue instanceof String caseIdValue)) {
       throw new IllegalStateException("Workflow task " + task.getId() + " is missing caseId.");
     }

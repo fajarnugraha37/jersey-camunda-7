@@ -4,12 +4,12 @@ import com.sentinel.enforcement.application.casefile.CaseRepository;
 import java.time.Clock;
 import java.util.Map;
 import javax.sql.DataSource;
-import org.camunda.bpm.engine.ProcessEngine;
 import org.camunda.bpm.engine.ProcessEngineConfiguration;
 import org.camunda.bpm.engine.impl.cfg.StandaloneProcessEngineConfiguration;
 import org.camunda.bpm.engine.impl.el.JuelExpressionManager;
 
 public final class WorkflowModule {
+  public static final String PROCESS_DEFINITION_KEY = "regulatoryEnforcementCase";
   private static final String BPMN_RESOURCE = "bpmn/regulatory-enforcement-case.bpmn";
 
   private WorkflowModule() {}
@@ -22,16 +22,18 @@ public final class WorkflowModule {
     StandaloneProcessEngineConfiguration configuration = new StandaloneProcessEngineConfiguration();
     configuration.setProcessEngineName(engineName);
     configuration.setDataSource(dataSource);
-    configuration.setDatabaseSchemaUpdate(ProcessEngineConfiguration.DB_SCHEMA_UPDATE_TRUE);
+    configuration.setDatabaseSchemaUpdate(ProcessEngineConfiguration.DB_SCHEMA_UPDATE_FALSE);
     configuration.setHistory(ProcessEngineConfiguration.HISTORY_FULL);
     configuration.setJobExecutorActivate(true);
     configuration.setJdbcBatchProcessing(true);
     configuration.setExpressionManager(
         new JuelExpressionManager(Map.of("investigationEscalationDelegate", escalationDelegate)));
 
-    ProcessEngine processEngine = configuration.buildProcessEngine();
-    processEngine
-        .getRepositoryService()
+    ProcessEngineProvider processEngineProvider =
+        new SingleProcessEngineProvider(configuration.buildProcessEngine());
+    CamundaServices camundaServices = new CamundaServices(processEngineProvider);
+    camundaServices
+        .repositoryService()
         .createDeployment()
         .name("sentinel-regulatory-enforcement")
         .enableDuplicateFiltering(true)
@@ -40,7 +42,11 @@ public final class WorkflowModule {
 
     WorkflowInstanceJdbcStore workflowInstanceStore = new WorkflowInstanceJdbcStore(dataSource);
     CamundaCaseWorkflowAdapter workflowAdapter =
-        new CamundaCaseWorkflowAdapter(processEngine, workflowInstanceStore, caseRepository, clock);
-    return new WorkflowRuntime(processEngine, workflowAdapter);
+        new CamundaCaseWorkflowAdapter(
+            camundaServices, workflowInstanceStore, caseRepository, clock);
+    return new WorkflowRuntime(
+        processEngineProvider,
+        workflowAdapter,
+        new WorkflowReadinessProbe(processEngineProvider, camundaServices, PROCESS_DEFINITION_KEY));
   }
 }
