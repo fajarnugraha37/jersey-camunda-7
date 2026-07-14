@@ -57,3 +57,5 @@ Thumbs.db
 
 # Node (if used)
 node_modules/
+.codex/
+.agents/

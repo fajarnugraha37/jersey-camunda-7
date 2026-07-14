@@ -16,6 +16,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ibatis.session.SqlSession;
@@ -55,6 +56,18 @@ public final class CaseRepositoryMyBatisAdapter implements CaseRepository {
     try (SqlSession session = sqlSessionFactory.openSession()) {
       return Optional.ofNullable(session.getMapper(CaseMyBatisMapper.class).findCaseById(caseId))
           .map(this::toCaseDomain);
+    }
+  }
+
+  @Override
+  public List<CaseRecord> findByIds(Set<UUID> caseIds) {
+    if (caseIds.isEmpty()) {
+      return List.of();
+    }
+    try (SqlSession session = sqlSessionFactory.openSession()) {
+      return session.getMapper(CaseMyBatisMapper.class).findCasesByIds(caseIds).stream()
+          .map(this::toCaseDomain)
+          .collect(Collectors.toList());
     }
   }
 
@@ -142,6 +155,14 @@ public final class CaseRepositoryMyBatisAdapter implements CaseRepository {
       return session.getMapper(CaseMyBatisMapper.class).findAuditEventsPage(queryData).stream()
           .map(this::toAuditDomain)
           .collect(Collectors.toList());
+    }
+  }
+
+  @Override
+  public void appendAuditEvent(AuditEvent auditEvent) {
+    try (SqlSession session = sqlSessionFactory.openSession(false)) {
+      session.getMapper(CaseMyBatisMapper.class).insertAuditEventIfAbsent(toAuditData(auditEvent));
+      session.commit();
     }
   }
 

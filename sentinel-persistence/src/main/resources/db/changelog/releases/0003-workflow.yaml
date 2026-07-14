@@ -1,0 +1,71 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0003-workflow-instance
+      author: codex
+      changes:
+        - createTable:
+            tableName: workflow_instance
+            columns:
+              - column:
+                  name: case_id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: process_instance_id
+                  type: VARCHAR(64)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: process_definition_id
+                  type: VARCHAR(128)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: process_definition_version
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+              - column:
+                  name: business_key
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+        - sql:
+            sql: |
+              ALTER TABLE workflow_instance
+                ADD CONSTRAINT ck_workflow_instance_status
+                  CHECK (status IN ('ACTIVE', 'COMPLETED', 'CANCELLED')),
+                ADD CONSTRAINT ck_workflow_instance_definition_version_positive
+                  CHECK (process_definition_version > 0);
+        - createIndex:
+            tableName: workflow_instance
+            indexName: idx_workflow_instance_status
+            columns:
+              - column:
+                  name: status
+      rollback:
+        - sql:
+            sql: |
+              ALTER TABLE workflow_instance
+                DROP CONSTRAINT IF EXISTS ck_workflow_instance_status,
+                DROP CONSTRAINT IF EXISTS ck_workflow_instance_definition_version_positive;
+        - dropTable:
+            tableName: workflow_instance

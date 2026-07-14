@@ -6,6 +6,7 @@ import com.sentinel.enforcement.domain.casefile.CaseRecord;
 import com.sentinel.enforcement.domain.casefile.CaseStatusHistoryEntry;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 public interface CaseRepository {
@@ -17,6 +18,8 @@ public interface CaseRepository {
 
   Optional<CaseRecord> findById(UUID caseId);
 
+  List<CaseRecord> findByIds(Set<UUID> caseIds);
+
   List<CaseRecord> findPage(CasePageRequest pageRequest);
 
   void assign(CaseRecord caseRecord, CaseAssignment caseAssignment, AuditEvent auditEvent);
@@ -25,4 +28,6 @@ public interface CaseRepository {
       CaseRecord caseRecord, CaseStatusHistoryEntry statusHistoryEntry, AuditEvent auditEvent);
 
   List<AuditEvent> findAuditEventsPage(AuditEventPageRequest pageRequest);
+
+  void appendAuditEvent(AuditEvent auditEvent);
 }

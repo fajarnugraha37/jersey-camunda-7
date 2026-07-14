@@ -11,6 +11,9 @@ import com.sentinel.enforcement.application.security.ApplicationActor;
 import com.sentinel.enforcement.application.security.AuthorizationContext;
 import com.sentinel.enforcement.application.security.AuthorizationService;
 import com.sentinel.enforcement.application.security.Permission;
+import com.sentinel.enforcement.application.workflow.CaseWorkflowPort;
+import com.sentinel.enforcement.application.workflow.StartedWorkflowInstance;
+import com.sentinel.enforcement.application.workflow.WorkflowTaskView;
 import com.sentinel.enforcement.domain.casefile.AuditEvent;
 import com.sentinel.enforcement.domain.casefile.CaseAssignment;
 import com.sentinel.enforcement.domain.casefile.CaseRecord;
@@ -19,6 +22,7 @@ import com.sentinel.enforcement.domain.casefile.CaseStatusHistoryEntry;
 import com.sentinel.enforcement.domain.report.Report;
 import com.sentinel.enforcement.domain.report.ReportStatus;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.HashMap;
@@ -36,9 +40,16 @@ class CaseApplicationServiceTest {
     InMemoryCaseRepository caseRepository = new InMemoryCaseRepository();
     InMemoryReportRepository reportRepository = new InMemoryReportRepository();
     CapturingAuthorizationService authorizationService = new CapturingAuthorizationService();
+    StubWorkflowPort workflowPort = new StubWorkflowPort();
     Clock clock = Clock.fixed(Instant.parse("2026-07-14T10:15:30Z"), ZoneOffset.UTC);
     CaseApplicationService service =
-        new CaseApplicationService(authorizationService, caseRepository, reportRepository, clock);
+        new CaseApplicationService(
+            authorizationService,
+            caseRepository,
+            reportRepository,
+            workflowPort,
+            Duration.ofHours(4),
+            clock);
     ApplicationActor actor =
         new ApplicationActor("subject-1", "triage-jkt", Set.of("TRIAGE_OFFICER"), Set.of("JKT"));
     Report report =
@@ -69,6 +80,7 @@ class CaseApplicationServiceTest {
     assertSame(caseRecord, caseRepository.savedCaseRecord);
     assertNotNull(caseRepository.savedHistoryEntry);
     assertNotNull(caseRepository.savedAuditEvent);
+    assertEquals(caseRecord.id(), workflowPort.startedWorkflow.caseId());
   }
 
   @Test
@@ -76,9 +88,16 @@ class CaseApplicationServiceTest {
     InMemoryCaseRepository caseRepository = new InMemoryCaseRepository();
     InMemoryReportRepository reportRepository = new InMemoryReportRepository();
     CapturingAuthorizationService authorizationService = new CapturingAuthorizationService();
+    StubWorkflowPort workflowPort = new StubWorkflowPort();
     Clock clock = Clock.fixed(Instant.parse("2026-07-14T10:15:30Z"), ZoneOffset.UTC);
     CaseApplicationService service =
-        new CaseApplicationService(authorizationService, caseRepository, reportRepository, clock);
+        new CaseApplicationService(
+            authorizationService,
+            caseRepository,
+            reportRepository,
+            workflowPort,
+            Duration.ofHours(4),
+            clock);
     ApplicationActor actor =
         new ApplicationActor(
             "subject-2", "investigator-jkt", Set.of("INVESTIGATOR"), Set.of("JKT"));
@@ -112,9 +131,16 @@ class CaseApplicationServiceTest {
     InMemoryCaseRepository caseRepository = new InMemoryCaseRepository();
     InMemoryReportRepository reportRepository = new InMemoryReportRepository();
     CapturingAuthorizationService authorizationService = new CapturingAuthorizationService();
+    StubWorkflowPort workflowPort = new StubWorkflowPort();
     Clock clock = Clock.fixed(Instant.parse("2026-07-14T10:15:30Z"), ZoneOffset.UTC);
     CaseApplicationService service =
-        new CaseApplicationService(authorizationService, caseRepository, reportRepository, clock);
+        new CaseApplicationService(
+            authorizationService,
+            caseRepository,
+            reportRepository,
+            workflowPort,
+            Duration.ofHours(4),
+            clock);
     ApplicationActor actor =
         new ApplicationActor("subject-3", "triage-jkt", Set.of("TRIAGE_OFFICER"), Set.of("JKT"));
 
@@ -152,9 +178,16 @@ class CaseApplicationServiceTest {
     InMemoryCaseRepository caseRepository = new InMemoryCaseRepository();
     InMemoryReportRepository reportRepository = new InMemoryReportRepository();
     CapturingAuthorizationService authorizationService = new CapturingAuthorizationService();
+    StubWorkflowPort workflowPort = new StubWorkflowPort();
     Clock clock = Clock.fixed(Instant.parse("2026-07-14T10:15:30Z"), ZoneOffset.UTC);
     CaseApplicationService service =
-        new CaseApplicationService(authorizationService, caseRepository, reportRepository, clock);
+        new CaseApplicationService(
+            authorizationService,
+            caseRepository,
+            reportRepository,
+            workflowPort,
+            Duration.ofHours(4),
+            clock);
     ApplicationActor actor =
         new ApplicationActor("subject-4", "auditor-jkt", Set.of("AUDITOR"), Set.of("JKT"));
     UUID caseId = UUID.randomUUID();
@@ -276,6 +309,11 @@ class CaseApplicationServiceTest {
     }
 
     @Override
+    public List<CaseRecord> findByIds(Set<UUID> caseIds) {
+      return caseIds.stream().map(caseById::get).filter(java.util.Objects::nonNull).toList();
+    }
+
+    @Override
     public List<CaseRecord> findPage(CasePageRequest pageRequest) {
       this.lastPageRequest = pageRequest;
       return List.of();
@@ -294,6 +332,9 @@ class CaseApplicationServiceTest {
       this.lastAuditPageRequest = pageRequest;
       return auditEventsToReturn;
     }
+
+    @Override
+    public void appendAuditEvent(AuditEvent auditEvent) {}
   }
 
   private static final class InMemoryReportRepository implements ReportRepository {
@@ -328,5 +369,49 @@ class CaseApplicationServiceTest {
     AuthorizationContext authorizationContext() {
       return authorizationContext;
     }
+  }
+
+  private static final class StubWorkflowPort implements CaseWorkflowPort {
+    private StartedWorkflowInstance startedWorkflow;
+
+    @Override
+    public StartedWorkflowInstance startCaseWorkflow(
+        UUID caseId,
+        String jurisdictionCode,
+        String caseNumber,
+        String caseTitle,
+        Duration investigationEscalationDuration,
+        String startedBy) {
+      this.startedWorkflow =
+          new StartedWorkflowInstance(
+              caseId, "process-1", "regulatoryEnforcementCase:1:deployment", 1, caseId.toString());
+      return startedWorkflow;
+    }
+
+    @Override
+    public void cancelCaseWorkflow(UUID caseId, String reason) {}
+
+    @Override
+    public List<WorkflowTaskView> listActiveTasks() {
+      return List.of();
+    }
+
+    @Override
+    public Optional<WorkflowTaskView> findActiveTask(String taskId) {
+      return Optional.empty();
+    }
+
+    @Override
+    public boolean isTaskCompleted(String taskId) {
+      return false;
+    }
+
+    @Override
+    public WorkflowTaskView claimTask(String taskId, String username) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void completeTask(String taskId) {}
   }
 }

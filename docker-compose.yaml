@@ -61,6 +61,8 @@ services:
       KEYCLOAK_ISSUER: http://localhost:${KEYCLOAK_PORT:-8081}/realms/sentinel
       KEYCLOAK_AUDIENCE: ${KEYCLOAK_AUDIENCE:-sentinel-api}
       KEYCLOAK_JWKS_URL: http://host.docker.internal:${KEYCLOAK_PORT:-8081}/realms/sentinel/protocol/openid-connect/certs
+      WORKFLOW_ENGINE_NAME: ${WORKFLOW_ENGINE_NAME:-sentinel-workflow-engine}
+      WORKFLOW_INVESTIGATION_ESCALATION_DURATION: ${WORKFLOW_INVESTIGATION_ESCALATION_DURATION:-PT30M}
     ports:
       - "${HTTP_PORT:-8080}:8080"
     healthcheck:

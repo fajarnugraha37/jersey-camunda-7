@@ -3,3 +3,5 @@ databaseChangeLog:
       file: db/changelog/releases/0001-foundation.yaml
   - include:
       file: db/changelog/releases/0002-case-management.yaml
+  - include:
+      file: db/changelog/releases/0003-workflow.yaml

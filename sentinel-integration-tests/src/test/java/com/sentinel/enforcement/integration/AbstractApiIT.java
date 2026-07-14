@@ -74,7 +74,8 @@ abstract class AbstractApiIT {
                       "DB_PASSWORD", POSTGRES.getPassword(),
                       "KEYCLOAK_ISSUER", keycloakIssuer(),
                       "KEYCLOAK_AUDIENCE", CLIENT_ID,
-                      "KEYCLOAK_JWKS_URL", keycloakJwksUrl())));
+                      "KEYCLOAK_JWKS_URL", keycloakJwksUrl(),
+                      "WORKFLOW_INVESTIGATION_ESCALATION_DURATION", "PT2S")));
     }
     if (client == null) {
       client =
@@ -158,6 +159,42 @@ abstract class AbstractApiIT {
       }
     } catch (Exception exception) {
       throw new IllegalStateException("Failed to count rows in " + tableName, exception);
+    }
+  }
+
+  protected static long countAuditEventsByType(UUID caseId, String eventType) {
+    String sql = "SELECT COUNT(*) FROM audit_event WHERE case_id = ? AND event_type = ?";
+    try (Connection connection =
+            DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+        PreparedStatement statement = connection.prepareStatement(sql)) {
+      statement.setObject(1, caseId);
+      statement.setString(2, eventType);
+      try (ResultSet resultSet = statement.executeQuery()) {
+        resultSet.next();
+        return resultSet.getLong(1);
+      }
+    } catch (Exception exception) {
+      throw new IllegalStateException("Failed to count audit events for case " + caseId, exception);
+    }
+  }
+
+  protected static String workflowStatus(UUID caseId) {
+    String sql = "SELECT status FROM workflow_instance WHERE case_id = ?";
+    try (Connection connection =
+            DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+        PreparedStatement statement = connection.prepareStatement(sql)) {
+      statement.setObject(1, caseId);
+      try (ResultSet resultSet = statement.executeQuery()) {
+        if (!resultSet.next()) {
+          return null;
+        }
+        return resultSet.getString(1);
+      }
+    } catch (Exception exception) {
+      throw new IllegalStateException(
+          "Failed to load workflow status for case " + caseId, exception);
     }
   }
 

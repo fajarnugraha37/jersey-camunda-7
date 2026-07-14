@@ -1,6 +1,6 @@
 # Sentinel Enforcement Platform
 
-Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory enforcement dan complex case management. Fokus increment saat ini sudah mencakup foundation, authentication/authorization, dan Phase 3 case lifecycle vertical slice dengan optimistic locking, status history, assignment history, dan audit foundation.
+Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory enforcement dan complex case management. Fokus increment saat ini sudah mencakup foundation, authentication/authorization, Phase 3 case lifecycle vertical slice, dan Phase 4 workflow orchestration slice berbasis embedded Camunda 7 dengan task API, workflow correlation, timer escalation, optimistic locking, status history, assignment history, dan audit foundation.
 
 ## Architecture Overview
 
@@ -10,6 +10,7 @@ Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory
   - `sentinel-application`
   - `sentinel-api`
   - `sentinel-persistence`
+  - `sentinel-workflow`
   - `sentinel-security`
   - `sentinel-bootstrap`
   - `sentinel-integration-tests`
@@ -18,6 +19,7 @@ Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory
   - `sentinel-application` menangani use case create/get report dan authorization contract.
   - `sentinel-domain` memegang model domain report.
   - `sentinel-persistence` memegang MyBatis adapter dan Liquibase changelog.
+  - `sentinel-workflow` memegang embedded Camunda runtime, BPMN deployment, workflow correlation, task query adapter, dan escalation delegate.
   - `sentinel-security` memegang JWT verification Keycloak dan role/jurisdiction authorization.
   - `sentinel-bootstrap` merakit dependency, start server, dan menjalankan migration.
 
@@ -79,13 +81,16 @@ Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory
 - `POST /api/v1/cases/{caseId}/assignments`
 - `POST /api/v1/cases/{caseId}/transitions`
 - `GET /api/v1/cases/{caseId}/audit-events`
+- `GET /api/v1/tasks`
+- `POST /api/v1/tasks/{taskId}/claim`
+- `POST /api/v1/tasks/{taskId}/complete`
 
-`/health` tetap public. Endpoint report dan case memerlukan bearer JWT dari Keycloak dan menerapkan authorization berbasis role, jurisdiction, dan direct assignment untuk actor investigator-only.
+`/health` tetap public. Endpoint report, case, dan workflow task memerlukan bearer JWT dari Keycloak dan menerapkan authorization berbasis role, jurisdiction, dan direct assignment untuk actor investigator-only.
 
 Spesifikasi kontrak saat ini ada di [docs/api/openapi.yaml](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/api/openapi.yaml).
 Generated request/response model untuk layer API dibangun dari spec tersebut pada phase `generate-sources`.
 
-Pattern wajib untuk endpoint list ada di [docs/api/list-query-pattern.md](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/api/list-query-pattern.md). Semua list API baru harus mengikuti kombinasi `cursor`, `limit`, `q`, `searchField/searchValue`, dan enum-based `sortBy/sortDirection` dengan MyBatis dynamic SQL yang aman.
+Pattern wajib untuk endpoint list ada di [docs/api/list-query-pattern.md](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/api/list-query-pattern.md). Semua list API baru harus mengikuti kombinasi `cursor`, `limit`, `q`, `searchField/searchValue`, dan enum-based `sortBy/sortDirection` dengan SQL dinamis yang aman, termasuk bila source datanya bukan MyBatis row langsung seperti task list Camunda.
 
 ## Default Runtime Configuration
 
@@ -95,7 +100,10 @@ Untuk local Compose:
 
 - `KEYCLOAK_ISSUER` tetap mengacu ke `http://localhost:8081/realms/sentinel` agar cocok dengan issuer token yang didapat client lokal.
 - `KEYCLOAK_JWKS_URL` di container app diarahkan ke `host.docker.internal` agar aplikasi di Docker tetap bisa mengambil JWKS dari Keycloak host port.
+- `WORKFLOW_ENGINE_NAME` default ke `sentinel-workflow-engine`.
+- `WORKFLOW_INVESTIGATION_ESCALATION_DURATION` mengontrol boundary timer escalation untuk task investigasi dan harus berupa ISO-8601 duration seperti `PT30M`.
 - Saat meminta token dan memanggil app dari host, gunakan `localhost` secara konsisten, bukan campuran `localhost` dan `127.0.0.1`, karena issuer JWT diverifikasi secara exact-match.
+- BPMN `regulatory-enforcement-case.bpmn` dideploy otomatis saat aplikasi start. Tidak ada deployment step terpisah karena Camunda runtime berjalan embedded di aplikasi.
 
 ## Default Users
 
@@ -114,10 +122,12 @@ Untuk local Compose:
 ## Testing Strategy
 
 - Unit test untuk application service, domain transition policy, optimistic locking guards, dan authorization policy.
+- Workflow unit test untuk validasi model BPMN dan wiring stage utama.
 - Integration test dengan Testcontainers PostgreSQL + Keycloak untuk:
   - happy path authorized create/get report
   - happy path case lifecycle from create through close
   - investigator visibility filtered to directly assigned cases
+  - workflow task query, claim, completion, cursor, search, sort, and duplicate-completion safety
   - `409` invalid transition
   - `409` stale optimistic-lock version
   - `401` tanpa bearer token
@@ -132,3 +142,4 @@ Untuk local Compose:
 - Jika token dari host gagal dengan `Access token issuer is invalid`, pastikan URL yang dipakai konsisten dengan `localhost` seperti di `.env.example`.
 - Jika integration test gagal karena Docker, pastikan Docker Desktop aktif.
 - Jika migration gagal, cek changelog di `sentinel-persistence/src/main/resources/db/changelog`.
+- Jika workflow task tidak muncul, cek `workflow_instance` table, log startup BPMN deployment, dan pastikan case dibuat lewat API sehingga workflow otomatis dimulai.

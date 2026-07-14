@@ -1,6 +1,7 @@
 package com.sentinel.enforcement.persistence.casefile;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
@@ -92,6 +93,33 @@ public interface CaseMyBatisMapper {
             WHERE id = #{id}
             """)
   CaseRecordData findCaseById(UUID id);
+
+  @Select(
+      """
+            <script>
+            SELECT
+                id,
+                case_number AS caseNumber,
+                report_id AS reportId,
+                title,
+                summary,
+                jurisdiction_code AS jurisdictionCode,
+                status,
+                assigned_unit_id AS assignedUnitId,
+                assignee_user_id AS assigneeUserId,
+                created_at AS createdAt,
+                created_by AS createdBy,
+                updated_at AS updatedAt,
+                updated_by AS updatedBy,
+                version
+            FROM case_record
+            WHERE id IN
+            <foreach collection="caseIds" item="caseId" open="(" separator="," close=")">
+              #{caseId}
+            </foreach>
+            </script>
+            """)
+  List<CaseRecordData> findCasesByIds(@Param("caseIds") Set<UUID> caseIds);
 
   @Select(
       """
@@ -297,6 +325,49 @@ public interface CaseMyBatisMapper {
             )
             """)
   int insertAuditEvent(AuditEventData auditEventData);
+
+  @Insert(
+      """
+            INSERT INTO audit_event (
+                event_id,
+                event_type,
+                actor_type,
+                actor_id,
+                actor_roles,
+                action,
+                resource_type,
+                resource_id,
+                case_id,
+                timestamp,
+                correlation_id,
+                source_ip,
+                result,
+                reason,
+                before_summary,
+                after_summary,
+                metadata
+            ) VALUES (
+                #{eventId},
+                #{eventType},
+                #{actorType},
+                #{actorId},
+                #{actorRoles},
+                #{action},
+                #{resourceType},
+                #{resourceId},
+                #{caseId},
+                #{timestamp},
+                #{correlationId},
+                #{sourceIp},
+                #{result},
+                #{reason},
+                #{beforeSummary},
+                #{afterSummary},
+                #{metadata}
+            )
+            ON CONFLICT (event_id) DO NOTHING
+            """)
+  int insertAuditEventIfAbsent(AuditEventData auditEventData);
 
   @Select(
       """

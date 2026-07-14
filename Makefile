@@ -14,6 +14,7 @@ help:
 	Write-Host "  test               Run unit and integration tests"
 	Write-Host "  unit-test          Run unit tests"
 	Write-Host "  integration-test   Run integration tests with Testcontainers"
+	Write-Host "  workflow-test      Run workflow-focused unit and integration tests"
 	Write-Host "  verify             Run Maven verify"
 	Write-Host "  package            Build distributable artifacts"
 	Write-Host "  format             Apply Java and pom formatting"
@@ -29,6 +30,8 @@ help:
 	Write-Host "  db-shell           Open psql shell inside postgres container"
 	Write-Host "  seed               No-op for current phase"
 	Write-Host "  smoke-test         Call health endpoint"
+	Write-Host "  bpmn-validate      Validate the embedded Camunda BPMN model"
+	Write-Host "  bpmn-deploy        Explain embedded BPMN deployment behavior"
 
 bootstrap:
 	mvn -q -DskipTests dependency:go-offline
@@ -49,7 +52,8 @@ integration-test:
 	mvn -q -pl sentinel-integration-tests -am verify
 
 workflow-test:
-	throw "workflow-test is not implemented in the current phase."
+	mvn -q -pl sentinel-workflow -am test
+	mvn -q -pl sentinel-integration-tests -am "-Dit.test=WorkflowTaskApiIT" verify
 
 messaging-test:
 	throw "messaging-test is not implemented in the current phase."
@@ -134,10 +138,10 @@ keycloak-import:
 	docker compose up -d keycloak
 
 bpmn-validate:
-	throw "bpmn-validate is not implemented in the current phase."
+	mvn -q -pl sentinel-workflow -am "-Dtest=BpmnModelValidationTest" "-Dsurefire.failIfNoSpecifiedTests=false" test
 
 bpmn-deploy:
-	throw "bpmn-deploy is not implemented in the current phase."
+	Write-Host "BPMN deployment is automatic on application startup through the embedded Camunda engine."
 
 format:
 	mvn -q spotless:apply

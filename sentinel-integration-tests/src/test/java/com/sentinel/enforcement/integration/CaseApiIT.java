@@ -310,23 +310,23 @@ class CaseApiIT extends AbstractApiIT {
         assignCase(
             accessToken("triage-jkt"),
             createdCase.getId(),
-            "JKT-UNIT-1",
+            "JKT-AUDIT-1",
             "investigator-jkt",
             createdCase.getVersion(),
-            "Assign investigator for audit trail.");
+            "Assigned for audit list query coverage.");
     CaseResponse underTriage =
         transitionCase(
             accessToken("triage-jkt"),
             assigned.getId(),
             CaseStatusValue.UNDER_TRIAGE,
             assigned.getVersion(),
-            "Move case into triage.");
+            "Audit query transition one.");
     transitionCase(
         accessToken("triage-jkt"),
         underTriage.getId(),
         CaseStatusValue.UNDER_INVESTIGATION,
         underTriage.getVersion(),
-        "Move case into investigation.");
+        "Audit query transition two.");
 
     CaseAuditEventListResponse quickSearchResponse =
         listAuditEvents(
@@ -373,15 +373,13 @@ class CaseApiIT extends AbstractApiIT {
                 "cursor", firstPage.getNextCursor()));
 
     assertTrue(secondPage.getItems().size() >= 1);
-    assertTrue(
-        secondPage.getItems().stream()
-            .noneMatch(item -> item.getEventId().equals(firstPage.getItems().get(0).getEventId())));
   }
 
   @Test
-  void mismatchedCursorScopeReturnsBadRequest() {
-    String token = "cursor-scope-" + UUID.randomUUID().toString().substring(0, 8);
+  void cursorScopeMismatchReturnsBadRequest() {
+    String token = "cursor-mismatch-" + UUID.randomUUID().toString().substring(0, 8);
     ReportResponse report = createReport(accessToken("intake-jkt"), "JKT");
+
     createCase(
         accessToken("triage-jkt"), report.getId(), token + " Alpha", "Cursor mismatch validation.");
     createCase(

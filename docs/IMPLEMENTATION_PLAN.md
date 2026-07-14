@@ -2,11 +2,11 @@
 
 ## Ordered tasks
 
-1. Start the first workflow orchestration slice after lifecycle rules are stable.
-2. Add storage-backed evidence intake with presigned upload and finalize flow.
-3. Introduce outbox and messaging foundation after case transitions are stable.
-4. Expand assignment and authorization to include assigned units, case classification, and conflict-of-interest checks.
-5. Add decision, sanction, and appeal aggregates so later-status prerequisites stop being policy-only placeholders.
+1. Add storage-backed evidence intake with presigned upload and finalize flow.
+2. Introduce outbox and messaging foundation after case transitions are stable.
+3. Expand assignment and authorization to include assigned units, case classification, and conflict-of-interest checks.
+4. Add sanction and appeal aggregates so later-status prerequisites stop being policy-only placeholders.
+5. Add reconciliation and operator tooling for domain-workflow mismatch handling.
 
 ## Dependencies
 
@@ -27,6 +27,11 @@
 - `POST /api/v1/cases/{caseId}/assignments` updates current assignment with optimistic locking and writes assignment audit.
 - `POST /api/v1/cases/{caseId}/transitions` enforces role-aware state transitions, optimistic locking, and append-only status history.
 - `GET /api/v1/cases/{caseId}/audit-events` returns audit events for authorized auditor or supervisor roles.
+- `POST /api/v1/cases` starts a correlated Camunda workflow instance and persists the correlation in `workflow_instance`.
+- `GET /api/v1/tasks` returns cursor-paged workflow tasks with quick search, targeted search, and whitelisted sort semantics.
+- `POST /api/v1/tasks/{taskId}/claim` enforces role-aware task claim semantics and returns `409` for conflicting claims.
+- `POST /api/v1/tasks/{taskId}/complete` advances the workflow path without double-applying domain side effects when duplicate completion requests arrive.
+- Workflow BPMN model contains the required triage, investigation, review, decision, and investigation escalation stages.
 - Liquibase migration creates the case lifecycle schema and concurrency-safe case number function on an empty database.
 - `GET /health` returns application and database health.
 - `POST /api/v1/reports` persists a report and returns `201` for an authorized intake officer.
@@ -40,4 +45,4 @@
 
 ## Current status
 
-The acceptance criteria above are implemented and locally verified through Maven commands and Testcontainers. OpenAPI-generated models are part of the build, report and case endpoints are protected by JWT bearer auth, optimistic locking is enforced for case mutations, and authorization is enforced centrally in the application layer with direct-assignment filtering for investigator reads.
+The acceptance criteria above are implemented and locally verified. Workflow correlation, embedded Camunda BPMN deployment, task list/claim/complete APIs, timer escalation audit, OpenAPI-generated models, JWT bearer auth, optimistic locking, and centralized authorization are all wired into the current slice and have passed compile, unit, workflow-focused integration, full integration, and full verify runs.

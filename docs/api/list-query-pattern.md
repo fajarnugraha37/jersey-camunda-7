@@ -1,6 +1,6 @@
 # List Query Pattern
 
-Semua endpoint list baru wajib mengikuti pattern query yang sama seperti `GET /api/v1/cases` dan `GET /api/v1/cases/{caseId}/audit-events`.
+Semua endpoint list baru wajib mengikuti pattern query yang sama seperti `GET /api/v1/cases`, `GET /api/v1/cases/{caseId}/audit-events`, dan `GET /api/v1/tasks`.
 
 ## Contract minimum
 
@@ -22,10 +22,12 @@ Semua endpoint list baru wajib mengikuti pattern query yang sama seperti `GET /a
 ## Production example
 
 Contoh real ada di [CaseMyBatisMapper.java](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/sentinel-persistence/src/main/java/com/sentinel/enforcement/persistence/casefile/CaseMyBatisMapper.java).
+Contoh orchestration-backed list yang tetap menjaga kontrak publik yang sama ada di [WorkflowTaskApplicationService.java](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/sentinel-application/src/main/java/com/sentinel/enforcement/application/workflow/WorkflowTaskApplicationService.java).
 
 - `findCasePage(...)` menunjukkan `if`, `choose`, `when`, `otherwise`, `trim`, `where`, dan `foreach`.
 - `findAuditEventsPage(...)` menunjukkan pattern yang sama untuk list endpoint kedua.
 - `updateCase(...)` menunjukkan penggunaan `set` di mapper update.
+- `WorkflowTaskApplicationService` menunjukkan bagaimana contract list yang sama tetap dipertahankan saat source data berasal dari workflow engine, bukan dari satu query MyBatis langsung.
 
 ## Canonical snippets
 
@@ -91,4 +93,5 @@ Contoh real ada di [CaseMyBatisMapper.java](/C:/Users/nugra/workspace/project/.j
 - Simpan query parsing di API layer, bukan string raw di service/repository.
 - Simpan `cursorScope()` di query object.
 - Simpan mapping SQL dinamis di MyBatis mapper dengan enum whitelist.
+- Jika source data bukan MyBatis langsung, tetap pertahankan contract publik yang sama: cursor opaque, whitelist field/sort, quick search lintas field yang eksplisit, dan validasi scope mismatch sebagai `400`.
 - Tambahkan test untuk quick search, targeted search, sort, dan cursor continuation.

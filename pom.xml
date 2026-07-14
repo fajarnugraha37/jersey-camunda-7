@@ -14,6 +14,7 @@
     <module>sentinel-application</module>
     <module>sentinel-api</module>
     <module>sentinel-persistence</module>
+    <module>sentinel-workflow</module>
     <module>sentinel-security</module>
     <module>sentinel-bootstrap</module>
     <module>sentinel-integration-tests</module>
@@ -28,6 +29,7 @@
     <mybatis.version>3.5.19</mybatis.version>
     <hikari.version>6.3.0</hikari.version>
     <liquibase.version>4.31.1</liquibase.version>
+    <camunda.version>7.24.0</camunda.version>
     <slf4j.version>2.0.16</slf4j.version>
     <logback.version>1.5.16</logback.version>
     <logstash.logback.version>8.0</logstash.logback.version>

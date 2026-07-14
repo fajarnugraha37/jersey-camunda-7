@@ -67,6 +67,8 @@ public final class RoleBasedAuthorizationService implements AuthorizationService
               "APPEAL_OFFICER",
               "SUPERVISOR");
       case READ_CASE_AUDIT -> Set.of("SUPERVISOR", "AUDITOR");
+      case LIST_TASKS, CLAIM_TASK, COMPLETE_TASK ->
+          Set.of("TRIAGE_OFFICER", "INVESTIGATOR", "CASE_REVIEWER", "DECISION_MAKER", "SUPERVISOR");
     };
   }
 

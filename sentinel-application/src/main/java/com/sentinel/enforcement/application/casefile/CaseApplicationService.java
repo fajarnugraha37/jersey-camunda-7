@@ -6,6 +6,8 @@ import com.sentinel.enforcement.application.security.ApplicationActor;
 import com.sentinel.enforcement.application.security.AuthorizationContext;
 import com.sentinel.enforcement.application.security.AuthorizationService;
 import com.sentinel.enforcement.application.security.Permission;
+import com.sentinel.enforcement.application.workflow.CaseWorkflowPort;
+import com.sentinel.enforcement.application.workflow.StartedWorkflowInstance;
 import com.sentinel.enforcement.domain.casefile.AuditEvent;
 import com.sentinel.enforcement.domain.casefile.CaseActionContext;
 import com.sentinel.enforcement.domain.casefile.CaseAssignment;
@@ -14,6 +16,7 @@ import com.sentinel.enforcement.domain.casefile.CaseStatus;
 import com.sentinel.enforcement.domain.casefile.CaseStatusHistoryEntry;
 import com.sentinel.enforcement.domain.report.Report;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -27,16 +30,22 @@ public final class CaseApplicationService {
   private final AuthorizationService authorizationService;
   private final CaseRepository caseRepository;
   private final ReportRepository reportRepository;
+  private final CaseWorkflowPort workflowPort;
+  private final Duration investigationEscalationDuration;
   private final Clock clock;
 
   public CaseApplicationService(
       AuthorizationService authorizationService,
       CaseRepository caseRepository,
       ReportRepository reportRepository,
+      CaseWorkflowPort workflowPort,
+      Duration investigationEscalationDuration,
       Clock clock) {
     this.authorizationService = authorizationService;
     this.caseRepository = caseRepository;
     this.reportRepository = reportRepository;
+    this.workflowPort = workflowPort;
+    this.investigationEscalationDuration = investigationEscalationDuration;
     this.clock = clock;
   }
 
@@ -54,15 +63,24 @@ public final class CaseApplicationService {
     String caseNumber =
         caseRepository.nextCaseNumber(
             report.jurisdictionCode(), now.atOffset(ZoneOffset.UTC).getYear());
+    UUID caseId = UUID.randomUUID();
     CaseRecord caseRecord =
         CaseRecord.create(
-            UUID.randomUUID(),
+            caseId,
             caseNumber,
             report.id(),
             command.title(),
             command.summary(),
             report.jurisdictionCode(),
             now,
+            actor.username());
+    StartedWorkflowInstance startedWorkflow =
+        workflowPort.startCaseWorkflow(
+            caseRecord.id(),
+            caseRecord.jurisdictionCode(),
+            caseRecord.caseNumber(),
+            caseRecord.title(),
+            investigationEscalationDuration,
             actor.username());
     CaseStatusHistoryEntry historyEntry =
         new CaseStatusHistoryEntry(
@@ -89,7 +107,17 @@ public final class CaseApplicationService {
             command.correlationId(),
             command.sourceIp(),
             now);
-    caseRepository.save(caseRecord, historyEntry, auditEvent);
+    try {
+      caseRepository.save(caseRecord, historyEntry, auditEvent);
+    } catch (RuntimeException exception) {
+      try {
+        workflowPort.cancelCaseWorkflow(
+            startedWorkflow.caseId(), "Compensating cancellation after case persistence failure.");
+      } catch (RuntimeException cancellationException) {
+        exception.addSuppressed(cancellationException);
+      }
+      throw exception;
+    }
     return caseRecord;
   }
 

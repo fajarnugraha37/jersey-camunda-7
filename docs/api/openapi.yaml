@@ -491,6 +491,183 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/tasks:
+    get:
+      operationId: listTasks
+      tags:
+        - tasks
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: cursor
+          required: false
+          schema:
+            type: string
+          description: Opaque cursor returned by the previous page for the same filter and sort scope.
+        - in: query
+          name: q
+          required: false
+          schema:
+            type: string
+          description: Quick search keyword matched across task name, task definition key, case number, case title, assignee, and jurisdiction fields.
+        - in: query
+          name: searchField
+          required: false
+          schema:
+            $ref: '#/components/schemas/WorkflowTaskSearchField'
+          description: Target a single searchable task field. Must be paired with `searchValue`.
+        - in: query
+          name: searchValue
+          required: false
+          schema:
+            type: string
+          description: Keyword used with `searchField` for single-field matching.
+        - in: query
+          name: caseId
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: assigneeUserId
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: state
+          required: false
+          schema:
+            $ref: '#/components/schemas/WorkflowTaskStateValue'
+        - in: query
+          name: sortBy
+          required: false
+          schema:
+            $ref: '#/components/schemas/WorkflowTaskSortBy'
+          description: Defaults to `CREATED_AT`.
+        - in: query
+          name: sortDirection
+          required: false
+          schema:
+            $ref: '#/components/schemas/SortDirection'
+          description: Defaults to `DESC`.
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: Workflow task page loaded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowTaskListResponse'
+        '400':
+          description: Invalid pagination request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to list tasks.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/tasks/{taskId}/claim:
+    post:
+      operationId: claimTask
+      tags:
+        - tasks
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: taskId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Workflow task claimed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowTaskResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to claim the task.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Workflow task not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Workflow task is already claimed or no longer claimable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/tasks/{taskId}/complete:
+    post:
+      operationId: completeTask
+      tags:
+        - tasks
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: taskId
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Workflow task completed or already completed by an earlier identical request.
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to complete the task.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Workflow task not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Workflow task cannot be completed in its current state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   securitySchemes:
     bearerAuth:
@@ -811,6 +988,83 @@ components:
         nextCursor:
           type: string
           nullable: true
+    WorkflowTaskResponse:
+      type: object
+      required:
+        - taskId
+        - name
+        - taskDefinitionKey
+        - processInstanceId
+        - caseId
+        - caseNumber
+        - caseTitle
+        - caseStatus
+        - jurisdictionCode
+        - createdAt
+        - state
+      properties:
+        taskId:
+          type: string
+        name:
+          type: string
+        taskDefinitionKey:
+          type: string
+        processInstanceId:
+          type: string
+        caseId:
+          type: string
+          format: uuid
+        caseNumber:
+          type: string
+        caseTitle:
+          type: string
+        caseStatus:
+          $ref: '#/components/schemas/CaseStatusValue'
+        jurisdictionCode:
+          type: string
+        assigneeUserId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        state:
+          $ref: '#/components/schemas/WorkflowTaskStateValue'
+    WorkflowTaskListResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowTaskResponse'
+        nextCursor:
+          type: string
+          nullable: true
+    WorkflowTaskSearchField:
+      type: string
+      enum:
+        - TASK_NAME
+        - TASK_DEFINITION_KEY
+        - CASE_NUMBER
+        - CASE_TITLE
+        - CASE_SUMMARY
+        - ASSIGNEE_USER_ID
+        - JURISDICTION_CODE
+    WorkflowTaskSortBy:
+      type: string
+      enum:
+        - CREATED_AT
+        - TASK_NAME
+        - CASE_NUMBER
+        - CASE_STATUS
+    WorkflowTaskStateValue:
+      type: string
+      enum:
+        - READY
+        - CLAIMED
+        - COMPLETED
     HealthResponse:
       type: object
       required:
