@@ -668,6 +668,149 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/workflow-reconciliation:
+    get:
+      operationId: listWorkflowReconciliationIssues
+      tags:
+        - workflow-reconciliation
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: cursor
+          required: false
+          schema:
+            type: string
+          description: Opaque cursor returned by the previous page for the same filter and sort scope.
+        - in: query
+          name: q
+          required: false
+          schema:
+            type: string
+          description: Quick search keyword matched across case number, case title, issue type, process instance id, and jurisdiction fields.
+        - in: query
+          name: searchField
+          required: false
+          schema:
+            $ref: '#/components/schemas/WorkflowReconciliationSearchField'
+          description: Target a single searchable reconciliation field. Must be paired with `searchValue`.
+        - in: query
+          name: searchValue
+          required: false
+          schema:
+            type: string
+          description: Keyword used with `searchField` for single-field matching.
+        - in: query
+          name: issueType
+          required: false
+          schema:
+            $ref: '#/components/schemas/WorkflowReconciliationIssueTypeValue'
+        - in: query
+          name: caseStatus
+          required: false
+          schema:
+            $ref: '#/components/schemas/CaseStatusValue'
+        - in: query
+          name: workflowCorrelationStatus
+          required: false
+          schema:
+            $ref: '#/components/schemas/WorkflowCorrelationStatusValue'
+        - in: query
+          name: sortBy
+          required: false
+          schema:
+            $ref: '#/components/schemas/WorkflowReconciliationSortBy'
+          description: Defaults to `CASE_UPDATED_AT`.
+        - in: query
+          name: sortDirection
+          required: false
+          schema:
+            $ref: '#/components/schemas/SortDirection'
+          description: Defaults to `DESC`.
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: Workflow reconciliation issues loaded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowReconciliationIssueListResponse'
+        '400':
+          description: Invalid pagination request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to inspect workflow reconciliation issues.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/workflow-reconciliation/{caseId}/actions:
+    post:
+      operationId: reconcileWorkflowCase
+      tags:
+        - workflow-reconciliation
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: caseId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReconcileWorkflowRequest'
+      responses:
+        '200':
+          description: Workflow reconciliation action completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowReconciliationActionResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to reconcile workflow state for the case.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Case not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Workflow mismatch cannot be auto-repaired in the current state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 components:
   securitySchemes:
     bearerAuth:
@@ -1065,6 +1208,145 @@ components:
         - READY
         - CLAIMED
         - COMPLETED
+    WorkflowReconciliationIssueResponse:
+      type: object
+      required:
+        - caseId
+        - caseNumber
+        - caseTitle
+        - caseStatus
+        - jurisdictionCode
+        - caseUpdatedAt
+        - issueType
+        - detail
+        - availableActions
+      properties:
+        caseId:
+          type: string
+          format: uuid
+        caseNumber:
+          type: string
+        caseTitle:
+          type: string
+        caseStatus:
+          $ref: '#/components/schemas/CaseStatusValue'
+        jurisdictionCode:
+          type: string
+        assigneeUserId:
+          type: string
+          nullable: true
+        caseUpdatedAt:
+          type: string
+          format: date-time
+        issueType:
+          $ref: '#/components/schemas/WorkflowReconciliationIssueTypeValue'
+        detail:
+          type: string
+        workflowCorrelationStatus:
+          $ref: '#/components/schemas/WorkflowCorrelationStatusValue'
+          nullable: true
+        correlationProcessInstanceId:
+          type: string
+          nullable: true
+        runtimeProcessInstanceId:
+          type: string
+          nullable: true
+        availableActions:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowReconciliationOperationValue'
+    WorkflowReconciliationIssueListResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowReconciliationIssueResponse'
+        nextCursor:
+          type: string
+          nullable: true
+    WorkflowReconciliationSearchField:
+      type: string
+      enum:
+        - CASE_NUMBER
+        - CASE_TITLE
+        - ISSUE_TYPE
+        - PROCESS_INSTANCE_ID
+        - JURISDICTION_CODE
+    WorkflowReconciliationSortBy:
+      type: string
+      enum:
+        - CASE_UPDATED_AT
+        - CASE_NUMBER
+        - CASE_STATUS
+        - ISSUE_TYPE
+        - CORRELATION_STATUS
+    WorkflowReconciliationIssueTypeValue:
+      type: string
+      enum:
+        - ACTIVE_RUNTIME_MISSING_CORRELATION
+        - ACTIVE_RUNTIME_CORRELATION_MISMATCH
+        - ACTIVE_CASE_WORKFLOW_NOT_RUNNING
+        - ACTIVE_CASE_CORRELATION_TERMINAL
+        - TERMINAL_CASE_RUNTIME_ACTIVE
+        - TERMINAL_CASE_CORRELATION_ACTIVE
+        - TERMINAL_CASE_MISSING_CORRELATION
+    WorkflowCorrelationStatusValue:
+      type: string
+      enum:
+        - ACTIVE
+        - COMPLETED
+        - CANCELLED
+    WorkflowReconciliationOperationValue:
+      type: string
+      enum:
+        - AUTO_REPAIR
+        - TERMINATE_RUNTIME
+    ReconcileWorkflowRequest:
+      type: object
+      required:
+        - action
+        - reason
+      properties:
+        action:
+          $ref: '#/components/schemas/WorkflowReconciliationOperationValue'
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+    WorkflowReconciliationActionResultValue:
+      type: string
+      enum:
+        - REPAIRED
+        - MANUAL_ACTION_REQUIRED
+    WorkflowReconciliationActionResponse:
+      type: object
+      required:
+        - caseId
+        - action
+        - result
+        - issueType
+        - detail
+      properties:
+        caseId:
+          type: string
+          format: uuid
+        action:
+          $ref: '#/components/schemas/WorkflowReconciliationOperationValue'
+        result:
+          $ref: '#/components/schemas/WorkflowReconciliationActionResultValue'
+        issueType:
+          $ref: '#/components/schemas/WorkflowReconciliationIssueTypeValue'
+        detail:
+          type: string
+        workflowCorrelationStatus:
+          $ref: '#/components/schemas/WorkflowCorrelationStatusValue'
+          nullable: true
+        processInstanceId:
+          type: string
+          nullable: true
     HealthResponse:
       type: object
       required:

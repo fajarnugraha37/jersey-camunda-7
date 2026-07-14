@@ -31,6 +31,8 @@
 - `GET /api/v1/tasks` returns cursor-paged workflow tasks with quick search, targeted search, and whitelisted sort semantics.
 - `POST /api/v1/tasks/{taskId}/claim` enforces role-aware task claim semantics and returns `409` for conflicting claims.
 - `POST /api/v1/tasks/{taskId}/complete` advances the workflow path without double-applying domain side effects when duplicate completion requests arrive.
+- `GET /api/v1/workflow-reconciliation` returns supervisor-visible workflow mismatch issues with cursor pagination, quick search, targeted search, and whitelisted sort semantics.
+- `POST /api/v1/workflow-reconciliation/{caseId}/actions` repairs missing workflow correlation rows from active runtime or historic workflow state, or terminates invalid active runtime instances for terminal cases.
 - Workflow BPMN model contains the required triage, investigation, review, decision, and investigation escalation stages.
 - Liquibase migration creates the case lifecycle schema and concurrency-safe case number function on an empty database.
 - `GET /health` returns application and database health.
@@ -45,4 +47,4 @@
 
 ## Current status
 
-The acceptance criteria above are implemented and locally verified. Workflow correlation, embedded Camunda BPMN deployment, task list/claim/complete APIs, timer escalation audit, OpenAPI-generated models, JWT bearer auth, optimistic locking, centralized authorization, explicit Camunda schema migration, and startup readiness checks are all wired into the current slice and have passed compile, unit, and focused workflow lifecycle integration runs.
+The acceptance criteria above are implemented and locally verified. Workflow correlation, embedded Camunda BPMN deployment, task list/claim/complete APIs, workflow reconciliation list/action APIs, timer escalation audit, OpenAPI-generated models, JWT bearer auth, optimistic locking, centralized authorization, explicit Camunda schema migration, and startup readiness checks are all wired into the current slice and have passed compile plus focused workflow integration runs with Testcontainers.

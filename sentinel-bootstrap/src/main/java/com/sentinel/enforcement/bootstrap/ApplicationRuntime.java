@@ -10,6 +10,7 @@ import com.sentinel.enforcement.api.error.CorrelationIdFilter;
 import com.sentinel.enforcement.api.error.GenericExceptionMapper;
 import com.sentinel.enforcement.api.error.ReportNotFoundExceptionMapper;
 import com.sentinel.enforcement.api.error.UnauthenticatedExceptionMapper;
+import com.sentinel.enforcement.api.error.WorkflowReconciliationConflictExceptionMapper;
 import com.sentinel.enforcement.api.error.WorkflowTaskConflictExceptionMapper;
 import com.sentinel.enforcement.api.error.WorkflowTaskNotFoundExceptionMapper;
 import com.sentinel.enforcement.api.health.HealthResource;
@@ -17,16 +18,19 @@ import com.sentinel.enforcement.api.json.ObjectMapperContextResolver;
 import com.sentinel.enforcement.api.report.ReportResource;
 import com.sentinel.enforcement.api.security.BearerAuthenticationFilter;
 import com.sentinel.enforcement.api.workflow.TaskResource;
+import com.sentinel.enforcement.api.workflow.WorkflowReconciliationResource;
 import com.sentinel.enforcement.application.casefile.CaseApplicationService;
 import com.sentinel.enforcement.application.health.HealthStatusService;
 import com.sentinel.enforcement.application.report.ReportApplicationService;
 import com.sentinel.enforcement.application.security.AuthorizationService;
 import com.sentinel.enforcement.application.security.TokenVerifier;
+import com.sentinel.enforcement.application.workflow.WorkflowReconciliationApplicationService;
 import com.sentinel.enforcement.application.workflow.WorkflowTaskApplicationService;
 import com.sentinel.enforcement.persistence.PersistenceModule;
 import com.sentinel.enforcement.persistence.casefile.CaseRepositoryMyBatisAdapter;
 import com.sentinel.enforcement.persistence.report.ReportRepositoryMyBatisAdapter;
 import com.sentinel.enforcement.persistence.workflow.WorkflowInstanceMyBatisAdapter;
+import com.sentinel.enforcement.persistence.workflow.WorkflowReconciliationMyBatisAdapter;
 import com.sentinel.enforcement.security.KeycloakSecurityConfiguration;
 import com.sentinel.enforcement.security.KeycloakTokenVerifier;
 import com.sentinel.enforcement.security.RoleBasedAuthorizationService;
@@ -77,6 +81,8 @@ public final class ApplicationRuntime implements AutoCloseable {
           new ReportRepositoryMyBatisAdapter(sqlSessionFactory);
       WorkflowInstanceMyBatisAdapter workflowInstanceStore =
           new WorkflowInstanceMyBatisAdapter(sqlSessionFactory);
+      WorkflowReconciliationMyBatisAdapter workflowReconciliationQueryPort =
+          new WorkflowReconciliationMyBatisAdapter(sqlSessionFactory);
       workflowRuntime =
           WorkflowModule.start(
               dataSource,
@@ -107,6 +113,14 @@ public final class ApplicationRuntime implements AutoCloseable {
               caseRepository,
               caseApplicationService,
               workflowRuntime.caseWorkflowPort());
+      WorkflowReconciliationApplicationService workflowReconciliationApplicationService =
+          new WorkflowReconciliationApplicationService(
+              authorizationService,
+              workflowReconciliationQueryPort,
+              workflowRuntime.workflowAdministrationPort(),
+              workflowInstanceStore,
+              caseRepository,
+              clock);
       HealthStatusService healthStatusService =
           new WorkflowAwareHealthStatusService(
               new DatabaseHealthService(dataSource, clock), workflowRuntime, clock);
@@ -118,6 +132,7 @@ public final class ApplicationRuntime implements AutoCloseable {
                       healthStatusService,
                       caseApplicationService,
                       workflowTaskApplicationService,
+                      workflowReconciliationApplicationService,
                       reportApplicationService,
                       authorizationService,
                       tokenVerifier))
@@ -132,6 +147,7 @@ public final class ApplicationRuntime implements AutoCloseable {
               .register(CaseConflictExceptionMapper.class)
               .register(CaseNotFoundExceptionMapper.class)
               .register(ReportNotFoundExceptionMapper.class)
+              .register(WorkflowReconciliationConflictExceptionMapper.class)
               .register(WorkflowTaskConflictExceptionMapper.class)
               .register(WorkflowTaskNotFoundExceptionMapper.class)
               .register(GenericExceptionMapper.class)
@@ -139,6 +155,7 @@ public final class ApplicationRuntime implements AutoCloseable {
               .register(CaseResource.class)
               .register(ReportResource.class)
               .register(TaskResource.class)
+              .register(WorkflowReconciliationResource.class)
               .property(ServerProperties.WADL_FEATURE_DISABLE, true);
 
       HttpServer server =

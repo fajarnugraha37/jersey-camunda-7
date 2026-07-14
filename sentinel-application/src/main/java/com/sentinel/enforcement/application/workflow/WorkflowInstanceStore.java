@@ -6,6 +6,8 @@ import java.util.UUID;
 
 public interface WorkflowInstanceStore {
 
+  void upsert(WorkflowInstanceCorrelation workflowInstanceCorrelation, Instant now);
+
   void saveStarted(StartedWorkflowInstance startedWorkflowInstance, Instant now);
 
   Optional<WorkflowInstanceCorrelation> findByCaseId(UUID caseId);

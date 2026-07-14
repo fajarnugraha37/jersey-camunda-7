@@ -1,6 +1,6 @@
 # Sentinel Enforcement Platform
 
-Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory enforcement dan complex case management. Fokus increment saat ini sudah mencakup foundation, authentication/authorization, Phase 3 case lifecycle vertical slice, dan Phase 4 workflow orchestration slice berbasis embedded Camunda 7 dengan task API, workflow correlation, timer escalation, optimistic locking, status history, assignment history, dan audit foundation.
+Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory enforcement dan complex case management. Fokus increment saat ini sudah mencakup foundation, authentication/authorization, Phase 3 case lifecycle vertical slice, Phase 4 workflow orchestration slice berbasis embedded Camunda 7, dan Phase 5 workflow reconciliation/operator tooling dengan task API, workflow correlation, mismatch detection, timer escalation, optimistic locking, status history, assignment history, dan audit foundation.
 
 ## Architecture Overview
 
@@ -84,8 +84,10 @@ Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory
 - `GET /api/v1/tasks`
 - `POST /api/v1/tasks/{taskId}/claim`
 - `POST /api/v1/tasks/{taskId}/complete`
+- `GET /api/v1/workflow-reconciliation`
+- `POST /api/v1/workflow-reconciliation/{caseId}/actions`
 
-`/health` tetap public. Endpoint report, case, dan workflow task memerlukan bearer JWT dari Keycloak dan menerapkan authorization berbasis role, jurisdiction, dan direct assignment untuk actor investigator-only.
+`/health` tetap public. Endpoint report, case, dan workflow task memerlukan bearer JWT dari Keycloak dan menerapkan authorization berbasis role, jurisdiction, dan direct assignment untuk actor investigator-only. Endpoint workflow reconciliation dibatasi ke actor `SUPERVISOR` atau `SYSTEM_ADMIN`, lalu tetap difilter oleh jurisdiction actor.
 
 Spesifikasi kontrak saat ini ada di [docs/api/openapi.yaml](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/api/openapi.yaml).
 Generated request/response model untuk layer API dibangun dari spec tersebut pada phase `generate-sources`.
@@ -129,6 +131,7 @@ Untuk local Compose:
   - happy path case lifecycle from create through close
   - investigator visibility filtered to directly assigned cases
   - workflow task query, claim, completion, cursor, search, sort, and duplicate-completion safety
+  - workflow reconciliation query, cursor, search, sort, authorization, auto-repair from runtime/history, and invalid-runtime termination
   - `409` invalid transition
   - `409` stale optimistic-lock version
   - `401` tanpa bearer token
@@ -145,3 +148,4 @@ Untuk local Compose:
 - Jika integration test gagal karena Docker, pastikan Docker Desktop aktif.
 - Jika migration gagal, cek changelog di `sentinel-persistence/src/main/resources/db/changelog`.
 - Jika workflow task tidak muncul, cek `workflow_instance` table, log startup BPMN deployment, dan pastikan case dibuat lewat API sehingga workflow otomatis dimulai.
+- Jika domain state dan workflow state terlihat tidak sinkron, gunakan runbook [docs/runbooks/domain-workflow-mismatch-reconciliation.md](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/runbooks/domain-workflow-mismatch-reconciliation.md) dan investigasi lewat endpoint `GET /api/v1/workflow-reconciliation` sebelum melakukan aksi remediasi.

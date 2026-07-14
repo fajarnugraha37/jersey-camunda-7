@@ -203,6 +203,42 @@ abstract class AbstractApiIT {
     }
   }
 
+  protected static int executeUpdate(String sql, Object... parameters) {
+    try (Connection connection =
+            DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+        PreparedStatement statement = connection.prepareStatement(sql)) {
+      bindParameters(statement, parameters);
+      return statement.executeUpdate();
+    } catch (Exception exception) {
+      throw new IllegalStateException("Failed to execute SQL update.", exception);
+    }
+  }
+
+  protected static String queryForString(String sql, Object... parameters) {
+    try (Connection connection =
+            DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+        PreparedStatement statement = connection.prepareStatement(sql)) {
+      bindParameters(statement, parameters);
+      try (ResultSet resultSet = statement.executeQuery()) {
+        if (!resultSet.next()) {
+          return null;
+        }
+        return resultSet.getString(1);
+      }
+    } catch (Exception exception) {
+      throw new IllegalStateException("Failed to execute SQL query.", exception);
+    }
+  }
+
+  private static void bindParameters(PreparedStatement statement, Object... parameters)
+      throws Exception {
+    for (int index = 0; index < parameters.length; index++) {
+      statement.setObject(index + 1, parameters[index]);
+    }
+  }
+
   protected static String keycloakBaseUrl() {
     return "http://127.0.0.1:" + KEYCLOAK.getMappedPort(8080);
   }

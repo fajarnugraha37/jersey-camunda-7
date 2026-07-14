@@ -42,6 +42,37 @@ public interface WorkflowInstanceMyBatisMapper {
       """)
   int upsertStartedWorkflow(WorkflowInstanceData workflowInstanceData);
 
+  @Insert(
+      """
+      INSERT INTO workflow_instance (
+          case_id,
+          process_instance_id,
+          process_definition_id,
+          process_definition_version,
+          business_key,
+          status,
+          created_at,
+          updated_at
+      ) VALUES (
+          #{caseId},
+          #{processInstanceId},
+          #{processDefinitionId},
+          #{processDefinitionVersion},
+          #{businessKey},
+          #{status},
+          #{createdAt},
+          #{updatedAt}
+      )
+      ON CONFLICT (case_id) DO UPDATE
+      SET process_instance_id = EXCLUDED.process_instance_id,
+          process_definition_id = EXCLUDED.process_definition_id,
+          process_definition_version = EXCLUDED.process_definition_version,
+          business_key = EXCLUDED.business_key,
+          status = EXCLUDED.status,
+          updated_at = EXCLUDED.updated_at
+      """)
+  int upsertWorkflowInstance(WorkflowInstanceData workflowInstanceData);
+
   @Select(
       """
       SELECT

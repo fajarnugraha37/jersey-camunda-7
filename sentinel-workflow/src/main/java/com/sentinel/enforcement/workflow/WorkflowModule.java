@@ -48,9 +48,12 @@ public final class WorkflowModule {
     CamundaCaseWorkflowAdapter workflowAdapter =
         new CamundaCaseWorkflowAdapter(
             camundaServices, workflowInstanceStore, caseRepository, clock);
+    CamundaWorkflowAdministrationAdapter workflowAdministrationAdapter =
+        new CamundaWorkflowAdministrationAdapter(camundaServices);
     return new WorkflowRuntime(
         processEngineProvider,
         workflowAdapter,
+        workflowAdministrationAdapter,
         new WorkflowReadinessProbe(processEngineProvider, camundaServices, PROCESS_DEFINITION_KEY));
   }
 }

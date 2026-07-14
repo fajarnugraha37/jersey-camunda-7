@@ -2,7 +2,7 @@
 
 ## Current phase
 
-Phase 4 workflow orchestration implemented and verified.
+Phase 5 workflow reconciliation and operator tooling implemented and verified.
 
 ## Completed capabilities
 
@@ -23,9 +23,11 @@ Phase 4 workflow orchestration implemented and verified.
 - Case persistence implemented with `case_record`, `case_assignment`, `case_status_history`, `audit_event`, and concurrency-safe `generate_case_number`.
 - Case API implemented for create/get/list/assign/transition/audit operations.
 - Workflow task API implemented for list, claim, and complete operations with cursor pagination, quick search, targeted search, and sort whitelisting.
+- Workflow reconciliation API implemented for mismatch listing and operator remediation with `AUTO_REPAIR` and `TERMINATE_RUNTIME` actions.
 - Investigator list visibility now filters to directly assigned cases; direct case read also enforces assignment on investigator-only actors.
 - Case creation now starts the `regulatoryEnforcementCase` workflow and persists correlation in `workflow_instance`.
 - Investigation task escalation is modeled with a non-interrupting boundary timer and writes deterministic audit evidence through an idempotent delegate path.
+- Workflow remediation now persists correlation repairs back through MyBatis, queries active/historic Camunda state through dedicated workflow ports, and writes append-only `WorkflowReconciliationPerformed` audit evidence.
 - Workflow readiness is now part of the health decision, so the app will not report healthy when the embedded process engine is unavailable or the required process definition is missing.
 - Unit and integration tests implemented and locally verified with Maven and Testcontainers.
 - Docker Compose runtime now includes PostgreSQL, Keycloak, and the application container.
@@ -53,6 +55,8 @@ Phase 4 workflow orchestration implemented and verified.
 - `mvn -q -DskipTests compile` completed successfully.
 - `mvn -q test` completed successfully.
 - `mvn -q -pl sentinel-integration-tests -am "-Dit.test=WorkflowTaskApiIT" verify` completed successfully.
+- `mvn -q -pl sentinel-integration-tests -am "-Dit.test=WorkflowReconciliationApiIT" verify` completed successfully.
+- `mvn -q -pl sentinel-integration-tests -am "-Dit.test=WorkflowTaskApiIT,WorkflowReconciliationApiIT" verify` completed successfully.
 - `mvn -q -pl sentinel-integration-tests -am "-Dit.test=ApplicationRuntimeSchemaLifecycleIT,WorkflowTaskApiIT" verify` completed successfully.
 - `make workflow-test` completed successfully after fixing the multi-module Surefire pattern issue in `bpmn-validate`.
 - `make bpmn-validate` completed successfully.
@@ -61,7 +65,7 @@ Phase 4 workflow orchestration implemented and verified.
 - `mvn -q -pl sentinel-integration-tests -am verify` completed successfully.
 - `mvn -q verify` completed successfully.
 - `mvn -q -pl sentinel-api -am generate-sources` completed successfully and produced compile-consumed generated models.
-- Integration verification now covers `GET /health`, report endpoints, case lifecycle happy path, investigator visibility filtering, workflow task list/claim/complete flows, and `409` conflict envelopes for invalid transition and stale version scenarios.
+- Integration verification now covers `GET /health`, report endpoints, case lifecycle happy path, investigator visibility filtering, workflow task list/claim/complete flows, workflow mismatch listing/remediation flows, and `409` conflict envelopes for invalid transition and stale version scenarios.
 - Liquibase duplicate changelog detection is now fail-fast via `ERROR`, and the integration-test classpath no longer carries the duplicate persistence changelog source.
 
 ## Infrastructure status
@@ -71,4 +75,4 @@ Phase 4 workflow orchestration implemented and verified.
 
 ## Next recommended task
 
-Move into the next vertical slice after workflow: add storage-backed evidence intake with presigned upload/finalize flow while preserving database-owned business state and idempotent external-side-effect handling.
+Move into the next vertical slice after workflow reconciliation: add storage-backed evidence intake with presigned upload/finalize flow while preserving database-owned business state and idempotent external-side-effect handling.

@@ -89,7 +89,8 @@ final class CamundaCaseWorkflowAdapter implements CaseWorkflowPort {
 
   @Override
   public void cancelCaseWorkflow(UUID caseId, String reason) {
-    Optional<WorkflowInstanceCorrelation> workflowInstance = workflowInstanceStore.findByCaseId(caseId);
+    Optional<WorkflowInstanceCorrelation> workflowInstance =
+        workflowInstanceStore.findByCaseId(caseId);
     String processInstanceId =
         workflowInstance
             .map(WorkflowInstanceCorrelation::processInstanceId)

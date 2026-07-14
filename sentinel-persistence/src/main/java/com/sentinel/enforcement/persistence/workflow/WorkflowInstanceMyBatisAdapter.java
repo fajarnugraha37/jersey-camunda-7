@@ -18,6 +18,16 @@ public final class WorkflowInstanceMyBatisAdapter implements WorkflowInstanceSto
   }
 
   @Override
+  public void upsert(WorkflowInstanceCorrelation workflowInstanceCorrelation, Instant now) {
+    try (SqlSession session = sqlSessionFactory.openSession(false)) {
+      session
+          .getMapper(WorkflowInstanceMyBatisMapper.class)
+          .upsertWorkflowInstance(toData(workflowInstanceCorrelation, now));
+      session.commit();
+    }
+  }
+
+  @Override
   public void saveStarted(StartedWorkflowInstance startedWorkflowInstance, Instant now) {
     try (SqlSession session = sqlSessionFactory.openSession(false)) {
       session
@@ -56,7 +66,8 @@ public final class WorkflowInstanceMyBatisAdapter implements WorkflowInstanceSto
     }
   }
 
-  private WorkflowInstanceData toData(StartedWorkflowInstance startedWorkflowInstance, Instant now) {
+  private WorkflowInstanceData toData(
+      StartedWorkflowInstance startedWorkflowInstance, Instant now) {
     return new WorkflowInstanceData(
         startedWorkflowInstance.caseId(),
         startedWorkflowInstance.processInstanceId(),
@@ -64,6 +75,19 @@ public final class WorkflowInstanceMyBatisAdapter implements WorkflowInstanceSto
         startedWorkflowInstance.processDefinitionVersion(),
         startedWorkflowInstance.businessKey(),
         "ACTIVE",
+        now.atOffset(ZoneOffset.UTC),
+        now.atOffset(ZoneOffset.UTC));
+  }
+
+  private WorkflowInstanceData toData(
+      WorkflowInstanceCorrelation workflowInstanceCorrelation, Instant now) {
+    return new WorkflowInstanceData(
+        workflowInstanceCorrelation.caseId(),
+        workflowInstanceCorrelation.processInstanceId(),
+        workflowInstanceCorrelation.processDefinitionId(),
+        workflowInstanceCorrelation.processDefinitionVersion(),
+        workflowInstanceCorrelation.businessKey(),
+        workflowInstanceCorrelation.status(),
         now.atOffset(ZoneOffset.UTC),
         now.atOffset(ZoneOffset.UTC));
   }
