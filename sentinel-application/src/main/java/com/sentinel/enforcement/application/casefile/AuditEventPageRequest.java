@@ -1,37 +1,31 @@
 package com.sentinel.enforcement.application.casefile;
 
-import com.sentinel.enforcement.domain.casefile.CaseStatus;
-import java.util.Set;
 import java.util.UUID;
 
-public record CasePageRequest(
-    Set<String> jurisdictionCodes,
-    String restrictedAssigneeUserId,
-    String requestedAssigneeUserId,
+public record AuditEventPageRequest(
+    UUID caseId,
     String cursorValue,
     UUID cursorId,
     String quickSearch,
-    CaseListSearchField searchField,
+    AuditEventListSearchField searchField,
     String searchValue,
-    CaseStatus status,
-    String assignedUnitId,
-    String createdBy,
-    UUID reportId,
-    CaseListSortBy sortBy,
+    String actorId,
+    String eventType,
+    String action,
+    String result,
+    AuditEventListSortBy sortBy,
     SortDirection sortDirection,
     int limitPlusOne) {
 
-  public CasePageRequest {
-    jurisdictionCodes = Set.copyOf(jurisdictionCodes);
-    cursorValue = normalize(cursorValue);
+  public AuditEventPageRequest {
     quickSearch = normalize(quickSearch);
     searchValue = normalize(searchValue);
-    restrictedAssigneeUserId = normalize(restrictedAssigneeUserId);
-    requestedAssigneeUserId = normalize(requestedAssigneeUserId);
-    assignedUnitId = normalize(assignedUnitId);
-    createdBy = normalize(createdBy);
-    if (jurisdictionCodes.isEmpty()) {
-      throw new IllegalArgumentException("jurisdictionCodes must not be empty");
+    actorId = normalize(actorId);
+    eventType = normalize(eventType);
+    action = normalize(action);
+    result = normalize(result);
+    if (caseId == null) {
+      throw new IllegalArgumentException("caseId must not be null");
     }
     if ((cursorValue == null) != (cursorId == null)) {
       throw new IllegalArgumentException("cursorValue and cursorId must both be present");

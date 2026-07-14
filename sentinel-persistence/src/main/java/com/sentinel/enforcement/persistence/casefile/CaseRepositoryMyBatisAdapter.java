@@ -1,5 +1,7 @@
 package com.sentinel.enforcement.persistence.casefile;
 
+import com.sentinel.enforcement.application.casefile.AuditEventListSortBy;
+import com.sentinel.enforcement.application.casefile.AuditEventPageRequest;
 import com.sentinel.enforcement.application.casefile.CasePageRequest;
 import com.sentinel.enforcement.application.casefile.CaseRepository;
 import com.sentinel.enforcement.domain.casefile.AuditEvent;
@@ -8,8 +10,11 @@ import com.sentinel.enforcement.domain.casefile.CaseConflictException;
 import com.sentinel.enforcement.domain.casefile.CaseRecord;
 import com.sentinel.enforcement.domain.casefile.CaseStatus;
 import com.sentinel.enforcement.domain.casefile.CaseStatusHistoryEntry;
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -59,10 +64,19 @@ public final class CaseRepositoryMyBatisAdapter implements CaseRepository {
       CasePageQueryData queryData =
           new CasePageQueryData(
               pageRequest.jurisdictionCodes(),
-              pageRequest.assigneeUserId(),
-              pageRequest.cursorCreatedAt() == null
-                  ? null
-                  : pageRequest.cursorCreatedAt().atOffset(ZoneOffset.UTC),
+              pageRequest.restrictedAssigneeUserId(),
+              pageRequest.requestedAssigneeUserId(),
+              toContainsPattern(pageRequest.quickSearch()),
+              pageRequest.searchField() == null ? null : pageRequest.searchField().name(),
+              toContainsPattern(pageRequest.searchValue()),
+              pageRequest.status() == null ? null : pageRequest.status().name(),
+              pageRequest.assignedUnitId(),
+              pageRequest.createdBy(),
+              pageRequest.reportId(),
+              pageRequest.sortBy().name(),
+              pageRequest.sortDirection().name(),
+              toCursorTimestamp(pageRequest.cursorValue(), pageRequest.sortBy()),
+              toCursorText(pageRequest.cursorValue(), pageRequest.sortBy()),
               pageRequest.cursorId(),
               pageRequest.limitPlusOne());
       return session.getMapper(CaseMyBatisMapper.class).findCasePage(queryData).stream()
@@ -107,9 +121,25 @@ public final class CaseRepositoryMyBatisAdapter implements CaseRepository {
   }
 
   @Override
-  public List<AuditEvent> findAuditEvents(UUID caseId, int limit) {
+  public List<AuditEvent> findAuditEventsPage(AuditEventPageRequest pageRequest) {
     try (SqlSession session = sqlSessionFactory.openSession()) {
-      return session.getMapper(CaseMyBatisMapper.class).findAuditEvents(caseId, limit).stream()
+      AuditEventPageQueryData queryData =
+          new AuditEventPageQueryData(
+              pageRequest.caseId(),
+              toContainsPattern(pageRequest.quickSearch()),
+              pageRequest.searchField() == null ? null : pageRequest.searchField().name(),
+              toContainsPattern(pageRequest.searchValue()),
+              pageRequest.actorId(),
+              pageRequest.eventType(),
+              pageRequest.action(),
+              pageRequest.result(),
+              pageRequest.sortBy().name(),
+              pageRequest.sortDirection().name(),
+              toCursorTimestamp(pageRequest.cursorValue(), pageRequest.sortBy()),
+              toCursorText(pageRequest.cursorValue(), pageRequest.sortBy()),
+              pageRequest.cursorId(),
+              pageRequest.limitPlusOne());
+      return session.getMapper(CaseMyBatisMapper.class).findAuditEventsPage(queryData).stream()
           .map(this::toAuditDomain)
           .collect(Collectors.toList());
     }
@@ -220,5 +250,39 @@ public final class CaseRepositoryMyBatisAdapter implements CaseRepository {
         auditEventData.beforeSummary(),
         auditEventData.afterSummary(),
         auditEventData.metadata());
+  }
+
+  private String toContainsPattern(String value) {
+    return value == null ? null : "%" + value.toLowerCase(Locale.ROOT) + "%";
+  }
+
+  private OffsetDateTime toCursorTimestamp(
+      String cursorValue, com.sentinel.enforcement.application.casefile.CaseListSortBy sortBy) {
+    if (cursorValue == null || !sortBy.isTimestampBased()) {
+      return null;
+    }
+    return Instant.parse(cursorValue).atOffset(ZoneOffset.UTC);
+  }
+
+  private String toCursorText(
+      String cursorValue, com.sentinel.enforcement.application.casefile.CaseListSortBy sortBy) {
+    if (cursorValue == null || sortBy.isTimestampBased()) {
+      return null;
+    }
+    return cursorValue.toLowerCase(Locale.ROOT);
+  }
+
+  private OffsetDateTime toCursorTimestamp(String cursorValue, AuditEventListSortBy sortBy) {
+    if (cursorValue == null || !sortBy.isTimestampBased()) {
+      return null;
+    }
+    return Instant.parse(cursorValue).atOffset(ZoneOffset.UTC);
+  }
+
+  private String toCursorText(String cursorValue, AuditEventListSortBy sortBy) {
+    if (cursorValue == null || sortBy.isTimestampBased()) {
+      return null;
+    }
+    return cursorValue.toLowerCase(Locale.ROOT);
   }
 }

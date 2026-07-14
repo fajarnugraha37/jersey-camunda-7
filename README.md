@@ -85,6 +85,8 @@ Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory
 Spesifikasi kontrak saat ini ada di [docs/api/openapi.yaml](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/api/openapi.yaml).
 Generated request/response model untuk layer API dibangun dari spec tersebut pada phase `generate-sources`.
 
+Pattern wajib untuk endpoint list ada di [docs/api/list-query-pattern.md](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/api/list-query-pattern.md). Semua list API baru harus mengikuti kombinasi `cursor`, `limit`, `q`, `searchField/searchValue`, dan enum-based `sortBy/sortDirection` dengan MyBatis dynamic SQL yang aman.
+
 ## Default Runtime Configuration
 
 Konfigurasi default untuk local development ada di `.env.example`. Credential di sana adalah dummy local-only credential dan tidak untuk production.

@@ -3,12 +3,11 @@ package com.sentinel.enforcement.api.casefile;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.sentinel.enforcement.application.casefile.CaseListSearchField;
-import com.sentinel.enforcement.application.casefile.CaseListSortBy;
-import com.sentinel.enforcement.application.casefile.CasePage;
-import com.sentinel.enforcement.application.casefile.ListCasesQuery;
+import com.sentinel.enforcement.application.casefile.AuditEventListSearchField;
+import com.sentinel.enforcement.application.casefile.AuditEventListSortBy;
+import com.sentinel.enforcement.application.casefile.AuditEventPage;
+import com.sentinel.enforcement.application.casefile.ListCaseAuditEventsQuery;
 import com.sentinel.enforcement.application.casefile.SortDirection;
-import com.sentinel.enforcement.domain.casefile.CaseStatus;
 import jakarta.ws.rs.BadRequestException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -17,39 +16,36 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
 
-final class CaseCursorCodec {
+final class AuditCursorCodec {
   private static final ObjectMapper OBJECT_MAPPER =
       new ObjectMapper().registerModule(new JavaTimeModule());
 
-  private CaseCursorCodec() {}
+  private AuditCursorCodec() {}
 
-  static ListCasesQuery decode(
+  static ListCaseAuditEventsQuery decode(
       String cursor,
       int limit,
       String quickSearch,
       String searchField,
       String searchValue,
-      String status,
-      String assignedUnitId,
-      String assigneeUserId,
-      String createdBy,
-      String reportId,
+      String actorId,
+      String eventType,
+      String action,
+      String result,
       String sortBy,
       String sortDirection) {
-    CaseListSearchField parsedSearchField =
-        parseEnum(searchField, CaseListSearchField.class, "searchField");
-    CaseStatus parsedStatus = parseEnum(status, CaseStatus.class, "status");
-    CaseListSortBy parsedSortBy =
+    AuditEventListSearchField parsedSearchField =
+        parseEnum(searchField, AuditEventListSearchField.class, "searchField");
+    AuditEventListSortBy parsedSortBy =
         sortBy == null || sortBy.isBlank()
-            ? CaseListSortBy.CREATED_AT
-            : parseEnum(sortBy, CaseListSortBy.class, "sortBy");
+            ? AuditEventListSortBy.TIMESTAMP
+            : parseEnum(sortBy, AuditEventListSortBy.class, "sortBy");
     SortDirection parsedSortDirection =
         sortDirection == null || sortDirection.isBlank()
             ? SortDirection.DESC
             : parseEnum(sortDirection, SortDirection.class, "sortDirection");
-    UUID parsedReportId = parseUuid(reportId, "reportId");
 
-    CursorAwareListCasesQuery query =
+    CursorAwareAuditQuery query =
         newQuery(
             null,
             null,
@@ -57,11 +53,10 @@ final class CaseCursorCodec {
             quickSearch,
             parsedSearchField,
             searchValue,
-            parsedStatus,
-            assignedUnitId,
-            assigneeUserId,
-            createdBy,
-            parsedReportId,
+            actorId,
+            eventType,
+            action,
+            result,
             parsedSortBy,
             parsedSortDirection);
     if (cursor == null || cursor.isBlank()) {
@@ -82,18 +77,17 @@ final class CaseCursorCodec {
             quickSearch,
             parsedSearchField,
             searchValue,
-            parsedStatus,
-            assignedUnitId,
-            assigneeUserId,
-            createdBy,
-            parsedReportId,
+            actorId,
+            eventType,
+            action,
+            result,
             parsedSortBy,
             parsedSortDirection)
         .toQuery();
   }
 
-  static String encode(CasePage casePage, ListCasesQuery query) {
-    if (!casePage.hasNextPage()) {
+  static String encode(AuditEventPage page, ListCaseAuditEventsQuery query) {
+    if (!page.hasNextPage()) {
       return null;
     }
     CursorPayload payload =
@@ -101,15 +95,27 @@ final class CaseCursorCodec {
             query.sortBy().name(),
             query.sortDirection().name(),
             query.cursorScope(),
-            casePage.nextCursorValue(),
-            casePage.nextCursorId());
+            page.nextCursorValue(),
+            page.nextCursorId());
     try {
       String json = OBJECT_MAPPER.writeValueAsString(payload);
       return Base64.getUrlEncoder()
           .withoutPadding()
           .encodeToString(json.getBytes(StandardCharsets.UTF_8));
     } catch (JsonProcessingException exception) {
-      throw new IllegalStateException("Failed to encode case cursor.", exception);
+      throw new IllegalStateException("Failed to encode audit cursor.", exception);
+    }
+  }
+
+  private static void validateCursorValue(String cursorValue, AuditEventListSortBy sortBy) {
+    try {
+      if (sortBy.isTimestampBased()) {
+        Instant.parse(cursorValue);
+      } else if (cursorValue == null || cursorValue.isBlank()) {
+        throw new IllegalArgumentException("Cursor value must not be blank.");
+      }
+    } catch (RuntimeException exception) {
+      throw new BadRequestException("Cursor is invalid.", exception);
     }
   }
 
@@ -118,18 +124,6 @@ final class CaseCursorCodec {
       String decoded = new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8);
       return OBJECT_MAPPER.readValue(decoded, CursorPayload.class);
     } catch (RuntimeException | JsonProcessingException exception) {
-      throw new BadRequestException("Cursor is invalid.", exception);
-    }
-  }
-
-  private static void validateCursorValue(String cursorValue, CaseListSortBy sortBy) {
-    try {
-      if (sortBy.isTimestampBased()) {
-        Instant.parse(cursorValue);
-      } else if (cursorValue == null || cursorValue.isBlank()) {
-        throw new IllegalArgumentException("Cursor value must not be blank.");
-      }
-    } catch (RuntimeException exception) {
       throw new BadRequestException("Cursor is invalid.", exception);
     }
   }
@@ -146,44 +140,31 @@ final class CaseCursorCodec {
     }
   }
 
-  private static UUID parseUuid(String value, String fieldName) {
-    if (value == null || value.isBlank()) {
-      return null;
-    }
-    try {
-      return UUID.fromString(value.trim());
-    } catch (IllegalArgumentException exception) {
-      throw new BadRequestException(fieldName + " must be a UUID.", exception);
-    }
-  }
-
-  private static CursorAwareListCasesQuery newQuery(
+  private static CursorAwareAuditQuery newQuery(
       String cursorValue,
       UUID cursorId,
       int limit,
       String quickSearch,
-      CaseListSearchField searchField,
+      AuditEventListSearchField searchField,
       String searchValue,
-      CaseStatus status,
-      String assignedUnitId,
-      String assigneeUserId,
-      String createdBy,
-      UUID reportId,
-      CaseListSortBy sortBy,
+      String actorId,
+      String eventType,
+      String action,
+      String result,
+      AuditEventListSortBy sortBy,
       SortDirection sortDirection) {
     try {
-      return new CursorAwareListCasesQuery(
+      return new CursorAwareAuditQuery(
           cursorValue,
           cursorId,
           limit,
           quickSearch,
           searchField,
           searchValue,
-          status,
-          assignedUnitId,
-          assigneeUserId,
-          createdBy,
-          reportId,
+          actorId,
+          eventType,
+          action,
+          result,
           sortBy,
           sortDirection);
     } catch (IllegalArgumentException exception) {
@@ -194,34 +175,32 @@ final class CaseCursorCodec {
   private record CursorPayload(
       String sortBy, String sortDirection, String scope, String cursorValue, UUID cursorId) {}
 
-  private static final class CursorAwareListCasesQuery {
+  private static final class CursorAwareAuditQuery {
     private final String cursorValue;
     private final UUID cursorId;
     private final int limit;
     private final String quickSearch;
-    private final CaseListSearchField searchField;
+    private final AuditEventListSearchField searchField;
     private final String searchValue;
-    private final CaseStatus status;
-    private final String assignedUnitId;
-    private final String assigneeUserId;
-    private final String createdBy;
-    private final UUID reportId;
-    private final CaseListSortBy sortBy;
+    private final String actorId;
+    private final String eventType;
+    private final String action;
+    private final String result;
+    private final AuditEventListSortBy sortBy;
     private final SortDirection sortDirection;
 
-    private CursorAwareListCasesQuery(
+    private CursorAwareAuditQuery(
         String cursorValue,
         UUID cursorId,
         int limit,
         String quickSearch,
-        CaseListSearchField searchField,
+        AuditEventListSearchField searchField,
         String searchValue,
-        CaseStatus status,
-        String assignedUnitId,
-        String assigneeUserId,
-        String createdBy,
-        UUID reportId,
-        CaseListSortBy sortBy,
+        String actorId,
+        String eventType,
+        String action,
+        String result,
+        AuditEventListSortBy sortBy,
         SortDirection sortDirection) {
       this.cursorValue = cursorValue;
       this.cursorId = cursorId;
@@ -229,28 +208,26 @@ final class CaseCursorCodec {
       this.quickSearch = quickSearch;
       this.searchField = searchField;
       this.searchValue = searchValue;
-      this.status = status;
-      this.assignedUnitId = assignedUnitId;
-      this.assigneeUserId = assigneeUserId;
-      this.createdBy = createdBy;
-      this.reportId = reportId;
+      this.actorId = actorId;
+      this.eventType = eventType;
+      this.action = action;
+      this.result = result;
       this.sortBy = sortBy;
       this.sortDirection = sortDirection;
     }
 
-    private CursorAwareListCasesQuery withCursor(String nextCursorValue, UUID nextCursorId) {
-      return new CursorAwareListCasesQuery(
+    private CursorAwareAuditQuery withCursor(String nextCursorValue, UUID nextCursorId) {
+      return new CursorAwareAuditQuery(
           nextCursorValue,
           nextCursorId,
           limit,
           quickSearch,
           searchField,
           searchValue,
-          status,
-          assignedUnitId,
-          assigneeUserId,
-          createdBy,
-          reportId,
+          actorId,
+          eventType,
+          action,
+          result,
           sortBy,
           sortDirection);
     }
@@ -259,20 +236,19 @@ final class CaseCursorCodec {
       return toQuery().cursorScope();
     }
 
-    private ListCasesQuery toQuery() {
+    private ListCaseAuditEventsQuery toQuery() {
       try {
-        return new ListCasesQuery(
+        return new ListCaseAuditEventsQuery(
             cursorValue,
             cursorId,
             limit,
             quickSearch,
             searchField,
             searchValue,
-            status,
-            assignedUnitId,
-            assigneeUserId,
-            createdBy,
-            reportId,
+            actorId,
+            eventType,
+            action,
+            result,
             sortBy,
             sortDirection);
       } catch (IllegalArgumentException exception) {
@@ -280,7 +256,7 @@ final class CaseCursorCodec {
       }
     }
 
-    private CaseListSortBy sortBy() {
+    private AuditEventListSortBy sortBy() {
       return sortBy;
     }
 

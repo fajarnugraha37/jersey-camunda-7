@@ -8,8 +8,10 @@ import com.sentinel.enforcement.api.generated.model.CreateCaseRequest;
 import com.sentinel.enforcement.api.generated.model.TransitionCaseRequest;
 import com.sentinel.enforcement.api.security.RequestActorResolver;
 import com.sentinel.enforcement.api.security.RequestMetadataResolver;
+import com.sentinel.enforcement.application.casefile.AuditEventPage;
 import com.sentinel.enforcement.application.casefile.CaseApplicationService;
 import com.sentinel.enforcement.application.casefile.CasePage;
+import com.sentinel.enforcement.application.casefile.ListCaseAuditEventsQuery;
 import com.sentinel.enforcement.application.casefile.ListCasesQuery;
 import com.sentinel.enforcement.application.security.ApplicationActor;
 import jakarta.inject.Inject;
@@ -66,12 +68,35 @@ public final class CaseResource {
   @GET
   public CaseListResponse listCases(
       @QueryParam("cursor") String cursor,
+      @QueryParam("q") String quickSearch,
+      @QueryParam("searchField") String searchField,
+      @QueryParam("searchValue") String searchValue,
+      @QueryParam("status") String status,
+      @QueryParam("assignedUnitId") String assignedUnitId,
+      @QueryParam("assigneeUserId") String assigneeUserId,
+      @QueryParam("createdBy") String createdBy,
+      @QueryParam("reportId") String reportId,
+      @QueryParam("sortBy") String sortBy,
+      @QueryParam("sortDirection") String sortDirection,
       @DefaultValue("20") @QueryParam("limit") @Min(1) @Max(50) int limit,
       @Context ContainerRequestContext requestContext) {
     ApplicationActor actor = RequestActorResolver.resolveRequired(requestContext);
-    ListCasesQuery query = CaseCursorCodec.decode(cursor, limit);
+    ListCasesQuery query =
+        CaseCursorCodec.decode(
+            cursor,
+            limit,
+            quickSearch,
+            searchField,
+            searchValue,
+            status,
+            assignedUnitId,
+            assigneeUserId,
+            createdBy,
+            reportId,
+            sortBy,
+            sortDirection);
     CasePage casePage = caseApplicationService.listCases(actor, query);
-    return mapper.toListResponse(casePage);
+    return mapper.toListResponse(casePage, CaseCursorCodec.encode(casePage, query));
   }
 
   @GET
@@ -120,10 +145,34 @@ public final class CaseResource {
   @Path("/{caseId}/audit-events")
   public CaseAuditEventListResponse getCaseAuditEvents(
       @PathParam("caseId") UUID caseId,
+      @QueryParam("cursor") String cursor,
+      @QueryParam("q") String quickSearch,
+      @QueryParam("searchField") String searchField,
+      @QueryParam("searchValue") String searchValue,
+      @QueryParam("actorId") String actorId,
+      @QueryParam("eventType") String eventType,
+      @QueryParam("action") String action,
+      @QueryParam("result") String result,
+      @QueryParam("sortBy") String sortBy,
+      @QueryParam("sortDirection") String sortDirection,
       @DefaultValue("50") @QueryParam("limit") @Min(1) @Max(100) int limit,
       @Context ContainerRequestContext requestContext) {
     ApplicationActor actor = RequestActorResolver.resolveRequired(requestContext);
+    ListCaseAuditEventsQuery query =
+        AuditCursorCodec.decode(
+            cursor,
+            limit,
+            quickSearch,
+            searchField,
+            searchValue,
+            actorId,
+            eventType,
+            action,
+            result,
+            sortBy,
+            sortDirection);
+    AuditEventPage auditEventPage = caseApplicationService.getCaseAuditEvents(actor, caseId, query);
     return mapper.toAuditListResponse(
-        caseApplicationService.getCaseAuditEvents(actor, caseId, limit));
+        auditEventPage, AuditCursorCodec.encode(auditEventPage, query));
   }
 }

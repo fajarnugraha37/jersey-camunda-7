@@ -14,9 +14,11 @@ import com.sentinel.enforcement.api.generated.model.ErrorResponse;
 import com.sentinel.enforcement.api.generated.model.ReportResponse;
 import com.sentinel.enforcement.api.generated.model.TransitionCaseRequest;
 import jakarta.ws.rs.client.Entity;
+import jakarta.ws.rs.client.WebTarget;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -224,6 +226,215 @@ class CaseApiIT extends AbstractApiIT {
     assertEquals("CONCURRENT_MODIFICATION", staleVersion.getCode());
   }
 
+  @Test
+  void listCasesSupportsQuickSearchFieldSearchDynamicSortAndCursor() {
+    String token = "list-pattern-" + UUID.randomUUID().toString().substring(0, 8);
+    ReportResponse reportAlpha = createReport(accessToken("intake-jkt"), "JKT");
+    ReportResponse reportZulu = createReport(accessToken("intake-jkt"), "JKT");
+    ReportResponse reportBravo = createReport(accessToken("intake-jkt"), "JKT");
+    CaseResponse alpha =
+        createCase(
+            accessToken("triage-jkt"),
+            reportAlpha.getId(),
+            token + " Alpha",
+            "Title field carries the search token.");
+    CaseResponse zulu =
+        createCase(
+            accessToken("triage-jkt"),
+            reportZulu.getId(),
+            "Zulu unrelated",
+            token + " summary match only.");
+    CaseResponse bravo =
+        createCase(
+            accessToken("triage-jkt"),
+            reportBravo.getId(),
+            token + " Bravo",
+            "Another title match for sort verification.");
+
+    CaseListResponse quickSearchResponse =
+        listCases(
+            accessToken("triage-jkt"),
+            Map.of("q", token, "sortBy", "TITLE", "sortDirection", "ASC", "limit", "10"));
+
+    assertEquals(3, quickSearchResponse.getItems().size());
+    assertEquals(alpha.getId(), quickSearchResponse.getItems().get(0).getId());
+    assertEquals(bravo.getId(), quickSearchResponse.getItems().get(1).getId());
+    assertEquals(zulu.getId(), quickSearchResponse.getItems().get(2).getId());
+
+    CaseListResponse fieldSearchResponse =
+        listCases(
+            accessToken("triage-jkt"),
+            Map.of(
+                "searchField", "TITLE",
+                "searchValue", token,
+                "sortBy", "TITLE",
+                "sortDirection", "ASC",
+                "limit", "10"));
+
+    assertEquals(2, fieldSearchResponse.getItems().size());
+    assertEquals(alpha.getId(), fieldSearchResponse.getItems().get(0).getId());
+    assertEquals(bravo.getId(), fieldSearchResponse.getItems().get(1).getId());
+
+    CaseListResponse firstPage =
+        listCases(
+            accessToken("triage-jkt"),
+            Map.of("q", token, "sortBy", "TITLE", "sortDirection", "ASC", "limit", "2"));
+
+    assertEquals(2, firstPage.getItems().size());
+    assertNotNull(firstPage.getNextCursor());
+
+    CaseListResponse secondPage =
+        listCases(
+            accessToken("triage-jkt"),
+            Map.of(
+                "q", token,
+                "sortBy", "TITLE",
+                "sortDirection", "ASC",
+                "limit", "2",
+                "cursor", firstPage.getNextCursor()));
+
+    assertEquals(1, secondPage.getItems().size());
+    assertEquals(zulu.getId(), secondPage.getItems().get(0).getId());
+  }
+
+  @Test
+  void auditEventsSupportQuickSearchFieldSearchDynamicSortAndCursor() {
+    ReportResponse report = createReport(accessToken("intake-jkt"), "JKT");
+    CaseResponse createdCase =
+        createCase(
+            accessToken("triage-jkt"),
+            report.getId(),
+            "Audit list verification",
+            "Exercise dynamic audit listing.");
+    CaseResponse assigned =
+        assignCase(
+            accessToken("triage-jkt"),
+            createdCase.getId(),
+            "JKT-UNIT-1",
+            "investigator-jkt",
+            createdCase.getVersion(),
+            "Assign investigator for audit trail.");
+    CaseResponse underTriage =
+        transitionCase(
+            accessToken("triage-jkt"),
+            assigned.getId(),
+            CaseStatusValue.UNDER_TRIAGE,
+            assigned.getVersion(),
+            "Move case into triage.");
+    transitionCase(
+        accessToken("triage-jkt"),
+        underTriage.getId(),
+        CaseStatusValue.UNDER_INVESTIGATION,
+        underTriage.getVersion(),
+        "Move case into investigation.");
+
+    CaseAuditEventListResponse quickSearchResponse =
+        listAuditEvents(
+            accessToken("auditor-jkt"),
+            createdCase.getId(),
+            Map.of("q", "assigned", "sortBy", "EVENT_TYPE", "sortDirection", "ASC", "limit", "10"));
+
+    assertEquals(1, quickSearchResponse.getItems().size());
+    assertEquals("CaseAssigned", quickSearchResponse.getItems().get(0).getEventType());
+
+    CaseAuditEventListResponse fieldSearchResponse =
+        listAuditEvents(
+            accessToken("auditor-jkt"),
+            createdCase.getId(),
+            Map.of(
+                "searchField", "ACTION",
+                "searchValue", "transitioned",
+                "sortBy", "TIMESTAMP",
+                "sortDirection", "DESC",
+                "limit", "10"));
+
+    assertEquals(2, fieldSearchResponse.getItems().size());
+    assertTrue(
+        fieldSearchResponse.getItems().stream()
+            .allMatch(item -> "CASE_TRANSITIONED".equals(item.getAction())));
+
+    CaseAuditEventListResponse firstPage =
+        listAuditEvents(
+            accessToken("auditor-jkt"),
+            createdCase.getId(),
+            Map.of("sortBy", "EVENT_TYPE", "sortDirection", "ASC", "limit", "2"));
+
+    assertEquals(2, firstPage.getItems().size());
+    assertNotNull(firstPage.getNextCursor());
+
+    CaseAuditEventListResponse secondPage =
+        listAuditEvents(
+            accessToken("auditor-jkt"),
+            createdCase.getId(),
+            Map.of(
+                "sortBy", "EVENT_TYPE",
+                "sortDirection", "ASC",
+                "limit", "2",
+                "cursor", firstPage.getNextCursor()));
+
+    assertTrue(secondPage.getItems().size() >= 1);
+    assertTrue(
+        secondPage.getItems().stream()
+            .noneMatch(item -> item.getEventId().equals(firstPage.getItems().get(0).getEventId())));
+  }
+
+  @Test
+  void mismatchedCursorScopeReturnsBadRequest() {
+    String token = "cursor-scope-" + UUID.randomUUID().toString().substring(0, 8);
+    ReportResponse report = createReport(accessToken("intake-jkt"), "JKT");
+    createCase(
+        accessToken("triage-jkt"), report.getId(), token + " Alpha", "Cursor mismatch validation.");
+    createCase(
+        accessToken("triage-jkt"), report.getId(), token + " Bravo", "Cursor mismatch validation.");
+
+    CaseListResponse firstPage =
+        listCases(
+            accessToken("triage-jkt"),
+            Map.of("q", token, "sortBy", "TITLE", "sortDirection", "ASC", "limit", "1"));
+
+    Response invalidCursorResponse =
+        listCasesRaw(
+            accessToken("triage-jkt"),
+            Map.of(
+                "q", token,
+                "sortBy", "CREATED_AT",
+                "sortDirection", "DESC",
+                "limit", "1",
+                "cursor", firstPage.getNextCursor()));
+
+    ErrorResponse error = invalidCursorResponse.readEntity(ErrorResponse.class);
+    assertEquals(400, invalidCursorResponse.getStatus());
+    assertEquals("MALFORMED_REQUEST", error.getCode());
+  }
+
+  @Test
+  void incompleteFieldSearchReturnsBadRequestInsteadOfServerError() {
+    Response caseResponse =
+        listCasesRaw(accessToken("triage-jkt"), Map.of("searchField", "TITLE", "limit", "10"));
+
+    ErrorResponse caseError = caseResponse.readEntity(ErrorResponse.class);
+    assertEquals(400, caseResponse.getStatus());
+    assertEquals("MALFORMED_REQUEST", caseError.getCode());
+
+    ReportResponse report = createReport(accessToken("intake-jkt"), "JKT");
+    CaseResponse createdCase =
+        createCase(
+            accessToken("triage-jkt"),
+            report.getId(),
+            "Audit error handling",
+            "Negative query validation.");
+
+    Response auditResponse =
+        listAuditEventsRaw(
+            accessToken("auditor-jkt"),
+            createdCase.getId(),
+            Map.of("searchField", "ACTION", "limit", "10"));
+
+    ErrorResponse auditError = auditResponse.readEntity(ErrorResponse.class);
+    assertEquals(400, auditResponse.getStatus());
+    assertEquals("MALFORMED_REQUEST", auditError.getCode());
+  }
+
   private static CaseResponse createCase(
       String accessToken, UUID reportId, String title, String summary) {
     return client
@@ -236,6 +447,42 @@ class CaseApiIT extends AbstractApiIT {
                 new CreateCaseRequest().reportId(reportId).title(title).summary(summary),
                 MediaType.APPLICATION_JSON_TYPE),
             CaseResponse.class);
+  }
+
+  private static CaseListResponse listCases(String accessToken, Map<String, String> queryParams) {
+    return listCasesRaw(accessToken, queryParams).readEntity(CaseListResponse.class);
+  }
+
+  private static Response listCasesRaw(String accessToken, Map<String, String> queryParams) {
+    WebTarget target = client.target(applicationRuntime.baseUri()).path("/api/v1/cases");
+    for (Map.Entry<String, String> entry : queryParams.entrySet()) {
+      target = target.queryParam(entry.getKey(), entry.getValue());
+    }
+    return target
+        .request(MediaType.APPLICATION_JSON_TYPE)
+        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+        .get();
+  }
+
+  private static CaseAuditEventListResponse listAuditEvents(
+      String accessToken, UUID caseId, Map<String, String> queryParams) {
+    return listAuditEventsRaw(accessToken, caseId, queryParams)
+        .readEntity(CaseAuditEventListResponse.class);
+  }
+
+  private static Response listAuditEventsRaw(
+      String accessToken, UUID caseId, Map<String, String> queryParams) {
+    WebTarget target =
+        client
+            .target(applicationRuntime.baseUri())
+            .path("/api/v1/cases/" + caseId + "/audit-events");
+    for (Map.Entry<String, String> entry : queryParams.entrySet()) {
+      target = target.queryParam(entry.getKey(), entry.getValue());
+    }
+    return target
+        .request(MediaType.APPLICATION_JSON_TYPE)
+        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+        .get();
   }
 
   private static CaseResponse assignCase(

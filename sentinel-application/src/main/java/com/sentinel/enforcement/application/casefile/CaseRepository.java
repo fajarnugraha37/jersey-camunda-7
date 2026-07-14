@@ -24,5 +24,5 @@ public interface CaseRepository {
   void transition(
       CaseRecord caseRecord, CaseStatusHistoryEntry statusHistoryEntry, AuditEvent auditEvent);
 
-  List<AuditEvent> findAuditEvents(UUID caseId, int limit);
+  List<AuditEvent> findAuditEventsPage(AuditEventPageRequest pageRequest);
 }

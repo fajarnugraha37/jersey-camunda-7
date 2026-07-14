@@ -9,6 +9,7 @@ import com.sentinel.enforcement.api.generated.model.CaseStatusValue;
 import com.sentinel.enforcement.api.generated.model.CreateCaseRequest;
 import com.sentinel.enforcement.api.generated.model.TransitionCaseRequest;
 import com.sentinel.enforcement.application.casefile.AssignCaseCommand;
+import com.sentinel.enforcement.application.casefile.AuditEventPage;
 import com.sentinel.enforcement.application.casefile.CasePage;
 import com.sentinel.enforcement.application.casefile.CreateCaseCommand;
 import com.sentinel.enforcement.application.casefile.TransitionCaseCommand;
@@ -47,15 +48,17 @@ public interface ApiCaseMapper {
   @Mapping(target = "status", source = "status")
   CaseResponse toResponse(CaseRecord caseRecord);
 
-  default CaseListResponse toListResponse(CasePage casePage) {
+  default CaseListResponse toListResponse(CasePage casePage, String nextCursor) {
     return new CaseListResponse()
         .items(casePage.items().stream().map(this::toResponse).toList())
-        .nextCursor(CaseCursorCodec.encode(casePage));
+        .nextCursor(nextCursor);
   }
 
-  default CaseAuditEventListResponse toAuditListResponse(List<AuditEvent> auditEvents) {
+  default CaseAuditEventListResponse toAuditListResponse(
+      AuditEventPage auditEventPage, String nextCursor) {
     return new CaseAuditEventListResponse()
-        .items(auditEvents.stream().map(this::toAuditResponse).toList());
+        .items(auditEventPage.items().stream().map(this::toAuditResponse).toList())
+        .nextCursor(nextCursor);
   }
 
   default CaseAuditEventResponse toAuditResponse(AuditEvent auditEvent) {

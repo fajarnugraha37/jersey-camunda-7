@@ -145,6 +145,63 @@ paths:
           required: false
           schema:
             type: string
+          description: Opaque cursor returned by the previous page for the same filter and sort scope.
+        - in: query
+          name: q
+          required: false
+          schema:
+            type: string
+          description: Quick search keyword matched across case number, title, summary, assignment, and creator fields.
+        - in: query
+          name: searchField
+          required: false
+          schema:
+            $ref: '#/components/schemas/CaseListSearchField'
+          description: Target a single searchable case field. Must be paired with `searchValue`.
+        - in: query
+          name: searchValue
+          required: false
+          schema:
+            type: string
+          description: Keyword used with `searchField` for single-field matching.
+        - in: query
+          name: status
+          required: false
+          schema:
+            $ref: '#/components/schemas/CaseStatusValue'
+        - in: query
+          name: assignedUnitId
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: assigneeUserId
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: createdBy
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: reportId
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: sortBy
+          required: false
+          schema:
+            $ref: '#/components/schemas/CaseListSortBy'
+          description: Defaults to `CREATED_AT`.
+        - in: query
+          name: sortDirection
+          required: false
+          schema:
+            $ref: '#/components/schemas/SortDirection'
+          description: Defaults to `DESC`.
         - in: query
           name: limit
           required: false
@@ -345,6 +402,62 @@ paths:
           schema:
             type: string
             format: uuid
+        - in: query
+          name: cursor
+          required: false
+          schema:
+            type: string
+          description: Opaque cursor returned by the previous page for the same filter and sort scope.
+        - in: query
+          name: q
+          required: false
+          schema:
+            type: string
+          description: Quick search keyword matched across event type, action, actor, result, reason, resource, and correlation fields.
+        - in: query
+          name: searchField
+          required: false
+          schema:
+            $ref: '#/components/schemas/AuditEventListSearchField'
+          description: Target a single searchable audit field. Must be paired with `searchValue`.
+        - in: query
+          name: searchValue
+          required: false
+          schema:
+            type: string
+          description: Keyword used with `searchField` for single-field matching.
+        - in: query
+          name: actorId
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: eventType
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: action
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: result
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: sortBy
+          required: false
+          schema:
+            $ref: '#/components/schemas/AuditEventListSortBy'
+          description: Defaults to `TIMESTAMP`.
+        - in: query
+          name: sortDirection
+          required: false
+          schema:
+            $ref: '#/components/schemas/SortDirection'
+          description: Defaults to `DESC`.
         - in: query
           name: limit
           required: false
@@ -585,6 +698,47 @@ components:
         nextCursor:
           type: string
           nullable: true
+    CaseListSearchField:
+      type: string
+      enum:
+        - CASE_NUMBER
+        - TITLE
+        - SUMMARY
+        - ASSIGNED_UNIT_ID
+        - ASSIGNEE_USER_ID
+        - CREATED_BY
+    CaseListSortBy:
+      type: string
+      enum:
+        - CREATED_AT
+        - UPDATED_AT
+        - CASE_NUMBER
+        - TITLE
+        - STATUS
+    AuditEventListSearchField:
+      type: string
+      enum:
+        - EVENT_TYPE
+        - ACTION
+        - ACTOR_ID
+        - RESULT
+        - REASON
+        - RESOURCE_TYPE
+        - RESOURCE_ID
+        - CORRELATION_ID
+    AuditEventListSortBy:
+      type: string
+      enum:
+        - TIMESTAMP
+        - EVENT_TYPE
+        - ACTION
+        - RESULT
+        - ACTOR_ID
+    SortDirection:
+      type: string
+      enum:
+        - ASC
+        - DESC
     CaseAuditEventResponse:
       type: object
       required:
@@ -654,6 +808,9 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CaseAuditEventResponse'
+        nextCursor:
+          type: string
+          nullable: true
     HealthResponse:
       type: object
       required:

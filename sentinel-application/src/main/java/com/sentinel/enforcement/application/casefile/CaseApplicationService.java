@@ -17,7 +17,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -113,30 +112,37 @@ public final class CaseApplicationService {
         Permission.LIST_CASES,
         new AuthorizationContext(null, CASE_RESOURCE_TYPE, null, null));
 
+    String restrictedAssignee = restrictedAssignee(actor);
     List<CaseRecord> loaded =
         caseRepository.findPage(
             new CasePageRequest(
                 actor.jurisdictions(),
-                restrictedAssignee(actor),
-                query.cursorCreatedAt(),
+                restrictedAssignee,
+                query.assigneeUserId(),
+                query.cursorValue(),
                 query.cursorId(),
+                query.quickSearch(),
+                query.searchField(),
+                query.searchValue(),
+                query.status(),
+                query.assignedUnitId(),
+                query.createdBy(),
+                query.reportId(),
+                query.sortBy(),
+                query.sortDirection(),
                 query.limit() + 1));
     boolean hasNextPage = loaded.size() > query.limit();
     List<CaseRecord> trimmed =
         hasNextPage ? new ArrayList<>(loaded.subList(0, query.limit())) : new ArrayList<>(loaded);
-    trimmed.sort(
-        Comparator.comparing(CaseRecord::createdAt)
-            .reversed()
-            .thenComparing(CaseRecord::id, Comparator.reverseOrder()));
 
-    Instant nextCursorCreatedAt = null;
+    String nextCursorValue = null;
     UUID nextCursorId = null;
     if (hasNextPage && !trimmed.isEmpty()) {
       CaseRecord nextCursorRecord = trimmed.get(trimmed.size() - 1);
-      nextCursorCreatedAt = nextCursorRecord.createdAt();
+      nextCursorValue = extractCursorValue(nextCursorRecord, query.sortBy());
       nextCursorId = nextCursorRecord.id();
     }
-    return new CasePage(trimmed, nextCursorCreatedAt, nextCursorId, hasNextPage);
+    return new CasePage(trimmed, nextCursorValue, nextCursorId, hasNextPage);
   }
 
   public CaseRecord assignCase(ApplicationActor actor, UUID caseId, AssignCaseCommand command) {
@@ -234,7 +240,8 @@ public final class CaseApplicationService {
     return updated;
   }
 
-  public List<AuditEvent> getCaseAuditEvents(ApplicationActor actor, UUID caseId, int limit) {
+  public AuditEventPage getCaseAuditEvents(
+      ApplicationActor actor, UUID caseId, ListCaseAuditEventsQuery query) {
     CaseRecord caseRecord = getRequiredCase(caseId);
     authorizationService.requirePermission(
         actor,
@@ -244,7 +251,34 @@ public final class CaseApplicationService {
             CASE_RESOURCE_TYPE,
             caseRecord.id().toString(),
             caseRecord.assigneeUserId()));
-    return caseRepository.findAuditEvents(caseId, limit);
+    List<AuditEvent> loaded =
+        caseRepository.findAuditEventsPage(
+            new AuditEventPageRequest(
+                caseId,
+                query.cursorValue(),
+                query.cursorId(),
+                query.quickSearch(),
+                query.searchField(),
+                query.searchValue(),
+                query.actorId(),
+                query.eventType(),
+                query.action(),
+                query.result(),
+                query.sortBy(),
+                query.sortDirection(),
+                query.limit() + 1));
+    boolean hasNextPage = loaded.size() > query.limit();
+    List<AuditEvent> trimmed =
+        hasNextPage ? new ArrayList<>(loaded.subList(0, query.limit())) : new ArrayList<>(loaded);
+
+    String nextCursorValue = null;
+    UUID nextCursorId = null;
+    if (hasNextPage && !trimmed.isEmpty()) {
+      AuditEvent nextCursorEvent = trimmed.get(trimmed.size() - 1);
+      nextCursorValue = extractAuditCursorValue(nextCursorEvent, query.sortBy());
+      nextCursorId = nextCursorEvent.eventId();
+    }
+    return new AuditEventPage(trimmed, nextCursorValue, nextCursorId, hasNextPage);
   }
 
   private CaseRecord getRequiredCase(UUID caseId) {
@@ -310,5 +344,29 @@ public final class CaseApplicationService {
       }
     }
     return false;
+  }
+
+  private String extractCursorValue(CaseRecord caseRecord, CaseListSortBy sortBy) {
+    return switch (sortBy) {
+      case CREATED_AT -> caseRecord.createdAt().toString();
+      case UPDATED_AT -> caseRecord.updatedAt().toString();
+      case CASE_NUMBER -> normalizeTextSort(caseRecord.caseNumber());
+      case TITLE -> normalizeTextSort(caseRecord.title());
+      case STATUS -> normalizeTextSort(caseRecord.status().name());
+    };
+  }
+
+  private String normalizeTextSort(String value) {
+    return value.toLowerCase(java.util.Locale.ROOT);
+  }
+
+  private String extractAuditCursorValue(AuditEvent auditEvent, AuditEventListSortBy sortBy) {
+    return switch (sortBy) {
+      case TIMESTAMP -> auditEvent.timestamp().toString();
+      case EVENT_TYPE -> normalizeTextSort(auditEvent.eventType());
+      case ACTION -> normalizeTextSort(auditEvent.action());
+      case RESULT -> normalizeTextSort(auditEvent.result());
+      case ACTOR_ID -> normalizeTextSort(auditEvent.actorId());
+    };
   }
 }

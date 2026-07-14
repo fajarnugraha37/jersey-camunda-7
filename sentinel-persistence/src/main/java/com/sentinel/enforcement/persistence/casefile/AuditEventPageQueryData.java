@@ -1,20 +1,17 @@
 package com.sentinel.enforcement.persistence.casefile;
 
 import java.time.OffsetDateTime;
-import java.util.Set;
 import java.util.UUID;
 
-public record CasePageQueryData(
-    Set<String> jurisdictionCodes,
-    String restrictedAssigneeUserId,
-    String requestedAssigneeUserId,
+public record AuditEventPageQueryData(
+    UUID caseId,
     String quickSearchPattern,
     String searchField,
     String searchPattern,
-    String status,
-    String assignedUnitId,
-    String createdBy,
-    UUID reportId,
+    String actorId,
+    String eventType,
+    String action,
+    String result,
     String sortBy,
     String sortDirection,
     OffsetDateTime cursorTimestampValue,
