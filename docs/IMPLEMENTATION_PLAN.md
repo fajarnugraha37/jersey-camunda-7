@@ -2,49 +2,39 @@
 
 ## Ordered tasks
 
-1. Add storage-backed evidence intake with presigned upload and finalize flow.
-2. Introduce outbox and messaging foundation after case transitions are stable.
+1. Re-verify the current phase 0-5 slice with compile, unit, integration, and verify commands once Maven dependency resolution is available again.
+2. Introduce outbox and messaging foundation after the evidence slice is proven stable.
 3. Expand assignment and authorization to include assigned units, case classification, and conflict-of-interest checks.
-4. Add sanction and appeal aggregates so later-status prerequisites stop being policy-only placeholders.
-5. Add reconciliation and operator tooling for domain-workflow mismatch handling.
+4. Add recommendation, review, decision, sanction, and appeal aggregates so later-state prerequisites stop being policy-only placeholders.
+5. Extend hardening with failure-injection coverage, performance review, and operational metrics.
 
-## Dependencies
-
-- Bootstrap depends on API, application, and persistence modules.
-- API depends on application and domain modules.
-- Application depends on domain abstractions only.
-- Persistence depends on application ports and domain objects.
-- Integration tests depend on bootstrap and Docker availability through Testcontainers.
-
-## Acceptance criteria for current increment
+## Acceptance criteria for phase 0-5 slice
 
 - `make compile` succeeds.
 - `make unit-test` succeeds.
-- `make integration-test` succeeds with PostgreSQL + Keycloak Testcontainers.
-- `POST /api/v1/cases` creates a case from an existing report and returns `201` for an authorized triage officer.
-- `GET /api/v1/cases/{caseId}` returns the persisted case for an authorized actor.
+- `make integration-test` succeeds with PostgreSQL + Keycloak + MinIO Testcontainers.
+- `POST /api/v1/reports` persists a report and returns `201` for an authorized intake officer.
+- `GET /api/v1/reports/{reportId}` returns the persisted report for an authorized actor.
+- `POST /api/v1/reports/{reportId}/triage` transitions the report to `TRIAGED` with optimistic locking.
+- `POST /api/v1/cases` only creates a case from a triaged report and starts a correlated Camunda workflow instance.
 - `GET /api/v1/cases` returns cursor-paged case results and filters investigator visibility to directly assigned cases.
 - `POST /api/v1/cases/{caseId}/assignments` updates current assignment with optimistic locking and writes assignment audit.
 - `POST /api/v1/cases/{caseId}/transitions` enforces role-aware state transitions, optimistic locking, and append-only status history.
-- `GET /api/v1/cases/{caseId}/audit-events` returns audit events for authorized auditor or supervisor roles.
-- `POST /api/v1/cases` starts a correlated Camunda workflow instance and persists the correlation in `workflow_instance`.
+- `GET /api/v1/cases/{caseId}/audit-events` returns audit events for authorized roles with cursor pagination, quick search, targeted search, and whitelisted sorting.
 - `GET /api/v1/tasks` returns cursor-paged workflow tasks with quick search, targeted search, and whitelisted sort semantics.
 - `POST /api/v1/tasks/{taskId}/claim` enforces role-aware task claim semantics and returns `409` for conflicting claims.
 - `POST /api/v1/tasks/{taskId}/complete` advances the workflow path without double-applying domain side effects when duplicate completion requests arrive.
-- `GET /api/v1/workflow-reconciliation` returns supervisor-visible workflow mismatch issues with cursor pagination, quick search, targeted search, and whitelisted sort semantics.
-- `POST /api/v1/workflow-reconciliation/{caseId}/actions` repairs missing workflow correlation rows from active runtime or historic workflow state, or terminates invalid active runtime instances for terminal cases.
-- Workflow BPMN model contains the required triage, investigation, review, decision, and investigation escalation stages.
-- Liquibase migration creates the case lifecycle schema and concurrency-safe case number function on an empty database.
-- `GET /health` returns application and database health.
-- `POST /api/v1/reports` persists a report and returns `201` for an authorized intake officer.
-- `GET /api/v1/reports/{reportId}` returns the persisted report for an authorized reader.
+- `GET /api/v1/workflow-reconciliation` and `POST /api/v1/workflow-reconciliation/{caseId}/actions` operate correctly for supervisor-visible mismatch handling.
+- `POST /api/v1/cases/{caseId}/evidence/upload-sessions` returns a presigned MinIO upload URL for an authorized actor.
+- `POST /api/v1/evidence/{evidenceId}/versions/finalize` verifies object existence, size, media type, and SHA-256 before activating the evidence version.
+- `GET /api/v1/evidence/{evidenceId}` returns active evidence metadata and latest version details for an authorized actor.
+- `POST /api/v1/evidence/{evidenceId}/download-sessions` enforces authorization, returns a presigned download URL for authorized actors, and audits denied access.
 - Missing token returns `401`.
 - Wrong role returns `403`.
 - Wrong jurisdiction returns `403`.
 - Invalid request bodies return the standard error envelope.
 - Liquibase migration runs on an empty database.
-- Keycloak local realm bootstrap provides reusable dummy users for local development.
 
 ## Current status
 
-The acceptance criteria above are implemented and locally verified. Workflow correlation, embedded Camunda BPMN deployment, task list/claim/complete APIs, workflow reconciliation list/action APIs, timer escalation audit, OpenAPI-generated models, JWT bearer auth, optimistic locking, centralized authorization, explicit Camunda schema migration, and startup readiness checks are all wired into the current slice and have passed compile plus focused workflow integration runs with Testcontainers.
+Code for the acceptance criteria above has been updated in this run, but the post-change verification loop is still pending because Maven dependency resolution was blocked by the environment's network/approval limit. Static review of the changed layers is complete; compile and runtime confirmation still need to be rerun externally or in a less restricted session.

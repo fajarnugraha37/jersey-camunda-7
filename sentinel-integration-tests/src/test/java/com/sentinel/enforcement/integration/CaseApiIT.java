@@ -26,7 +26,8 @@ class CaseApiIT extends AbstractApiIT {
 
   @Test
   void fullCaseLifecyclePersistsHistoryAndAuditTrail() {
-    ReportResponse report = createReport(accessToken("intake-jkt"), "JKT");
+    ReportResponse report =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
     CaseResponse createdCase =
         createCase(
             accessToken("triage-jkt"),
@@ -115,8 +116,10 @@ class CaseApiIT extends AbstractApiIT {
 
   @Test
   void investigatorVisibilityIsRestrictedToDirectAssignments() {
-    ReportResponse reportOne = createReport(accessToken("intake-jkt"), "JKT");
-    ReportResponse reportTwo = createReport(accessToken("intake-jkt"), "JKT");
+    ReportResponse reportOne =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
+    ReportResponse reportTwo =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
     CaseResponse caseOne =
         createCase(
             accessToken("triage-jkt"), reportOne.getId(), "Case one", "Assigned to investigator.");
@@ -177,7 +180,8 @@ class CaseApiIT extends AbstractApiIT {
 
   @Test
   void invalidTransitionAndStaleVersionReturnConflictEnvelope() {
-    ReportResponse report = createReport(accessToken("intake-jkt"), "JKT");
+    ReportResponse report =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
     CaseResponse createdCase =
         createCase(accessToken("triage-jkt"), report.getId(), "Decision case", "Conflict checks.");
 
@@ -229,9 +233,12 @@ class CaseApiIT extends AbstractApiIT {
   @Test
   void listCasesSupportsQuickSearchFieldSearchDynamicSortAndCursor() {
     String token = "list-pattern-" + UUID.randomUUID().toString().substring(0, 8);
-    ReportResponse reportAlpha = createReport(accessToken("intake-jkt"), "JKT");
-    ReportResponse reportZulu = createReport(accessToken("intake-jkt"), "JKT");
-    ReportResponse reportBravo = createReport(accessToken("intake-jkt"), "JKT");
+    ReportResponse reportAlpha =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
+    ReportResponse reportZulu =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
+    ReportResponse reportBravo =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
     CaseResponse alpha =
         createCase(
             accessToken("triage-jkt"),
@@ -299,7 +306,8 @@ class CaseApiIT extends AbstractApiIT {
 
   @Test
   void auditEventsSupportQuickSearchFieldSearchDynamicSortAndCursor() {
-    ReportResponse report = createReport(accessToken("intake-jkt"), "JKT");
+    ReportResponse report =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
     CaseResponse createdCase =
         createCase(
             accessToken("triage-jkt"),
@@ -378,7 +386,8 @@ class CaseApiIT extends AbstractApiIT {
   @Test
   void cursorScopeMismatchReturnsBadRequest() {
     String token = "cursor-mismatch-" + UUID.randomUUID().toString().substring(0, 8);
-    ReportResponse report = createReport(accessToken("intake-jkt"), "JKT");
+    ReportResponse report =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
 
     createCase(
         accessToken("triage-jkt"), report.getId(), token + " Alpha", "Cursor mismatch validation.");
@@ -414,7 +423,8 @@ class CaseApiIT extends AbstractApiIT {
     assertEquals(400, caseResponse.getStatus());
     assertEquals("MALFORMED_REQUEST", caseError.getCode());
 
-    ReportResponse report = createReport(accessToken("intake-jkt"), "JKT");
+    ReportResponse report =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
     CaseResponse createdCase =
         createCase(
             accessToken("triage-jkt"),

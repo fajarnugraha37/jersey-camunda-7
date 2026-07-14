@@ -25,7 +25,8 @@ class WorkflowTaskApiIT extends AbstractApiIT {
 
   @Test
   void workflowTasksCanDriveCaseFromCreationToDecision() {
-    ReportResponse report = createReport(accessToken("intake-jkt"), "JKT");
+    ReportResponse report =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
     CaseResponse createdCase =
         createCase(
             accessToken("triage-jkt"),
@@ -89,7 +90,8 @@ class WorkflowTaskApiIT extends AbstractApiIT {
 
   @Test
   void duplicateTaskCompletionIsSafeAndDoesNotAdvanceCaseTwice() {
-    ReportResponse report = createReport(accessToken("intake-jkt"), "JKT");
+    ReportResponse report =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
     CaseResponse createdCase =
         createCase(
             accessToken("triage-jkt"),
@@ -117,9 +119,12 @@ class WorkflowTaskApiIT extends AbstractApiIT {
   @Test
   void taskListSupportsQuickSearchFieldSearchSortAndCursor() {
     String token = "wf-list-" + UUID.randomUUID().toString().substring(0, 8);
-    ReportResponse reportOne = createReport(accessToken("intake-jkt"), "JKT");
-    ReportResponse reportTwo = createReport(accessToken("intake-jkt"), "JKT");
-    ReportResponse reportThree = createReport(accessToken("intake-jkt"), "JKT");
+    ReportResponse reportOne =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
+    ReportResponse reportTwo =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
+    ReportResponse reportThree =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
 
     CaseResponse alpha =
         createCase(
@@ -179,7 +184,8 @@ class WorkflowTaskApiIT extends AbstractApiIT {
 
   @Test
   void investigationTimerEscalationWritesAuditEvent() {
-    ReportResponse report = createReport(accessToken("intake-jkt"), "JKT");
+    ReportResponse report =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
     CaseResponse createdCase =
         createCase(
             accessToken("triage-jkt"),

@@ -4,6 +4,7 @@ import com.sentinel.enforcement.application.security.ApplicationActor;
 import com.sentinel.enforcement.application.security.AuthorizationContext;
 import com.sentinel.enforcement.application.security.AuthorizationService;
 import com.sentinel.enforcement.application.security.Permission;
+import com.sentinel.enforcement.domain.report.ReportConflictException;
 import com.sentinel.enforcement.domain.report.Report;
 import com.sentinel.enforcement.domain.report.ReportStatus;
 import java.time.Clock;
@@ -59,5 +60,24 @@ public final class ReportApplicationService {
         new AuthorizationContext(
             report.jurisdictionCode(), REPORT_RESOURCE_TYPE, report.id().toString(), null));
     return report;
+  }
+
+  public Report triageReport(ApplicationActor actor, UUID reportId, TriageReportCommand command) {
+    Report report =
+        reportRepository
+            .findById(reportId)
+            .orElseThrow(() -> new ReportNotFoundException(reportId));
+    authorizationService.requirePermission(
+        actor,
+        Permission.TRIAGE_REPORT,
+        new AuthorizationContext(report.jurisdictionCode(), REPORT_RESOURCE_TYPE, report.id().toString(), null));
+    try {
+      Report triaged =
+          report.triage(actor.username(), command.expectedVersion(), command.reason(), clock.instant());
+      reportRepository.update(triaged);
+      return triaged;
+    } catch (ReportConflictException exception) {
+      throw exception;
+    }
   }
 }

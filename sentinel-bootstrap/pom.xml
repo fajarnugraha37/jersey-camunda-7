@@ -29,6 +29,11 @@
     </dependency>
     <dependency>
       <groupId>com.sentinel.enforcement</groupId>
+      <artifactId>sentinel-storage</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.sentinel.enforcement</groupId>
       <artifactId>sentinel-workflow</artifactId>
       <version>${project.version}</version>
     </dependency>

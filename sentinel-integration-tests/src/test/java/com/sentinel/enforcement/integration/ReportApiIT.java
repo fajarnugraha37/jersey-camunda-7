@@ -37,6 +37,20 @@ class ReportApiIT extends AbstractApiIT {
   }
 
   @Test
+  void triageReportUpdatesStatusAndVersion() {
+    String intakeToken = accessToken("intake-jkt");
+    String triageToken = accessToken("triage-jkt");
+    ReportResponse created = createReport(intakeToken, "JKT");
+
+    ReportResponse triaged =
+        triageReport(
+            triageToken, created.getId(), created.getVersion(), "Ready for case creation.");
+
+    assertEquals("TRIAGED", triaged.getStatus());
+    assertEquals(created.getVersion() + 1, triaged.getVersion());
+  }
+
+  @Test
   void missingBearerTokenReturnsUnauthorizedErrorEnvelope() {
     Response response =
         client

@@ -1,0 +1,349 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0004-report-triage-status
+      author: codex
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE report
+                ADD CONSTRAINT ck_report_status
+                  CHECK (status IN ('SUBMITTED', 'TRIAGED'));
+        - createIndex:
+            tableName: report
+            indexName: idx_report_jurisdiction_status_created_at
+            columns:
+              - column:
+                  name: jurisdiction_code
+              - column:
+                  name: status
+              - column:
+                  name: created_at
+      rollback:
+        - dropIndex:
+            tableName: report
+            indexName: idx_report_jurisdiction_status_created_at
+        - sql:
+            sql: ALTER TABLE report DROP CONSTRAINT IF EXISTS ck_report_status;
+  - changeSet:
+      id: 0004-evidence-foundation
+      author: codex
+      changes:
+        - createTable:
+            tableName: evidence
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: case_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_evidence_case
+                    references: case_record(id)
+              - column:
+                  name: title
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: classification
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: storage_status
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: latest_version
+                  type: INTEGER
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+        - sql:
+            sql: |
+              ALTER TABLE evidence
+                ADD CONSTRAINT ck_evidence_classification
+                  CHECK (classification IN ('PUBLIC', 'CONFIDENTIAL', 'SECRET')),
+                ADD CONSTRAINT ck_evidence_storage_status
+                  CHECK (storage_status IN ('PENDING_UPLOAD', 'ACTIVE')),
+                ADD CONSTRAINT ck_evidence_latest_version_non_negative
+                  CHECK (latest_version >= 0),
+                ADD CONSTRAINT ck_evidence_version_non_negative
+                  CHECK (version >= 0);
+        - createIndex:
+            tableName: evidence
+            indexName: idx_evidence_case_updated_at
+            columns:
+              - column:
+                  name: case_id
+              - column:
+                  name: updated_at
+        - createTable:
+            tableName: evidence_upload_session
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: case_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_evidence_upload_session_case
+                    references: case_record(id)
+              - column:
+                  name: evidence_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_evidence_upload_session_evidence
+                    references: evidence(id)
+              - column:
+                  name: target_version_number
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+              - column:
+                  name: original_filename
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: generated_filename
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: bucket
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: object_key
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: media_type
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: size_bytes
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: sha256_checksum
+                  type: CHAR(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: classification
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: expires_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+        - sql:
+            sql: |
+              ALTER TABLE evidence_upload_session
+                ADD CONSTRAINT ck_evidence_upload_session_version_positive
+                  CHECK (target_version_number > 0),
+                ADD CONSTRAINT ck_evidence_upload_session_size_non_negative
+                  CHECK (size_bytes >= 0),
+                ADD CONSTRAINT ck_evidence_upload_session_status
+                  CHECK (status IN ('PENDING', 'FINALIZED')),
+                ADD CONSTRAINT ck_evidence_upload_session_classification
+                  CHECK (classification IN ('PUBLIC', 'CONFIDENTIAL', 'SECRET')),
+                ADD CONSTRAINT ck_evidence_upload_session_checksum_hex
+                  CHECK (sha256_checksum ~ '^[0-9a-f]{64}$'),
+                ADD CONSTRAINT ck_evidence_upload_session_version_non_negative
+                  CHECK (version >= 0);
+        - createIndex:
+            tableName: evidence_upload_session
+            indexName: idx_evidence_upload_session_evidence_status
+            columns:
+              - column:
+                  name: evidence_id
+              - column:
+                  name: status
+              - column:
+                  name: created_at
+        - createTable:
+            tableName: evidence_version
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: evidence_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_evidence_version_evidence
+                    references: evidence(id)
+              - column:
+                  name: version_number
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+              - column:
+                  name: original_filename
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: generated_filename
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: bucket
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: object_key
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: media_type
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: size_bytes
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: sha256_checksum
+                  type: CHAR(64)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: uploaded_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: uploaded_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: evidence_version
+            columnNames: evidence_id, version_number
+            constraintName: uk_evidence_version_evidence_version
+        - addUniqueConstraint:
+            tableName: evidence_version
+            columnNames: bucket, object_key
+            constraintName: uk_evidence_version_bucket_object_key
+        - sql:
+            sql: |
+              ALTER TABLE evidence_version
+                ADD CONSTRAINT ck_evidence_version_number_positive
+                  CHECK (version_number > 0),
+                ADD CONSTRAINT ck_evidence_version_size_non_negative
+                  CHECK (size_bytes >= 0),
+                ADD CONSTRAINT ck_evidence_version_checksum_hex
+                  CHECK (sha256_checksum ~ '^[0-9a-f]{64}$');
+        - createIndex:
+            tableName: evidence_version
+            indexName: idx_evidence_version_evidence_uploaded_at
+            columns:
+              - column:
+                  name: evidence_id
+              - column:
+                  name: uploaded_at
+      rollback:
+        - dropTable:
+            tableName: evidence_version
+        - dropTable:
+            tableName: evidence_upload_session
+        - dropTable:
+            tableName: evidence

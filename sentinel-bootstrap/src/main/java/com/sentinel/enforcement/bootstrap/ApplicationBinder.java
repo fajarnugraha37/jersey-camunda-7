@@ -1,6 +1,7 @@
 package com.sentinel.enforcement.bootstrap;
 
 import com.sentinel.enforcement.application.casefile.CaseApplicationService;
+import com.sentinel.enforcement.application.evidence.EvidenceApplicationService;
 import com.sentinel.enforcement.application.health.HealthStatusService;
 import com.sentinel.enforcement.application.report.ReportApplicationService;
 import com.sentinel.enforcement.application.security.AuthorizationService;
@@ -12,6 +13,7 @@ import org.glassfish.hk2.utilities.binding.AbstractBinder;
 public final class ApplicationBinder extends AbstractBinder {
   private final HealthStatusService healthStatusService;
   private final CaseApplicationService caseApplicationService;
+  private final EvidenceApplicationService evidenceApplicationService;
   private final WorkflowTaskApplicationService workflowTaskApplicationService;
   private final WorkflowReconciliationApplicationService workflowReconciliationApplicationService;
   private final ReportApplicationService reportApplicationService;
@@ -21,6 +23,7 @@ public final class ApplicationBinder extends AbstractBinder {
   public ApplicationBinder(
       HealthStatusService healthStatusService,
       CaseApplicationService caseApplicationService,
+      EvidenceApplicationService evidenceApplicationService,
       WorkflowTaskApplicationService workflowTaskApplicationService,
       WorkflowReconciliationApplicationService workflowReconciliationApplicationService,
       ReportApplicationService reportApplicationService,
@@ -28,6 +31,7 @@ public final class ApplicationBinder extends AbstractBinder {
       TokenVerifier tokenVerifier) {
     this.healthStatusService = healthStatusService;
     this.caseApplicationService = caseApplicationService;
+    this.evidenceApplicationService = evidenceApplicationService;
     this.workflowTaskApplicationService = workflowTaskApplicationService;
     this.workflowReconciliationApplicationService = workflowReconciliationApplicationService;
     this.reportApplicationService = reportApplicationService;
@@ -39,6 +43,7 @@ public final class ApplicationBinder extends AbstractBinder {
   protected void configure() {
     bind(healthStatusService).to(HealthStatusService.class);
     bind(caseApplicationService).to(CaseApplicationService.class);
+    bind(evidenceApplicationService).to(EvidenceApplicationService.class);
     bind(workflowTaskApplicationService).to(WorkflowTaskApplicationService.class);
     bind(workflowReconciliationApplicationService)
         .to(WorkflowReconciliationApplicationService.class);

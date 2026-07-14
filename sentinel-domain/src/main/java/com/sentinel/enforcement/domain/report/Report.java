@@ -33,4 +33,36 @@ public record Report(
       throw new IllegalArgumentException("version must not be negative");
     }
   }
+
+  public Report triage(String actorId, long expectedVersion, String reason, Instant now) {
+    Objects.requireNonNull(now, "now must not be null");
+    if (expectedVersion != version) {
+      throw new ReportConflictException(
+          "CONCURRENT_MODIFICATION",
+          "Report " + id + " expected version " + expectedVersion + " but current version is " + version + ".");
+    }
+    if (status != ReportStatus.SUBMITTED) {
+      throw new ReportConflictException(
+          "REPORT_TRIAGE_NOT_ALLOWED",
+          "Report " + id + " cannot be triaged from status " + status + ".");
+    }
+    if (reason == null || reason.isBlank()) {
+      throw new IllegalArgumentException("reason must not be blank");
+    }
+    if (actorId == null || actorId.isBlank()) {
+      throw new IllegalArgumentException("actorId must not be blank");
+    }
+    return new Report(
+        id,
+        title,
+        description,
+        jurisdictionCode,
+        reporterName,
+        ReportStatus.TRIAGED,
+        createdAt,
+        createdBy,
+        now,
+        actorId,
+        version + 1);
+  }
 }

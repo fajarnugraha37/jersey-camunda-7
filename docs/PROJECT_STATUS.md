@@ -2,77 +2,36 @@
 
 ## Current phase
 
-Phase 5 workflow reconciliation and operator tooling implemented and verified.
+Phase 5 evidence and MinIO slice implemented in code. Full post-change verification is pending because Maven dependency resolution and test execution were blocked by the current environment's network/approval limit during this run.
 
 ## Completed capabilities
 
-- Repository assessed against the target architecture.
-- Maven multi-module foundation created for `domain`, `application`, `api`, `persistence`, `bootstrap`, and `integration-tests`.
-- `sentinel-security` module added for JWT verification and centralized authorization logic.
-- `sentinel-workflow` module added for embedded Camunda runtime, BPMN deployment, workflow correlation, task query, and escalation handling.
-- Camunda integration no longer relies on `databaseSchemaUpdate=true`; schema creation is now routed through an explicit migration step using official Camunda SQL resources.
-- Health endpoint implemented.
-- PostgreSQL-backed report create/get API implemented.
-- Liquibase migration implemented for the initial `report` table.
-- Validation, consistent error envelope, JSON configuration, and correlation ID response header implemented.
-- OpenAPI Generator is wired into the `sentinel-api` build and now generates request/response models from `docs/api/openapi.yaml`.
-- API request validation for non-empty report intake fields is enforced from the OpenAPI contract via `minLength` and generated bean validation annotations.
-- Keycloak realm import, JWT bearer authentication filter, and centralized role/jurisdiction authorization are implemented for report endpoints.
-- Local dummy users and realm bootstrap are implemented for Keycloak-based development.
-- Case lifecycle domain model implemented with strict transition policy, role-aware transition ownership, and optimistic locking checks.
-- Case persistence implemented with `case_record`, `case_assignment`, `case_status_history`, `audit_event`, and concurrency-safe `generate_case_number`.
-- Case API implemented for create/get/list/assign/transition/audit operations.
-- Workflow task API implemented for list, claim, and complete operations with cursor pagination, quick search, targeted search, and sort whitelisting.
-- Workflow reconciliation API implemented for mismatch listing and operator remediation with `AUTO_REPAIR` and `TERMINATE_RUNTIME` actions.
-- Investigator list visibility now filters to directly assigned cases; direct case read also enforces assignment on investigator-only actors.
-- Case creation now starts the `regulatoryEnforcementCase` workflow and persists correlation in `workflow_instance`.
-- Investigation task escalation is modeled with a non-interrupting boundary timer and writes deterministic audit evidence through an idempotent delegate path.
-- Workflow remediation now persists correlation repairs back through MyBatis, queries active/historic Camunda state through dedicated workflow ports, and writes append-only `WorkflowReconciliationPerformed` audit evidence.
-- Workflow readiness is now part of the health decision, so the app will not report healthy when the embedded process engine is unavailable or the required process definition is missing.
-- Unit and integration tests implemented and locally verified with Maven and Testcontainers.
-- Docker Compose runtime now includes PostgreSQL, Keycloak, and the application container.
-- PostgreSQL 18 volume mount aligned with the image's required `/var/lib/postgresql` layout.
+- Repository foundation, module split, Makefile, Dockerfile, Docker Compose, and health endpoint are in place.
+- PostgreSQL-backed report create/get plus Keycloak JWT auth, centralized authorization, and jurisdiction enforcement are implemented.
+- Report triage is now implemented and case creation requires a triaged source report.
+- Case lifecycle aggregate, assignment, status history, optimistic locking, audit append, and cursor-based list APIs are implemented.
+- Embedded Camunda runtime, BPMN deployment, task list/claim/complete flow, escalation timer, workflow correlation, and reconciliation tooling are implemented.
+- Storage-backed evidence metadata, upload session creation, MinIO presigned upload URL generation, server-side finalize verification, immutable evidence versioning, checksum enforcement, and download-session authorization/audit are implemented.
+- OpenAPI contract now includes report triage and evidence endpoints, and generated API models remain the source for request/response DTOs.
+- Local runtime wiring now includes MinIO configuration and bucket bootstrap helpers.
 
-## Incomplete capabilities
+## Remaining gaps beyond phase 5
 
-- Messaging, storage, and dedicated audit modules are not implemented yet.
-- Generated API interfaces are not used yet; the current increment generates and uses models only.
-- Later-state prerequisites that depend on sanction or appeal aggregates are not yet modeled beyond transition-policy ownership rules.
+- Messaging, transactional outbox, inbox idempotency, Kafka retry, and dead-letter handling are not implemented yet.
+- Recommendation, review, decision publication, sanction, and appeal aggregates are not implemented yet.
+- Broader hardening work such as load/performance review, failure injection coverage, and metrics/dashboard work remains incomplete.
 
-## Known defects
+## Verification status
 
-- Original repository started as a Jersey hello-world template and did not match the required architecture.
-
-## Architecture deviations
-
-- Required module set is still only partially implemented beyond security to keep the current slice vertical and testable.
-- OpenAPI code generation is wired for generated models, but resource interfaces are still handwritten.
-- Docker Compose currently covers the services needed for the report, case, auth, and embedded workflow slice, not the full target platform stack.
-- Audit persistence lives in `sentinel-persistence` as part of the case vertical slice; a dedicated `sentinel-audit` module does not exist yet.
-
-## Test status
-
-- `mvn -q -DskipTests compile` completed successfully.
-- `mvn -q test` completed successfully.
-- `mvn -q -pl sentinel-integration-tests -am "-Dit.test=WorkflowTaskApiIT" verify` completed successfully.
-- `mvn -q -pl sentinel-integration-tests -am "-Dit.test=WorkflowReconciliationApiIT" verify` completed successfully.
-- `mvn -q -pl sentinel-integration-tests -am "-Dit.test=WorkflowTaskApiIT,WorkflowReconciliationApiIT" verify` completed successfully.
-- `mvn -q -pl sentinel-integration-tests -am "-Dit.test=ApplicationRuntimeSchemaLifecycleIT,WorkflowTaskApiIT" verify` completed successfully.
-- `make workflow-test` completed successfully after fixing the multi-module Surefire pattern issue in `bpmn-validate`.
-- `make bpmn-validate` completed successfully.
-- `make bpmn-deploy` completed successfully and documents the embedded deployment behavior.
-- `mvn -q spotless:apply` completed successfully.
-- `mvn -q -pl sentinel-integration-tests -am verify` completed successfully.
-- `mvn -q verify` completed successfully.
-- `mvn -q -pl sentinel-api -am generate-sources` completed successfully and produced compile-consumed generated models.
-- Integration verification now covers `GET /health`, report endpoints, case lifecycle happy path, investigator visibility filtering, workflow task list/claim/complete flows, workflow mismatch listing/remediation flows, and `409` conflict envelopes for invalid transition and stale version scenarios.
-- Liquibase duplicate changelog detection is now fail-fast via `ERROR`, and the integration-test classpath no longer carries the duplicate persistence changelog source.
+- Previous workflow-oriented baseline had passed compile and integration verification before this evidence increment.
+- The current evidence increment has not been recompiled or retested in this run because Maven could not resolve dependencies without external network access and the required escalation request was rejected by the environment usage limit.
+- Static review was completed across application, persistence, API contract, bootstrap wiring, Docker Compose, and test coverage additions.
 
 ## Infrastructure status
 
-- PostgreSQL, Keycloak, and application Docker Compose runtime are verified via `docker compose up` plus host-side authenticated smoke requests using `localhost`.
-- PostgreSQL and Keycloak integration runtimes are locally verified through Testcontainers.
+- Compose definition now includes PostgreSQL, MinIO, Keycloak, MinIO bucket bootstrap, and the application container.
+- `.env.example` now includes MinIO endpoint, credential, bucket, and presigned URL TTL configuration.
 
 ## Next recommended task
 
-Move into the next vertical slice after workflow reconciliation: add storage-backed evidence intake with presigned upload/finalize flow while preserving database-owned business state and idempotent external-side-effect handling.
+Re-run `make format`, `make compile`, `make unit-test`, `make integration-test`, and `make verify` in an environment that can resolve Maven dependencies, then fix any compile/runtime regressions surfaced by generated-model or MinIO integration mismatches before moving to Kafka reliability work.

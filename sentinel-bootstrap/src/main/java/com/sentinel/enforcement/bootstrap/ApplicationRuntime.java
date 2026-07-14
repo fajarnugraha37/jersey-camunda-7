@@ -7,12 +7,18 @@ import com.sentinel.enforcement.api.error.CaseConflictExceptionMapper;
 import com.sentinel.enforcement.api.error.CaseNotFoundExceptionMapper;
 import com.sentinel.enforcement.api.error.ConstraintViolationExceptionMapper;
 import com.sentinel.enforcement.api.error.CorrelationIdFilter;
+import com.sentinel.enforcement.api.error.EvidenceConflictExceptionMapper;
+import com.sentinel.enforcement.api.error.EvidenceNotFoundExceptionMapper;
+import com.sentinel.enforcement.api.error.EvidenceObjectMissingExceptionMapper;
+import com.sentinel.enforcement.api.error.EvidenceStorageUnavailableExceptionMapper;
 import com.sentinel.enforcement.api.error.GenericExceptionMapper;
+import com.sentinel.enforcement.api.error.ReportConflictExceptionMapper;
 import com.sentinel.enforcement.api.error.ReportNotFoundExceptionMapper;
 import com.sentinel.enforcement.api.error.UnauthenticatedExceptionMapper;
 import com.sentinel.enforcement.api.error.WorkflowReconciliationConflictExceptionMapper;
 import com.sentinel.enforcement.api.error.WorkflowTaskConflictExceptionMapper;
 import com.sentinel.enforcement.api.error.WorkflowTaskNotFoundExceptionMapper;
+import com.sentinel.enforcement.api.evidence.EvidenceResource;
 import com.sentinel.enforcement.api.health.HealthResource;
 import com.sentinel.enforcement.api.json.ObjectMapperContextResolver;
 import com.sentinel.enforcement.api.report.ReportResource;
@@ -20,6 +26,7 @@ import com.sentinel.enforcement.api.security.BearerAuthenticationFilter;
 import com.sentinel.enforcement.api.workflow.TaskResource;
 import com.sentinel.enforcement.api.workflow.WorkflowReconciliationResource;
 import com.sentinel.enforcement.application.casefile.CaseApplicationService;
+import com.sentinel.enforcement.application.evidence.EvidenceApplicationService;
 import com.sentinel.enforcement.application.health.HealthStatusService;
 import com.sentinel.enforcement.application.report.ReportApplicationService;
 import com.sentinel.enforcement.application.security.AuthorizationService;
@@ -28,12 +35,14 @@ import com.sentinel.enforcement.application.workflow.WorkflowReconciliationAppli
 import com.sentinel.enforcement.application.workflow.WorkflowTaskApplicationService;
 import com.sentinel.enforcement.persistence.PersistenceModule;
 import com.sentinel.enforcement.persistence.casefile.CaseRepositoryMyBatisAdapter;
+import com.sentinel.enforcement.persistence.evidence.EvidenceRepositoryMyBatisAdapter;
 import com.sentinel.enforcement.persistence.report.ReportRepositoryMyBatisAdapter;
 import com.sentinel.enforcement.persistence.workflow.WorkflowInstanceMyBatisAdapter;
 import com.sentinel.enforcement.persistence.workflow.WorkflowReconciliationMyBatisAdapter;
 import com.sentinel.enforcement.security.KeycloakSecurityConfiguration;
 import com.sentinel.enforcement.security.KeycloakTokenVerifier;
 import com.sentinel.enforcement.security.RoleBasedAuthorizationService;
+import com.sentinel.enforcement.storage.MinioEvidenceStorageAdapter;
 import com.sentinel.enforcement.workflow.WorkflowModule;
 import com.sentinel.enforcement.workflow.WorkflowRuntime;
 import com.zaxxer.hikari.HikariConfig;
@@ -77,8 +86,16 @@ public final class ApplicationRuntime implements AutoCloseable {
       AuthorizationService authorizationService = new RoleBasedAuthorizationService();
       CaseRepositoryMyBatisAdapter caseRepository =
           new CaseRepositoryMyBatisAdapter(sqlSessionFactory);
+      EvidenceRepositoryMyBatisAdapter evidenceRepository =
+          new EvidenceRepositoryMyBatisAdapter(sqlSessionFactory);
       ReportRepositoryMyBatisAdapter reportRepository =
           new ReportRepositoryMyBatisAdapter(sqlSessionFactory);
+      MinioEvidenceStorageAdapter evidenceStorage =
+          new MinioEvidenceStorageAdapter(
+              configuration.minioEndpoint(),
+              configuration.minioAccessKey(),
+              configuration.minioSecretKey());
+      evidenceStorage.ensureBucketExists(configuration.minioEvidenceBucket());
       WorkflowInstanceMyBatisAdapter workflowInstanceStore =
           new WorkflowInstanceMyBatisAdapter(sqlSessionFactory);
       WorkflowReconciliationMyBatisAdapter workflowReconciliationQueryPort =
@@ -99,6 +116,16 @@ public final class ApplicationRuntime implements AutoCloseable {
               clock);
       ReportApplicationService reportApplicationService =
           new ReportApplicationService(authorizationService, reportRepository, clock);
+      EvidenceApplicationService evidenceApplicationService =
+          new EvidenceApplicationService(
+              authorizationService,
+              caseRepository,
+              evidenceRepository,
+              evidenceStorage,
+              clock,
+              configuration.minioEvidenceBucket(),
+              configuration.evidenceUploadUrlTtl(),
+              configuration.evidenceDownloadUrlTtl());
       CaseApplicationService caseApplicationService =
           new CaseApplicationService(
               authorizationService,
@@ -131,6 +158,7 @@ public final class ApplicationRuntime implements AutoCloseable {
                   new ApplicationBinder(
                       healthStatusService,
                       caseApplicationService,
+                      evidenceApplicationService,
                       workflowTaskApplicationService,
                       workflowReconciliationApplicationService,
                       reportApplicationService,
@@ -146,6 +174,11 @@ public final class ApplicationRuntime implements AutoCloseable {
               .register(AuthorizationDeniedExceptionMapper.class)
               .register(CaseConflictExceptionMapper.class)
               .register(CaseNotFoundExceptionMapper.class)
+              .register(EvidenceConflictExceptionMapper.class)
+              .register(EvidenceNotFoundExceptionMapper.class)
+              .register(EvidenceObjectMissingExceptionMapper.class)
+              .register(EvidenceStorageUnavailableExceptionMapper.class)
+              .register(ReportConflictExceptionMapper.class)
               .register(ReportNotFoundExceptionMapper.class)
               .register(WorkflowReconciliationConflictExceptionMapper.class)
               .register(WorkflowTaskConflictExceptionMapper.class)
@@ -153,6 +186,7 @@ public final class ApplicationRuntime implements AutoCloseable {
               .register(GenericExceptionMapper.class)
               .register(HealthResource.class)
               .register(CaseResource.class)
+              .register(EvidenceResource.class)
               .register(ReportResource.class)
               .register(TaskResource.class)
               .register(WorkflowReconciliationResource.class)

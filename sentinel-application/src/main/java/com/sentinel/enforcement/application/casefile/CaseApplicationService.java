@@ -11,10 +11,12 @@ import com.sentinel.enforcement.application.workflow.StartedWorkflowInstance;
 import com.sentinel.enforcement.domain.casefile.AuditEvent;
 import com.sentinel.enforcement.domain.casefile.CaseActionContext;
 import com.sentinel.enforcement.domain.casefile.CaseAssignment;
+import com.sentinel.enforcement.domain.casefile.CaseConflictException;
 import com.sentinel.enforcement.domain.casefile.CaseRecord;
 import com.sentinel.enforcement.domain.casefile.CaseStatus;
 import com.sentinel.enforcement.domain.casefile.CaseStatusHistoryEntry;
 import com.sentinel.enforcement.domain.report.Report;
+import com.sentinel.enforcement.domain.report.ReportStatus;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -58,6 +60,11 @@ public final class CaseApplicationService {
         actor,
         Permission.CREATE_CASE,
         new AuthorizationContext(report.jurisdictionCode(), CASE_RESOURCE_TYPE, null, null));
+    if (report.status() != ReportStatus.TRIAGED) {
+      throw new CaseConflictException(
+          "REPORT_NOT_TRIAGED",
+          "Report " + report.id() + " must be triaged before a case can be created.");
+    }
 
     Instant now = clock.instant();
     String caseNumber =

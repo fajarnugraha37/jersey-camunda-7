@@ -2,6 +2,7 @@ package com.sentinel.enforcement.persistence.report;
 
 import com.sentinel.enforcement.application.report.ReportRepository;
 import com.sentinel.enforcement.domain.report.Report;
+import com.sentinel.enforcement.domain.report.ReportConflictException;
 import com.sentinel.enforcement.domain.report.ReportStatus;
 import java.time.ZoneOffset;
 import java.util.Optional;
@@ -21,6 +22,20 @@ public final class ReportRepositoryMyBatisAdapter implements ReportRepository {
     try (SqlSession session = sqlSessionFactory.openSession(false)) {
       ReportMyBatisMapper mapper = session.getMapper(ReportMyBatisMapper.class);
       mapper.insert(toRecord(report));
+      session.commit();
+    }
+  }
+
+  @Override
+  public void update(Report report) {
+    try (SqlSession session = sqlSessionFactory.openSession(false)) {
+      ReportMyBatisMapper mapper = session.getMapper(ReportMyBatisMapper.class);
+      int updated = mapper.update(toRecord(report), report.version() - 1);
+      if (updated != 1) {
+        throw new ReportConflictException(
+            "CONCURRENT_MODIFICATION",
+            "Report " + report.id() + " was modified concurrently before the update completed.");
+      }
       session.commit();
     }
   }

@@ -33,7 +33,8 @@ class WorkflowReconciliationApiIT extends AbstractApiIT {
   @Test
   void supervisorCanListAndAutoRepairMissingActiveWorkflowCorrelation() {
     String token = "wf-reconcile-active-" + UUID.randomUUID().toString().substring(0, 8);
-    ReportResponse report = createReport(accessToken("intake-jkt"), "JKT");
+    ReportResponse report =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
     CaseResponse createdCase =
         createCase(
             accessToken("triage-jkt"),
@@ -83,7 +84,8 @@ class WorkflowReconciliationApiIT extends AbstractApiIT {
   @Test
   void supervisorCanAutoRepairTerminalCaseFromWorkflowHistory() {
     String token = "wf-reconcile-history-" + UUID.randomUUID().toString().substring(0, 8);
-    ReportResponse report = createReport(accessToken("intake-jkt"), "JKT");
+    ReportResponse report =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
     CaseResponse createdCase =
         createCase(
             accessToken("triage-jkt"),
@@ -131,7 +133,8 @@ class WorkflowReconciliationApiIT extends AbstractApiIT {
   @Test
   void supervisorCanTerminateRuntimeWhenCaseWasForcedIntoTerminalState() {
     String token = "wf-reconcile-terminate-" + UUID.randomUUID().toString().substring(0, 8);
-    ReportResponse report = createReport(accessToken("intake-jkt"), "JKT");
+    ReportResponse report =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
     CaseResponse createdCase =
         createCase(
             accessToken("triage-jkt"),
@@ -250,7 +253,8 @@ class WorkflowReconciliationApiIT extends AbstractApiIT {
   }
 
   private static CaseResponse createMismatchCase(String title) {
-    ReportResponse report = createReport(accessToken("intake-jkt"), "JKT");
+    ReportResponse report =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
     CaseResponse createdCase =
         createCase(accessToken("triage-jkt"), report.getId(), title, "List mismatch.");
     assertEquals(

@@ -87,4 +87,33 @@ class RoleBasedAuthorizationServiceTest {
                 Permission.READ_CASE,
                 new AuthorizationContext("JKT", "CASE", "case-1", "other-investigator")));
   }
+
+  @Test
+  void rejectsInvestigatorWithoutDirectAssignmentForEvidenceRead() {
+    ApplicationActor actor =
+        new ApplicationActor(
+            "subject-6", "investigator-jkt", Set.of("INVESTIGATOR"), Set.of("JKT"));
+
+    assertThrows(
+        AuthorizationDeniedException.class,
+        () ->
+            authorizationService.requirePermission(
+                actor,
+                Permission.READ_EVIDENCE,
+                new AuthorizationContext("JKT", "CASE", "case-1", "other-investigator")));
+  }
+
+  @Test
+  void allowsTriageOfficerToTriageReportWithinJurisdiction() {
+    ApplicationActor actor =
+        new ApplicationActor(
+            "subject-7", "triage-jkt", Set.of("TRIAGE_OFFICER"), Set.of("JKT"));
+
+    assertDoesNotThrow(
+        () ->
+            authorizationService.requirePermission(
+                actor,
+                Permission.TRIAGE_REPORT,
+                new AuthorizationContext("JKT", "REPORT", "report-1", null)));
+  }
 }

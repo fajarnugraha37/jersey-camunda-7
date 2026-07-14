@@ -47,8 +47,21 @@ public final class RoleBasedAuthorizationService implements AuthorizationService
     return switch (permission) {
       case CREATE_REPORT -> Set.of("CASE_INTAKE_OFFICER");
       case READ_REPORT -> Set.of("CASE_INTAKE_OFFICER", "TRIAGE_OFFICER", "AUDITOR");
+      case TRIAGE_REPORT -> Set.of("TRIAGE_OFFICER", "SUPERVISOR");
       case CREATE_CASE -> Set.of("TRIAGE_OFFICER", "SUPERVISOR");
       case READ_CASE, LIST_CASES ->
+          Set.of(
+              "TRIAGE_OFFICER",
+              "INVESTIGATOR",
+              "CASE_REVIEWER",
+              "DECISION_MAKER",
+              "APPEAL_OFFICER",
+              "SUPERVISOR",
+              "AUDITOR");
+      case CREATE_EVIDENCE_UPLOAD_SESSION,
+              FINALIZE_EVIDENCE,
+              READ_EVIDENCE,
+              CREATE_EVIDENCE_DOWNLOAD_SESSION ->
           Set.of(
               "TRIAGE_OFFICER",
               "INVESTIGATOR",
@@ -74,7 +87,12 @@ public final class RoleBasedAuthorizationService implements AuthorizationService
   }
 
   private boolean requiresDirectAssignment(ApplicationActor actor, Permission permission) {
-    if (permission != Permission.READ_CASE && permission != Permission.TRANSITION_CASE) {
+    if (permission != Permission.READ_CASE
+        && permission != Permission.TRANSITION_CASE
+        && permission != Permission.CREATE_EVIDENCE_UPLOAD_SESSION
+        && permission != Permission.FINALIZE_EVIDENCE
+        && permission != Permission.READ_EVIDENCE
+        && permission != Permission.CREATE_EVIDENCE_DOWNLOAD_SESSION) {
       return false;
     }
     if (!actor.hasRole("INVESTIGATOR")) {

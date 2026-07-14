@@ -2,6 +2,7 @@ package com.sentinel.enforcement.integration;
 
 import com.sentinel.enforcement.api.generated.model.CreateReportRequest;
 import com.sentinel.enforcement.api.generated.model.ReportResponse;
+import com.sentinel.enforcement.api.generated.model.TriageReportRequest;
 import com.sentinel.enforcement.api.json.ObjectMapperContextResolver;
 import com.sentinel.enforcement.bootstrap.AppConfiguration;
 import com.sentinel.enforcement.bootstrap.ApplicationRuntime;
@@ -51,6 +52,17 @@ abstract class AbstractApiIT {
                   .forPort(9000)
                   .forStatusCode(200)
                   .withStartupTimeout(Duration.ofMinutes(3)));
+  protected static final GenericContainer<?> MINIO =
+      new GenericContainer<>("quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z")
+          .withExposedPorts(9000, 9001)
+          .withEnv("MINIO_ROOT_USER", "sentinel")
+          .withEnv("MINIO_ROOT_PASSWORD", "sentinel-secret")
+          .withCommand("server", "/data", "--console-address", ":9001")
+          .waitingFor(
+              Wait.forHttp("/minio/health/ready")
+                  .forPort(9000)
+                  .forStatusCode(200)
+                  .withStartupTimeout(Duration.ofMinutes(2)));
 
   protected static ApplicationRuntime applicationRuntime;
   protected static Client client;
@@ -64,18 +76,27 @@ abstract class AbstractApiIT {
     if (!KEYCLOAK.isRunning()) {
       KEYCLOAK.start();
     }
+    if (!MINIO.isRunning()) {
+      MINIO.start();
+    }
     if (testConfiguration == null) {
       testConfiguration =
           AppConfiguration.fromEnvironment(
-              Map.of(
-                  "HTTP_PORT", "0",
-                  "DB_URL", POSTGRES.getJdbcUrl(),
-                  "DB_USERNAME", POSTGRES.getUsername(),
-                  "DB_PASSWORD", POSTGRES.getPassword(),
-                  "KEYCLOAK_ISSUER", keycloakIssuer(),
-                  "KEYCLOAK_AUDIENCE", CLIENT_ID,
-                  "KEYCLOAK_JWKS_URL", keycloakJwksUrl(),
-                  "WORKFLOW_INVESTIGATION_ESCALATION_DURATION", "PT2S"));
+              Map.ofEntries(
+                  Map.entry("HTTP_PORT", "0"),
+                  Map.entry("DB_URL", POSTGRES.getJdbcUrl()),
+                  Map.entry("DB_USERNAME", POSTGRES.getUsername()),
+                  Map.entry("DB_PASSWORD", POSTGRES.getPassword()),
+                  Map.entry("MINIO_ENDPOINT", minioEndpoint()),
+                  Map.entry("MINIO_ACCESS_KEY", "sentinel"),
+                  Map.entry("MINIO_SECRET_KEY", "sentinel-secret"),
+                  Map.entry("MINIO_EVIDENCE_BUCKET", "sentinel-evidence"),
+                  Map.entry("EVIDENCE_UPLOAD_URL_TTL", "PT15M"),
+                  Map.entry("EVIDENCE_DOWNLOAD_URL_TTL", "PT10M"),
+                  Map.entry("KEYCLOAK_ISSUER", keycloakIssuer()),
+                  Map.entry("KEYCLOAK_AUDIENCE", CLIENT_ID),
+                  Map.entry("KEYCLOAK_JWKS_URL", keycloakJwksUrl()),
+                  Map.entry("WORKFLOW_INVESTIGATION_ESCALATION_DURATION", "PT2S")));
     }
     if (applicationRuntime == null) {
       ApplicationRuntime.migrate(testConfiguration);
@@ -101,6 +122,7 @@ abstract class AbstractApiIT {
       applicationRuntime = null;
     }
     testConfiguration = null;
+    MINIO.stop();
     KEYCLOAK.stop();
     POSTGRES.stop();
   }
@@ -118,6 +140,25 @@ abstract class AbstractApiIT {
                     .description("Potential violation involving unreported gifts.")
                     .jurisdictionCode(jurisdictionCode)
                     .reporterName("Analyst A"),
+                MediaType.APPLICATION_JSON_TYPE),
+            ReportResponse.class);
+  }
+
+  protected static ReportResponse createTriagedReport(String intakeAccessToken, String triageAccessToken, String jurisdictionCode) {
+    ReportResponse report = createReport(intakeAccessToken, jurisdictionCode);
+    return triageReport(triageAccessToken, report.getId(), report.getVersion(), "Report accepted for case creation.");
+  }
+
+  protected static ReportResponse triageReport(
+      String accessToken, UUID reportId, long expectedVersion, String reason) {
+    return client
+        .target(applicationRuntime.baseUri())
+        .path("/api/v1/reports/" + reportId + "/triage")
+        .request(MediaType.APPLICATION_JSON_TYPE)
+        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+        .post(
+            Entity.entity(
+                new TriageReportRequest().expectedVersion(expectedVersion).reason(reason),
                 MediaType.APPLICATION_JSON_TYPE),
             ReportResponse.class);
   }
@@ -249,5 +290,9 @@ abstract class AbstractApiIT {
 
   private static String keycloakJwksUrl() {
     return keycloakIssuer() + "/protocol/openid-connect/certs";
+  }
+
+  private static String minioEndpoint() {
+    return "http://127.0.0.1:" + MINIO.getMappedPort(9000);
   }
 }

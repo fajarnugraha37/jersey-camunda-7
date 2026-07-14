@@ -3,7 +3,9 @@ package com.sentinel.enforcement.persistence.report;
 import java.util.UUID;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 @Mapper
 public interface ReportMyBatisMapper {
@@ -37,6 +39,21 @@ public interface ReportMyBatisMapper {
             )
             """)
   int insert(ReportRecord reportRecord);
+
+  @Update(
+      """
+            <script>
+            UPDATE report
+            SET
+                status = #{report.status},
+                updated_at = #{report.updatedAt},
+                updated_by = #{report.updatedBy},
+                version = #{report.version}
+            WHERE id = #{report.id}
+              AND version = #{expectedVersion}
+            </script>
+            """)
+  int update(@Param("report") ReportRecord reportRecord, @Param("expectedVersion") long expectedVersion);
 
   @Select(
       """

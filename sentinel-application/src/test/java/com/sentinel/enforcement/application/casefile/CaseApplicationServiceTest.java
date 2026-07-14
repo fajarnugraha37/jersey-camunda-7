@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sentinel.enforcement.application.report.ReportRepository;
@@ -59,7 +60,7 @@ class CaseApplicationServiceTest {
             "Potential violation involving unreported gifts.",
             "JKT",
             "Analyst A",
-            ReportStatus.SUBMITTED,
+            ReportStatus.TRIAGED,
             Instant.parse("2026-07-14T09:00:00Z"),
             "intake-jkt",
             Instant.parse("2026-07-14T09:00:00Z"),
@@ -81,6 +82,54 @@ class CaseApplicationServiceTest {
     assertNotNull(caseRepository.savedHistoryEntry);
     assertNotNull(caseRepository.savedAuditEvent);
     assertEquals(caseRecord.id(), workflowPort.startedWorkflow.caseId());
+  }
+
+  @Test
+  void createCaseRejectsReportThatHasNotBeenTriagedYet() {
+    InMemoryCaseRepository caseRepository = new InMemoryCaseRepository();
+    InMemoryReportRepository reportRepository = new InMemoryReportRepository();
+    CapturingAuthorizationService authorizationService = new CapturingAuthorizationService();
+    StubWorkflowPort workflowPort = new StubWorkflowPort();
+    Clock clock = Clock.fixed(Instant.parse("2026-07-14T10:15:30Z"), ZoneOffset.UTC);
+    CaseApplicationService service =
+        new CaseApplicationService(
+            authorizationService,
+            caseRepository,
+            reportRepository,
+            workflowPort,
+            Duration.ofHours(4),
+            clock);
+    ApplicationActor actor =
+        new ApplicationActor("subject-1", "triage-jkt", Set.of("TRIAGE_OFFICER"), Set.of("JKT"));
+    Report report =
+        new Report(
+            UUID.randomUUID(),
+            "Improper gift disclosure",
+            "Potential violation involving unreported gifts.",
+            "JKT",
+            "Analyst A",
+            ReportStatus.SUBMITTED,
+            Instant.parse("2026-07-14T09:00:00Z"),
+            "intake-jkt",
+            Instant.parse("2026-07-14T09:00:00Z"),
+            "intake-jkt",
+            0L);
+    reportRepository.save(report);
+
+    CaseConflictException conflict =
+        assertThrows(
+            CaseConflictException.class,
+            () ->
+                service.createCase(
+                    actor,
+                    new CreateCaseCommand(
+                        report.id(),
+                        "Gift disclosure case",
+                        "Triaged into case.",
+                        "corr-1",
+                        "127.0.0.1")));
+
+    assertEquals("REPORT_NOT_TRIAGED", conflict.code());
   }
 
   @Test
@@ -342,6 +391,11 @@ class CaseApplicationServiceTest {
 
     @Override
     public void save(Report report) {
+      reports.put(report.id(), report);
+    }
+
+    @Override
+    public void update(Report report) {
       reports.put(report.id(), report);
     }
 

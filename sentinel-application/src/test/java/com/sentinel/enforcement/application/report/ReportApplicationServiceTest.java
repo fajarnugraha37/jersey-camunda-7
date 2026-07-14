@@ -83,11 +83,51 @@ class ReportApplicationServiceTest {
         existing.id().toString(), authorizationService.authorizationContext().resourceId());
   }
 
+  @Test
+  void triageReportTransitionsStatusAndPersistsUpdatedVersion() {
+    InMemoryReportRepository repository = new InMemoryReportRepository();
+    CapturingAuthorizationService authorizationService = new CapturingAuthorizationService();
+    Clock clock = Clock.fixed(Instant.parse("2026-07-14T10:15:30Z"), ZoneOffset.UTC);
+    ReportApplicationService service =
+        new ReportApplicationService(authorizationService, repository, clock);
+    ApplicationActor actor =
+        new ApplicationActor(
+            "subject-3", "triage-jkt", Set.of("TRIAGE_OFFICER"), Set.of("JKT"));
+    Report existing =
+        new Report(
+            UUID.randomUUID(),
+            "Improper gift disclosure",
+            "Potential violation involving unreported gifts.",
+            "JKT",
+            "Analyst A",
+            ReportStatus.SUBMITTED,
+            Instant.parse("2026-07-14T09:00:00Z"),
+            "intake-jkt",
+            Instant.parse("2026-07-14T09:00:00Z"),
+            "intake-jkt",
+            0L);
+    repository.save(existing);
+
+    Report triaged =
+        service.triageReport(
+            actor, existing.id(), new TriageReportCommand(0L, "Ready for case creation.", null, null));
+
+    assertEquals(ReportStatus.TRIAGED, triaged.status());
+    assertEquals(1L, triaged.version());
+    assertEquals(Permission.TRIAGE_REPORT, authorizationService.permission());
+    assertSame(triaged, repository.savedReports().get(existing.id()));
+  }
+
   private static final class InMemoryReportRepository implements ReportRepository {
     private final Map<UUID, Report> savedReports = new HashMap<>();
 
     @Override
     public void save(Report report) {
+      savedReports.put(report.id(), report);
+    }
+
+    @Override
+    public void update(Report report) {
       savedReports.put(report.id(), report);
     }
 

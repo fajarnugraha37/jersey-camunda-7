@@ -19,7 +19,7 @@ help:
 	Write-Host "  package            Build distributable artifacts"
 	Write-Host "  format             Apply Java and pom formatting"
 	Write-Host "  openapi-validate   Validate docs/api/openapi.yaml"
-	Write-Host "  up                 Start postgres and keycloak containers for schema migration"
+	Write-Host "  up                 Start postgres, keycloak, and minio containers for schema migration"
 	Write-Host "  down               Stop compose services"
 	Write-Host "  restart            Restart compose services"
 	Write-Host "  ps                 Show compose service status"
@@ -28,8 +28,9 @@ help:
 	Write-Host "  migrate            Run application plus Camunda schema migration, then start app"
 	Write-Host "  db-status          Show PostgreSQL container status"
 	Write-Host "  db-shell           Open psql shell inside postgres container"
-	Write-Host "  seed               No-op for current phase"
+	Write-Host "  seed               Re-run idempotent local bootstrap helpers such as MinIO bucket init"
 	Write-Host "  smoke-test         Call health endpoint"
+	Write-Host "  minio-init         Ensure the MinIO evidence bucket exists"
 	Write-Host "  bpmn-validate      Validate the embedded Camunda BPMN model"
 	Write-Host "  bpmn-deploy        Explain embedded BPMN deployment behavior"
 
@@ -74,7 +75,8 @@ openapi-validate:
 	mvn -q -pl sentinel-api -am generate-sources
 
 up:
-	docker compose up -d --build postgres keycloak
+	docker compose up -d --build postgres minio keycloak
+	docker compose up minio-init
 
 down:
 	docker compose down
@@ -118,7 +120,7 @@ db-reset:
 	docker compose up -d postgres
 
 seed:
-	Write-Host "No seed data is defined for the current phase."
+	$(MAKE) minio-init
 
 smoke-test:
 	Invoke-RestMethod -Method Get -Uri http://localhost:8080/health | ConvertTo-Json -Depth 5
@@ -133,7 +135,7 @@ kafka-produce:
 	throw "kafka-produce is not implemented in the current phase."
 
 minio-init:
-	throw "minio-init is not implemented in the current phase."
+	docker compose up minio-init
 
 keycloak-import:
 	docker compose up -d keycloak

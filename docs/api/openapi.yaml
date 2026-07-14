@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Sentinel Enforcement Platform API
   version: 0.1.0
-  description: Foundation vertical slice for health, report intake, and case lifecycle.
+  description: Phase 0-5 vertical slice for health, report intake, authorization, case lifecycle, workflow, and storage-backed evidence intake.
 servers:
   - url: http://localhost:8080
 paths:
@@ -83,6 +83,63 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/reports/{reportId}/triage:
+    post:
+      operationId: triageReport
+      tags:
+        - reports
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: reportId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TriageReportRequest'
+      responses:
+        '200':
+          description: Report triaged.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+        '400':
+          description: Request body failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to triage the report.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Report not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Report cannot be triaged in its current state or version.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/cases:
     post:
       operationId: createCase
@@ -142,69 +199,57 @@ paths:
       parameters:
         - in: query
           name: cursor
-          required: false
           schema:
             type: string
           description: Opaque cursor returned by the previous page for the same filter and sort scope.
         - in: query
           name: q
-          required: false
           schema:
             type: string
           description: Quick search keyword matched across case number, title, summary, assignment, and creator fields.
         - in: query
           name: searchField
-          required: false
           schema:
             $ref: '#/components/schemas/CaseListSearchField'
           description: Target a single searchable case field. Must be paired with `searchValue`.
         - in: query
           name: searchValue
-          required: false
           schema:
             type: string
           description: Keyword used with `searchField` for single-field matching.
         - in: query
           name: status
-          required: false
           schema:
             $ref: '#/components/schemas/CaseStatusValue'
         - in: query
           name: assignedUnitId
-          required: false
           schema:
             type: string
         - in: query
           name: assigneeUserId
-          required: false
           schema:
             type: string
         - in: query
           name: createdBy
-          required: false
           schema:
             type: string
         - in: query
           name: reportId
-          required: false
           schema:
             type: string
             format: uuid
         - in: query
           name: sortBy
-          required: false
           schema:
             $ref: '#/components/schemas/CaseListSortBy'
           description: Defaults to `CREATED_AT`.
         - in: query
           name: sortDirection
-          required: false
           schema:
             $ref: '#/components/schemas/SortDirection'
           description: Defaults to `DESC`.
         - in: query
           name: limit
-          required: false
           schema:
             type: integer
             minimum: 1
@@ -404,63 +449,52 @@ paths:
             format: uuid
         - in: query
           name: cursor
-          required: false
           schema:
             type: string
           description: Opaque cursor returned by the previous page for the same filter and sort scope.
         - in: query
           name: q
-          required: false
           schema:
             type: string
           description: Quick search keyword matched across event type, action, actor, result, reason, resource, and correlation fields.
         - in: query
           name: searchField
-          required: false
           schema:
             $ref: '#/components/schemas/AuditEventListSearchField'
           description: Target a single searchable audit field. Must be paired with `searchValue`.
         - in: query
           name: searchValue
-          required: false
           schema:
             type: string
           description: Keyword used with `searchField` for single-field matching.
         - in: query
           name: actorId
-          required: false
           schema:
             type: string
         - in: query
           name: eventType
-          required: false
           schema:
             type: string
         - in: query
           name: action
-          required: false
           schema:
             type: string
         - in: query
           name: result
-          required: false
           schema:
             type: string
         - in: query
           name: sortBy
-          required: false
           schema:
             $ref: '#/components/schemas/AuditEventListSortBy'
           description: Defaults to `TIMESTAMP`.
         - in: query
           name: sortDirection
-          required: false
           schema:
             $ref: '#/components/schemas/SortDirection'
           description: Defaults to `DESC`.
         - in: query
           name: limit
-          required: false
           schema:
             type: integer
             minimum: 1
@@ -491,6 +525,222 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/cases/{caseId}/evidence/upload-sessions:
+    post:
+      operationId: createEvidenceUploadSession
+      tags:
+        - evidence
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: caseId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEvidenceUploadSessionRequest'
+      responses:
+        '201':
+          description: Evidence upload session created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateEvidenceUploadSessionResponse'
+        '400':
+          description: Request body failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to create the upload session.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Case not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Evidence storage is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/evidence/{evidenceId}:
+    get:
+      operationId: getEvidence
+      tags:
+        - evidence
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: evidenceId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Evidence found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvidenceResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to read evidence.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Evidence not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/evidence/{evidenceId}/versions/finalize:
+    post:
+      operationId: finalizeEvidenceVersion
+      tags:
+        - evidence
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: evidenceId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FinalizeEvidenceVersionRequest'
+      responses:
+        '200':
+          description: Evidence version finalized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvidenceResponse'
+        '400':
+          description: Request body failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to finalize evidence.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Evidence not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Evidence finalize request conflicts with current storage or domain state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Evidence storage is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/evidence/{evidenceId}/download-sessions:
+    post:
+      operationId: createEvidenceDownloadSession
+      tags:
+        - evidence
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: evidenceId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEvidenceDownloadSessionRequest'
+      responses:
+        '201':
+          description: Evidence download session created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateEvidenceDownloadSessionResponse'
+        '400':
+          description: Request body failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to download evidence.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Evidence not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Evidence storage is unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/tasks:
     get:
       operationId: listTasks
@@ -501,59 +751,49 @@ paths:
       parameters:
         - in: query
           name: cursor
-          required: false
           schema:
             type: string
           description: Opaque cursor returned by the previous page for the same filter and sort scope.
         - in: query
           name: q
-          required: false
           schema:
             type: string
           description: Quick search keyword matched across task name, task definition key, case number, case title, assignee, and jurisdiction fields.
         - in: query
           name: searchField
-          required: false
           schema:
             $ref: '#/components/schemas/WorkflowTaskSearchField'
           description: Target a single searchable task field. Must be paired with `searchValue`.
         - in: query
           name: searchValue
-          required: false
           schema:
             type: string
           description: Keyword used with `searchField` for single-field matching.
         - in: query
           name: caseId
-          required: false
           schema:
             type: string
             format: uuid
         - in: query
           name: assigneeUserId
-          required: false
           schema:
             type: string
         - in: query
           name: state
-          required: false
           schema:
             $ref: '#/components/schemas/WorkflowTaskStateValue'
         - in: query
           name: sortBy
-          required: false
           schema:
             $ref: '#/components/schemas/WorkflowTaskSortBy'
           description: Defaults to `CREATED_AT`.
         - in: query
           name: sortDirection
-          required: false
           schema:
             $ref: '#/components/schemas/SortDirection'
           description: Defaults to `DESC`.
         - in: query
           name: limit
-          required: false
           schema:
             type: integer
             minimum: 1
@@ -678,58 +918,48 @@ paths:
       parameters:
         - in: query
           name: cursor
-          required: false
           schema:
             type: string
           description: Opaque cursor returned by the previous page for the same filter and sort scope.
         - in: query
           name: q
-          required: false
           schema:
             type: string
           description: Quick search keyword matched across case number, case title, issue type, process instance id, and jurisdiction fields.
         - in: query
           name: searchField
-          required: false
           schema:
             $ref: '#/components/schemas/WorkflowReconciliationSearchField'
           description: Target a single searchable reconciliation field. Must be paired with `searchValue`.
         - in: query
           name: searchValue
-          required: false
           schema:
             type: string
           description: Keyword used with `searchField` for single-field matching.
         - in: query
           name: issueType
-          required: false
           schema:
             $ref: '#/components/schemas/WorkflowReconciliationIssueTypeValue'
         - in: query
           name: caseStatus
-          required: false
           schema:
             $ref: '#/components/schemas/CaseStatusValue'
         - in: query
           name: workflowCorrelationStatus
-          required: false
           schema:
             $ref: '#/components/schemas/WorkflowCorrelationStatusValue'
         - in: query
           name: sortBy
-          required: false
           schema:
             $ref: '#/components/schemas/WorkflowReconciliationSortBy'
           description: Defaults to `CASE_UPDATED_AT`.
         - in: query
           name: sortDirection
-          required: false
           schema:
             $ref: '#/components/schemas/SortDirection'
           description: Defaults to `DESC`.
         - in: query
           name: limit
-          required: false
           schema:
             type: integer
             minimum: 1
@@ -842,6 +1072,20 @@ components:
           type: string
           minLength: 1
           maxLength: 100
+    TriageReportRequest:
+      type: object
+      required:
+        - expectedVersion
+        - reason
+      properties:
+        expectedVersion:
+          type: integer
+          format: int64
+          minimum: 0
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
     ReportResponse:
       type: object
       required:
@@ -883,6 +1127,204 @@ components:
         version:
           type: integer
           format: int64
+    EvidenceClassificationValue:
+      type: string
+      enum:
+        - PUBLIC
+        - CONFIDENTIAL
+        - SECRET
+    EvidenceStorageStatusValue:
+      type: string
+      enum:
+        - PENDING_UPLOAD
+        - ACTIVE
+    CreateEvidenceUploadSessionRequest:
+      type: object
+      required:
+        - title
+        - classification
+        - originalFilename
+        - mediaType
+        - sizeBytes
+        - sha256Checksum
+      properties:
+        existingEvidenceId:
+          type: string
+          format: uuid
+          nullable: true
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        classification:
+          $ref: '#/components/schemas/EvidenceClassificationValue'
+        originalFilename:
+          type: string
+          minLength: 1
+          maxLength: 255
+        mediaType:
+          type: string
+          minLength: 1
+          maxLength: 255
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 0
+        sha256Checksum:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+    CreateEvidenceUploadSessionResponse:
+      type: object
+      required:
+        - evidenceId
+        - uploadSessionId
+        - targetVersionNumber
+        - uploadUrl
+        - expiresAt
+        - objectKey
+      properties:
+        evidenceId:
+          type: string
+          format: uuid
+        uploadSessionId:
+          type: string
+          format: uuid
+        targetVersionNumber:
+          type: integer
+          format: int32
+        uploadUrl:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        objectKey:
+          type: string
+    FinalizeEvidenceVersionRequest:
+      type: object
+      required:
+        - uploadSessionId
+      properties:
+        uploadSessionId:
+          type: string
+          format: uuid
+    CreateEvidenceDownloadSessionRequest:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+    CreateEvidenceDownloadSessionResponse:
+      type: object
+      required:
+        - downloadUrl
+        - expiresAt
+      properties:
+        downloadUrl:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+    EvidenceVersionResponse:
+      type: object
+      required:
+        - id
+        - evidenceId
+        - versionNumber
+        - originalFilename
+        - generatedFilename
+        - bucket
+        - objectKey
+        - mediaType
+        - sizeBytes
+        - sha256Checksum
+        - uploadedAt
+        - uploadedBy
+        - createdAt
+        - createdBy
+      properties:
+        id:
+          type: string
+          format: uuid
+        evidenceId:
+          type: string
+          format: uuid
+        versionNumber:
+          type: integer
+          format: int32
+        originalFilename:
+          type: string
+        generatedFilename:
+          type: string
+        bucket:
+          type: string
+        objectKey:
+          type: string
+        mediaType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        sha256Checksum:
+          type: string
+        uploadedAt:
+          type: string
+          format: date-time
+        uploadedBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+    EvidenceResponse:
+      type: object
+      required:
+        - id
+        - caseId
+        - title
+        - classification
+        - storageStatus
+        - latestVersion
+        - createdAt
+        - createdBy
+        - updatedAt
+        - updatedBy
+        - version
+        - latestVersionMetadata
+      properties:
+        id:
+          type: string
+          format: uuid
+        caseId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        classification:
+          $ref: '#/components/schemas/EvidenceClassificationValue'
+        storageStatus:
+          $ref: '#/components/schemas/EvidenceStorageStatusValue'
+        latestVersion:
+          type: integer
+          format: int32
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+        updatedBy:
+          type: string
+        version:
+          type: integer
+          format: int64
+        latestVersionMetadata:
+          $ref: '#/components/schemas/EvidenceVersionResponse'
     CreateCaseRequest:
       type: object
       required:

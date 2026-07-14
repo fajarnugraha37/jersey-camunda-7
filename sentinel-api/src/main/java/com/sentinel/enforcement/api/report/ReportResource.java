@@ -2,6 +2,8 @@ package com.sentinel.enforcement.api.report;
 
 import com.sentinel.enforcement.api.generated.model.CreateReportRequest;
 import com.sentinel.enforcement.api.generated.model.ReportResponse;
+import com.sentinel.enforcement.api.generated.model.TriageReportRequest;
+import com.sentinel.enforcement.api.security.RequestMetadataResolver;
 import com.sentinel.enforcement.api.security.RequestActorResolver;
 import com.sentinel.enforcement.application.report.ReportApplicationService;
 import com.sentinel.enforcement.application.security.ApplicationActor;
@@ -51,5 +53,22 @@ public final class ReportResource {
       @PathParam("reportId") UUID reportId, @Context ContainerRequestContext requestContext) {
     ApplicationActor actor = RequestActorResolver.resolveRequired(requestContext);
     return mapper.toResponse(reportApplicationService.getReport(actor, reportId));
+  }
+
+  @POST
+  @Path("/{reportId}/triage")
+  public ReportResponse triageReport(
+      @PathParam("reportId") UUID reportId,
+      @Valid TriageReportRequest request,
+      @Context ContainerRequestContext requestContext) {
+    ApplicationActor actor = RequestActorResolver.resolveRequired(requestContext);
+    return mapper.toResponse(
+        reportApplicationService.triageReport(
+            actor,
+            reportId,
+            mapper.toTriageCommand(
+                request,
+                RequestMetadataResolver.correlationId(requestContext),
+                RequestMetadataResolver.sourceIp(requestContext))));
   }
 }

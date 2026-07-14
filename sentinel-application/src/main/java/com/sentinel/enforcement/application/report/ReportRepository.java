@@ -8,5 +8,7 @@ public interface ReportRepository {
 
   void save(Report report);
 
+  void update(Report report);
+
   Optional<Report> findById(UUID reportId);
 }

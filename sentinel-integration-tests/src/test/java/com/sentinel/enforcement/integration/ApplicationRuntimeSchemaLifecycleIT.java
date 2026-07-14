@@ -34,31 +34,45 @@ class ApplicationRuntimeSchemaLifecycleIT {
                     Wait.forHttp("/health/ready")
                         .forPort(9000)
                         .forStatusCode(200)
-                        .withStartupTimeout(Duration.ofMinutes(3)))) {
+                        .withStartupTimeout(Duration.ofMinutes(3)));
+        GenericContainer<?> minio =
+            new GenericContainer<>("quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z")
+                .withExposedPorts(9000, 9001)
+                .withEnv("MINIO_ROOT_USER", "sentinel")
+                .withEnv("MINIO_ROOT_PASSWORD", "sentinel-secret")
+                .withCommand("server", "/data", "--console-address", ":9001")
+                .waitingFor(
+                    Wait.forHttp("/minio/health/ready")
+                        .forPort(9000)
+                        .forStatusCode(200)
+                        .withStartupTimeout(Duration.ofMinutes(2)))) {
       postgres.start();
       keycloak.start();
+      minio.start();
 
       AppConfiguration configuration =
           AppConfiguration.fromEnvironment(
-              Map.of(
-                  "HTTP_PORT",
-                  "0",
-                  "DB_URL",
-                  postgres.getJdbcUrl(),
-                  "DB_USERNAME",
-                  postgres.getUsername(),
-                  "DB_PASSWORD",
-                  postgres.getPassword(),
-                  "KEYCLOAK_ISSUER",
-                  "http://127.0.0.1:" + keycloak.getMappedPort(8080) + "/realms/sentinel",
-                  "KEYCLOAK_AUDIENCE",
-                  "sentinel-api",
-                  "KEYCLOAK_JWKS_URL",
-                  "http://127.0.0.1:"
-                      + keycloak.getMappedPort(8080)
-                      + "/realms/sentinel/protocol/openid-connect/certs",
-                  "WORKFLOW_INVESTIGATION_ESCALATION_DURATION",
-                  "PT2S"));
+              Map.ofEntries(
+                  Map.entry("HTTP_PORT", "0"),
+                  Map.entry("DB_URL", postgres.getJdbcUrl()),
+                  Map.entry("DB_USERNAME", postgres.getUsername()),
+                  Map.entry("DB_PASSWORD", postgres.getPassword()),
+                  Map.entry("MINIO_ENDPOINT", "http://127.0.0.1:" + minio.getMappedPort(9000)),
+                  Map.entry("MINIO_ACCESS_KEY", "sentinel"),
+                  Map.entry("MINIO_SECRET_KEY", "sentinel-secret"),
+                  Map.entry("MINIO_EVIDENCE_BUCKET", "sentinel-evidence"),
+                  Map.entry("EVIDENCE_UPLOAD_URL_TTL", "PT15M"),
+                  Map.entry("EVIDENCE_DOWNLOAD_URL_TTL", "PT10M"),
+                  Map.entry(
+                      "KEYCLOAK_ISSUER",
+                      "http://127.0.0.1:" + keycloak.getMappedPort(8080) + "/realms/sentinel"),
+                  Map.entry("KEYCLOAK_AUDIENCE", "sentinel-api"),
+                  Map.entry(
+                      "KEYCLOAK_JWKS_URL",
+                      "http://127.0.0.1:"
+                          + keycloak.getMappedPort(8080)
+                          + "/realms/sentinel/protocol/openid-connect/certs"),
+                  Map.entry("WORKFLOW_INVESTIGATION_ESCALATION_DURATION", "PT2S")));
 
       assertThrows(ProcessEngineException.class, () -> ApplicationRuntime.start(configuration));
 
