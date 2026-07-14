@@ -1,8 +1,8 @@
-package com.sentinel.enforcement.workflow;
+package com.sentinel.enforcement.application.workflow;
 
 import java.util.UUID;
 
-record WorkflowInstanceRecord(
+public record WorkflowInstanceCorrelation(
     UUID caseId,
     String processInstanceId,
     String processDefinitionId,

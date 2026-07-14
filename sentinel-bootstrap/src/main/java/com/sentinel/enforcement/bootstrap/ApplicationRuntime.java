@@ -26,6 +26,7 @@ import com.sentinel.enforcement.application.workflow.WorkflowTaskApplicationServ
 import com.sentinel.enforcement.persistence.PersistenceModule;
 import com.sentinel.enforcement.persistence.casefile.CaseRepositoryMyBatisAdapter;
 import com.sentinel.enforcement.persistence.report.ReportRepositoryMyBatisAdapter;
+import com.sentinel.enforcement.persistence.workflow.WorkflowInstanceMyBatisAdapter;
 import com.sentinel.enforcement.security.KeycloakSecurityConfiguration;
 import com.sentinel.enforcement.security.KeycloakTokenVerifier;
 import com.sentinel.enforcement.security.RoleBasedAuthorizationService;
@@ -74,9 +75,15 @@ public final class ApplicationRuntime implements AutoCloseable {
           new CaseRepositoryMyBatisAdapter(sqlSessionFactory);
       ReportRepositoryMyBatisAdapter reportRepository =
           new ReportRepositoryMyBatisAdapter(sqlSessionFactory);
+      WorkflowInstanceMyBatisAdapter workflowInstanceStore =
+          new WorkflowInstanceMyBatisAdapter(sqlSessionFactory);
       workflowRuntime =
           WorkflowModule.start(
-              dataSource, caseRepository, clock, configuration.workflowEngineName());
+              dataSource,
+              caseRepository,
+              workflowInstanceStore,
+              clock,
+              configuration.workflowEngineName());
       TokenVerifier tokenVerifier =
           new KeycloakTokenVerifier(
               new KeycloakSecurityConfiguration(

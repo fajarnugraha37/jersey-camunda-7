@@ -21,7 +21,7 @@ Workflow schema:
 - Jersey stack is `jakarta.*` with Jersey 3 and HK2 binder-based dependency injection.
 - Embedded Camunda is bootstrapped from [WorkflowModule.java](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/sentinel-workflow/src/main/java/com/sentinel/enforcement/workflow/WorkflowModule.java).
 - Application bootstrap and lifecycle live in [ApplicationRuntime.java](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/sentinel-bootstrap/src/main/java/com/sentinel/enforcement/bootstrap/ApplicationRuntime.java).
-- Workflow correlation is stored in the application-owned `workflow_instance` table through [WorkflowInstanceJdbcStore.java](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/sentinel-workflow/src/main/java/com/sentinel/enforcement/workflow/WorkflowInstanceJdbcStore.java).
+- Workflow correlation is stored in the application-owned `workflow_instance` table through the MyBatis adapter [WorkflowInstanceMyBatisAdapter.java](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/sentinel-persistence/src/main/java/com/sentinel/enforcement/persistence/workflow/WorkflowInstanceMyBatisAdapter.java).
 - Operational workflow reads use public Camunda Java API, not direct SQL to internal tables.
 
 ## Direct SQL audit for Camunda internal tables

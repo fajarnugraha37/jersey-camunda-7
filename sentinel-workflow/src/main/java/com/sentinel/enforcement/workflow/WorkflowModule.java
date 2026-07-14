@@ -1,6 +1,7 @@
 package com.sentinel.enforcement.workflow;
 
 import com.sentinel.enforcement.application.casefile.CaseRepository;
+import com.sentinel.enforcement.application.workflow.WorkflowInstanceStore;
 import java.time.Clock;
 import java.util.Map;
 import javax.sql.DataSource;
@@ -15,7 +16,11 @@ public final class WorkflowModule {
   private WorkflowModule() {}
 
   public static WorkflowRuntime start(
-      DataSource dataSource, CaseRepository caseRepository, Clock clock, String engineName) {
+      DataSource dataSource,
+      CaseRepository caseRepository,
+      WorkflowInstanceStore workflowInstanceStore,
+      Clock clock,
+      String engineName) {
     InvestigationEscalationDelegate escalationDelegate =
         new InvestigationEscalationDelegate(caseRepository, clock);
 
@@ -40,7 +45,6 @@ public final class WorkflowModule {
         .addClasspathResource(BPMN_RESOURCE)
         .deploy();
 
-    WorkflowInstanceJdbcStore workflowInstanceStore = new WorkflowInstanceJdbcStore(dataSource);
     CamundaCaseWorkflowAdapter workflowAdapter =
         new CamundaCaseWorkflowAdapter(
             camundaServices, workflowInstanceStore, caseRepository, clock);

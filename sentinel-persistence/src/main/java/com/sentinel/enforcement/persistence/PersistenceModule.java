@@ -3,6 +3,7 @@ package com.sentinel.enforcement.persistence;
 import com.sentinel.enforcement.persistence.casefile.CaseMyBatisMapper;
 import com.sentinel.enforcement.persistence.report.ReportMyBatisMapper;
 import com.sentinel.enforcement.persistence.typehandler.UuidTypeHandler;
+import com.sentinel.enforcement.persistence.workflow.WorkflowInstanceMyBatisMapper;
 import java.util.UUID;
 import javax.sql.DataSource;
 import org.apache.ibatis.mapping.Environment;
@@ -27,6 +28,7 @@ public final class PersistenceModule {
     configuration.setMapUnderscoreToCamelCase(true);
     configuration.addMapper(CaseMyBatisMapper.class);
     configuration.addMapper(ReportMyBatisMapper.class);
+    configuration.addMapper(WorkflowInstanceMyBatisMapper.class);
     return new SqlSessionFactoryBuilder().build(configuration);
   }
 }

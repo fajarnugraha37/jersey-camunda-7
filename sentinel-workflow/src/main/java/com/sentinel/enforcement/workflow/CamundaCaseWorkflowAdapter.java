@@ -3,6 +3,8 @@ package com.sentinel.enforcement.workflow;
 import com.sentinel.enforcement.application.casefile.CaseRepository;
 import com.sentinel.enforcement.application.workflow.CaseWorkflowPort;
 import com.sentinel.enforcement.application.workflow.StartedWorkflowInstance;
+import com.sentinel.enforcement.application.workflow.WorkflowInstanceCorrelation;
+import com.sentinel.enforcement.application.workflow.WorkflowInstanceStore;
 import com.sentinel.enforcement.application.workflow.WorkflowTaskConflictException;
 import com.sentinel.enforcement.application.workflow.WorkflowTaskNotFoundException;
 import com.sentinel.enforcement.application.workflow.WorkflowTaskState;
@@ -25,13 +27,13 @@ import org.camunda.bpm.engine.task.Task;
 
 final class CamundaCaseWorkflowAdapter implements CaseWorkflowPort {
   private final CamundaServices camundaServices;
-  private final WorkflowInstanceJdbcStore workflowInstanceStore;
+  private final WorkflowInstanceStore workflowInstanceStore;
   private final CaseRepository caseRepository;
   private final Clock clock;
 
   CamundaCaseWorkflowAdapter(
       CamundaServices camundaServices,
-      WorkflowInstanceJdbcStore workflowInstanceStore,
+      WorkflowInstanceStore workflowInstanceStore,
       CaseRepository caseRepository,
       Clock clock) {
     this.camundaServices = camundaServices;
@@ -87,10 +89,10 @@ final class CamundaCaseWorkflowAdapter implements CaseWorkflowPort {
 
   @Override
   public void cancelCaseWorkflow(UUID caseId, String reason) {
-    Optional<WorkflowInstanceRecord> workflowInstance = workflowInstanceStore.findByCaseId(caseId);
+    Optional<WorkflowInstanceCorrelation> workflowInstance = workflowInstanceStore.findByCaseId(caseId);
     String processInstanceId =
         workflowInstance
-            .map(WorkflowInstanceRecord::processInstanceId)
+            .map(WorkflowInstanceCorrelation::processInstanceId)
             .orElseGet(
                 () -> {
                   ProcessInstance runningInstance =
