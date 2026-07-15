@@ -63,6 +63,16 @@ class WorkflowTaskApiIT extends AbstractApiIT {
             Map.of("caseId", createdCase.getId().toString(), "limit", "10"));
     assertEquals("investigationTask", investigationTask.getTaskDefinitionKey());
     claimTask(accessToken("investigator-jkt"), investigationTask.getTaskId());
+    UUID recommendationId =
+        createRecommendation(
+                accessToken("investigator-jkt"),
+                createdCase.getId(),
+                "Workflow recommendation",
+                "Recommendation prepared during workflow investigation.",
+                "Proceed to decision.",
+                null)
+            .getId();
+    submitRecommendation(accessToken("investigator-jkt"), recommendationId);
     completeTask(accessToken("investigator-jkt"), investigationTask.getTaskId());
 
     WorkflowTaskResponse reviewTask =
@@ -71,6 +81,8 @@ class WorkflowTaskApiIT extends AbstractApiIT {
             Map.of("caseId", createdCase.getId().toString(), "limit", "10"));
     assertEquals("reviewTask", reviewTask.getTaskDefinitionKey());
     claimTask(accessToken("reviewer-jkt"), reviewTask.getTaskId());
+    approveRecommendation(
+        accessToken("reviewer-jkt"), recommendationId, "Workflow review approved.");
     completeTask(accessToken("reviewer-jkt"), reviewTask.getTaskId());
 
     WorkflowTaskResponse decisionTask =
@@ -79,6 +91,21 @@ class WorkflowTaskApiIT extends AbstractApiIT {
             Map.of("caseId", createdCase.getId().toString(), "limit", "10"));
     assertEquals("decisionTask", decisionTask.getTaskDefinitionKey());
     claimTask(accessToken("decision-jkt"), decisionTask.getTaskId());
+    UUID decisionId =
+        createDecision(
+                accessToken("decision-jkt"),
+                createdCase.getId(),
+                "Workflow decision",
+                "Decision published from workflow path.",
+                false,
+                null,
+                null,
+                null,
+                null,
+                java.time.LocalDate.parse("2026-08-01"))
+            .getId();
+    approveDecision(accessToken("supervisor-jkt"), decisionId);
+    publishDecision(accessToken("decision-jkt"), decisionId);
     completeTask(accessToken("decision-jkt"), decisionTask.getTaskId());
 
     CaseResponse decidedCase = getCase(accessToken("decision-jkt"), createdCase.getId());

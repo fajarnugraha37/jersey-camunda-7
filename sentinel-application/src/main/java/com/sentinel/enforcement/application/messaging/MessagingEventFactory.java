@@ -1,10 +1,15 @@
 package com.sentinel.enforcement.application.messaging;
 
 import com.sentinel.enforcement.application.security.ApplicationActor;
+import com.sentinel.enforcement.domain.appeal.Appeal;
+import com.sentinel.enforcement.domain.appeal.AppealDecision;
 import com.sentinel.enforcement.domain.casefile.CaseRecord;
 import com.sentinel.enforcement.domain.casefile.CaseStatus;
+import com.sentinel.enforcement.domain.decision.Decision;
 import com.sentinel.enforcement.domain.evidence.Evidence;
 import com.sentinel.enforcement.domain.evidence.EvidenceVersion;
+import com.sentinel.enforcement.domain.sanction.Sanction;
+import com.sentinel.enforcement.domain.sanction.SanctionObligation;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -102,6 +107,114 @@ public final class MessagingEventFactory {
         "Evidence",
         evidence.id(),
         evidence.caseId().toString(),
+        correlationId,
+        payload,
+        now);
+  }
+
+  public static OutboxEvent decisionPublished(
+      ApplicationActor actor, Decision decision, String correlationId, Instant now) {
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("caseId", decision.caseId().toString());
+    payload.put("decisionId", decision.id().toString());
+    payload.put("title", decision.title());
+    payload.put("violationProven", decision.violationProven());
+    payload.put("appealDeadline", decision.appealDeadline().toString());
+    return outboxEvent(
+        actor,
+        MessagingTopics.DECISION_LIFECYCLE,
+        "DecisionPublished",
+        "Decision",
+        decision.id(),
+        decision.caseId().toString(),
+        correlationId,
+        payload,
+        now);
+  }
+
+  public static OutboxEvent sanctionCreated(
+      ApplicationActor actor,
+      Sanction sanction,
+      SanctionObligation sanctionObligation,
+      String correlationId,
+      Instant now) {
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("caseId", sanction.caseId().toString());
+    payload.put("sanctionId", sanction.id().toString());
+    payload.put("decisionId", sanction.decisionId().toString());
+    payload.put("obligationId", sanctionObligation.id().toString());
+    payload.put("obligationDueDate", sanctionObligation.dueDate().toString());
+    return outboxEvent(
+        actor,
+        MessagingTopics.SANCTION_LIFECYCLE,
+        "SanctionCreated",
+        "Sanction",
+        sanction.id(),
+        sanction.caseId().toString(),
+        correlationId,
+        payload,
+        now);
+  }
+
+  public static OutboxEvent sanctionCancelled(
+      ApplicationActor actor,
+      Sanction sanction,
+      SanctionObligation sanctionObligation,
+      String correlationId,
+      Instant now) {
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("caseId", sanction.caseId().toString());
+    payload.put("sanctionId", sanction.id().toString());
+    payload.put("obligationId", sanctionObligation.id().toString());
+    return outboxEvent(
+        actor,
+        MessagingTopics.SANCTION_LIFECYCLE,
+        "SanctionCancelled",
+        "Sanction",
+        sanction.id(),
+        sanction.caseId().toString(),
+        correlationId,
+        payload,
+        now);
+  }
+
+  public static OutboxEvent appealFiled(
+      ApplicationActor actor, Appeal appeal, String correlationId, Instant now) {
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("caseId", appeal.caseId().toString());
+    payload.put("appealId", appeal.id().toString());
+    payload.put("decisionId", appeal.decisionId().toString());
+    payload.put("supervisorOverride", appeal.supervisorOverride());
+    return outboxEvent(
+        actor,
+        MessagingTopics.APPEAL_LIFECYCLE,
+        "AppealFiled",
+        "Appeal",
+        appeal.id(),
+        appeal.caseId().toString(),
+        correlationId,
+        payload,
+        now);
+  }
+
+  public static OutboxEvent appealDecided(
+      ApplicationActor actor,
+      Appeal appeal,
+      AppealDecision appealDecision,
+      String correlationId,
+      Instant now) {
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("caseId", appeal.caseId().toString());
+    payload.put("appealId", appeal.id().toString());
+    payload.put("decisionId", appeal.decisionId().toString());
+    payload.put("outcome", appealDecision.outcome().name());
+    return outboxEvent(
+        actor,
+        MessagingTopics.APPEAL_LIFECYCLE,
+        "AppealDecided",
+        "Appeal",
+        appeal.id(),
+        appeal.caseId().toString(),
         correlationId,
         payload,
         now);

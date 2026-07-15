@@ -27,7 +27,6 @@
       <groupId>com.sentinel.enforcement</groupId>
       <artifactId>sentinel-api</artifactId>
       <version>${project.version}</version>
-      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.glassfish.jersey.core</groupId>

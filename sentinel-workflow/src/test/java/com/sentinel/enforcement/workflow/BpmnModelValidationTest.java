@@ -25,4 +25,17 @@ class BpmnModelValidationTest {
       throw new IllegalStateException("Failed to validate BPMN model.", exception);
     }
   }
+
+  @Test
+  void appealReviewProcessContainsTheExpectedWorkflowStages() {
+    try (InputStream inputStream =
+        getClass().getClassLoader().getResourceAsStream("bpmn/decision-appeal-review.bpmn")) {
+      assertNotNull(inputStream);
+      BpmnModelInstance modelInstance = Bpmn.readModelFromStream(inputStream);
+
+      assertNotNull(modelInstance.getModelElementById("appealReviewTask"));
+    } catch (Exception exception) {
+      throw new IllegalStateException("Failed to validate appeal BPMN model.", exception);
+    }
+  }
 }

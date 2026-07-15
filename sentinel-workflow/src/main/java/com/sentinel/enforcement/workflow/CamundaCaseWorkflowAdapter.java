@@ -88,6 +88,52 @@ final class CamundaCaseWorkflowAdapter implements CaseWorkflowPort {
   }
 
   @Override
+  public StartedWorkflowInstance startAppealWorkflow(
+      UUID caseId,
+      UUID appealId,
+      String jurisdictionCode,
+      String caseNumber,
+      String caseTitle,
+      String startedBy) {
+    Map<String, Object> variables = new HashMap<>();
+    variables.put("caseId", caseId.toString());
+    variables.put("appealId", appealId.toString());
+    variables.put("jurisdictionCode", jurisdictionCode);
+    variables.put("caseNumber", caseNumber);
+    variables.put("caseTitle", caseTitle);
+    variables.put("startedBy", startedBy);
+
+    String businessKey = caseId + ":appeal:" + appealId;
+    ProcessInstance processInstance =
+        camundaServices
+            .runtimeService()
+            .startProcessInstanceByKey(
+                WorkflowModule.APPEAL_PROCESS_DEFINITION_KEY, businessKey, variables);
+    ProcessDefinition processDefinition =
+        camundaServices
+            .repositoryService()
+            .getProcessDefinition(processInstance.getProcessDefinitionId());
+    StartedWorkflowInstance startedWorkflow =
+        new StartedWorkflowInstance(
+            caseId,
+            processInstance.getProcessInstanceId(),
+            processDefinition.getId(),
+            processDefinition.getVersion(),
+            processInstance.getBusinessKey());
+    try {
+      workflowInstanceStore.saveAppealStarted(startedWorkflow, clock.instant());
+      return startedWorkflow;
+    } catch (RuntimeException exception) {
+      camundaServices
+          .runtimeService()
+          .deleteProcessInstance(
+              processInstance.getProcessInstanceId(),
+              "Appeal workflow correlation persistence failed during start.");
+      throw exception;
+    }
+  }
+
+  @Override
   public void cancelCaseWorkflow(UUID caseId, String reason) {
     Optional<WorkflowInstanceCorrelation> workflowInstance =
         workflowInstanceStore.findByCaseId(caseId);
@@ -114,6 +160,36 @@ final class CamundaCaseWorkflowAdapter implements CaseWorkflowPort {
       camundaServices.runtimeService().deleteProcessInstance(processInstanceId, reason);
     }
     workflowInstanceStore.markCancelled(caseId, clock.instant());
+  }
+
+  @Override
+  public void cancelAppealWorkflow(UUID caseId, String reason) {
+    Optional<WorkflowInstanceCorrelation> workflowInstance =
+        workflowInstanceStore.findAppealByCaseId(caseId);
+    String processInstanceId =
+        workflowInstance
+            .map(WorkflowInstanceCorrelation::processInstanceId)
+            .orElseGet(
+                () -> {
+                  ProcessInstance runningInstance =
+                      camundaServices
+                          .runtimeService()
+                          .createProcessInstanceQuery()
+                          .processDefinitionKey(WorkflowModule.APPEAL_PROCESS_DEFINITION_KEY)
+                          .variableValueEquals("caseId", caseId.toString())
+                          .singleResult();
+                  return runningInstance == null ? null : runningInstance.getProcessInstanceId();
+                });
+    if (processInstanceId != null
+        && camundaServices
+                .runtimeService()
+                .createProcessInstanceQuery()
+                .processInstanceId(processInstanceId)
+                .count()
+            > 0) {
+      camundaServices.runtimeService().deleteProcessInstance(processInstanceId, reason);
+    }
+    workflowInstanceStore.markAppealCancelled(caseId, clock.instant());
   }
 
   @Override

@@ -37,6 +37,7 @@ public final class CaseApplicationService {
   private final CaseRepository caseRepository;
   private final ReportRepository reportRepository;
   private final OutboxRepository outboxRepository;
+  private final CaseProgressionGuard progressionGuard;
   private final CaseWorkflowPort workflowPort;
   private final Duration investigationEscalationDuration;
   private final Clock clock;
@@ -47,6 +48,7 @@ public final class CaseApplicationService {
       CaseRepository caseRepository,
       ReportRepository reportRepository,
       OutboxRepository outboxRepository,
+      CaseProgressionGuard progressionGuard,
       CaseWorkflowPort workflowPort,
       Duration investigationEscalationDuration,
       Clock clock) {
@@ -55,6 +57,7 @@ public final class CaseApplicationService {
     this.caseRepository = caseRepository;
     this.reportRepository = reportRepository;
     this.outboxRepository = outboxRepository;
+    this.progressionGuard = progressionGuard;
     this.workflowPort = workflowPort;
     this.investigationEscalationDuration = investigationEscalationDuration;
     this.clock = clock;
@@ -267,6 +270,7 @@ public final class CaseApplicationService {
     CaseActionContext context =
         new CaseActionContext(
             actor.username(), actor.roles(), command.expectedVersion(), command.reason(), now);
+    progressionGuard.requireTargetStatePrerequisites(caseId, command.targetStatus());
     CaseRecord updated = current.transitionTo(command.targetStatus(), context);
     CaseStatusHistoryEntry historyEntry =
         new CaseStatusHistoryEntry(

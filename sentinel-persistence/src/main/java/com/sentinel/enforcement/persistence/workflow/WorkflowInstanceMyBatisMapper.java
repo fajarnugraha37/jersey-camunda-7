@@ -13,28 +13,30 @@ public interface WorkflowInstanceMyBatisMapper {
 
   @Insert(
       """
-      INSERT INTO workflow_instance (
-          case_id,
-          process_instance_id,
-          process_definition_id,
-          process_definition_version,
+       INSERT INTO workflow_instance (
+           case_id,
+           workflow_type,
+           process_instance_id,
+           process_definition_id,
+           process_definition_version,
           business_key,
           status,
           created_at,
           updated_at
-      ) VALUES (
-          #{caseId},
-          #{processInstanceId},
-          #{processDefinitionId},
-          #{processDefinitionVersion},
+       ) VALUES (
+           #{caseId},
+           #{workflowType},
+           #{processInstanceId},
+           #{processDefinitionId},
+           #{processDefinitionVersion},
           #{businessKey},
           'ACTIVE',
           #{createdAt},
           #{updatedAt}
       )
-      ON CONFLICT (case_id) DO UPDATE
-      SET process_instance_id = EXCLUDED.process_instance_id,
-          process_definition_id = EXCLUDED.process_definition_id,
+       ON CONFLICT (case_id, workflow_type) DO UPDATE
+       SET process_instance_id = EXCLUDED.process_instance_id,
+           process_definition_id = EXCLUDED.process_definition_id,
           process_definition_version = EXCLUDED.process_definition_version,
           business_key = EXCLUDED.business_key,
           status = 'ACTIVE',
@@ -44,28 +46,30 @@ public interface WorkflowInstanceMyBatisMapper {
 
   @Insert(
       """
-      INSERT INTO workflow_instance (
-          case_id,
-          process_instance_id,
-          process_definition_id,
-          process_definition_version,
+       INSERT INTO workflow_instance (
+           case_id,
+           workflow_type,
+           process_instance_id,
+           process_definition_id,
+           process_definition_version,
           business_key,
           status,
           created_at,
           updated_at
-      ) VALUES (
-          #{caseId},
-          #{processInstanceId},
-          #{processDefinitionId},
-          #{processDefinitionVersion},
+       ) VALUES (
+           #{caseId},
+           #{workflowType},
+           #{processInstanceId},
+           #{processDefinitionId},
+           #{processDefinitionVersion},
           #{businessKey},
           #{status},
           #{createdAt},
           #{updatedAt}
       )
-      ON CONFLICT (case_id) DO UPDATE
-      SET process_instance_id = EXCLUDED.process_instance_id,
-          process_definition_id = EXCLUDED.process_definition_id,
+       ON CONFLICT (case_id, workflow_type) DO UPDATE
+       SET process_instance_id = EXCLUDED.process_instance_id,
+           process_definition_id = EXCLUDED.process_definition_id,
           process_definition_version = EXCLUDED.process_definition_version,
           business_key = EXCLUDED.business_key,
           status = EXCLUDED.status,
@@ -75,8 +79,27 @@ public interface WorkflowInstanceMyBatisMapper {
 
   @Select(
       """
+       SELECT
+           case_id AS caseId,
+           workflow_type AS workflowType,
+           process_instance_id AS processInstanceId,
+           process_definition_id AS processDefinitionId,
+           process_definition_version AS processDefinitionVersion,
+          business_key AS businessKey,
+          status,
+          created_at AS createdAt,
+          updated_at AS updatedAt
+       FROM workflow_instance
+        WHERE case_id = #{caseId}
+          AND workflow_type = 'CASE_MAIN'
+       """)
+  WorkflowInstanceData findByCaseId(UUID caseId);
+
+  @Select(
+      """
       SELECT
           case_id AS caseId,
+          workflow_type AS workflowType,
           process_instance_id AS processInstanceId,
           process_definition_id AS processDefinitionId,
           process_definition_version AS processDefinitionVersion,
@@ -86,8 +109,9 @@ public interface WorkflowInstanceMyBatisMapper {
           updated_at AS updatedAt
       FROM workflow_instance
       WHERE case_id = #{caseId}
+        AND workflow_type = 'APPEAL'
       """)
-  WorkflowInstanceData findByCaseId(UUID caseId);
+  WorkflowInstanceData findAppealByCaseId(UUID caseId);
 
   @Update(
       """
@@ -102,10 +126,22 @@ public interface WorkflowInstanceMyBatisMapper {
 
   @Update(
       """
+       UPDATE workflow_instance
+       SET status = 'CANCELLED',
+           updated_at = #{updatedAt}
+       WHERE case_id = #{caseId}
+         AND workflow_type = 'CASE_MAIN'
+       """)
+  int markCancelled(@Param("caseId") UUID caseId, @Param("updatedAt") OffsetDateTime updatedAt);
+
+  @Update(
+      """
       UPDATE workflow_instance
       SET status = 'CANCELLED',
           updated_at = #{updatedAt}
       WHERE case_id = #{caseId}
+        AND workflow_type = 'APPEAL'
       """)
-  int markCancelled(@Param("caseId") UUID caseId, @Param("updatedAt") OffsetDateTime updatedAt);
+  int markAppealCancelled(
+      @Param("caseId") UUID caseId, @Param("updatedAt") OffsetDateTime updatedAt);
 }

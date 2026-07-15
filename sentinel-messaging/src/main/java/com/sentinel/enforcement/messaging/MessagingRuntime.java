@@ -2,12 +2,20 @@ package com.sentinel.enforcement.messaging;
 
 import com.sentinel.enforcement.application.messaging.ApplicationTransactionManager;
 import com.sentinel.enforcement.application.messaging.InboxRepository;
+import com.sentinel.enforcement.application.messaging.MessagingTopics;
 import com.sentinel.enforcement.application.messaging.NotificationRepository;
 import com.sentinel.enforcement.application.messaging.OutboxRepository;
 import java.time.Clock;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.AdminClientConfig;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -16,6 +24,7 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 
 public final class MessagingRuntime implements AutoCloseable {
+  private static final Duration ADMIN_TIMEOUT = Duration.ofSeconds(15);
   private final AtomicBoolean running;
   private final KafkaProducer<String, String> producer;
   private final KafkaConsumer<String, String> consumer;
@@ -43,6 +52,7 @@ public final class MessagingRuntime implements AutoCloseable {
       NotificationRepository notificationRepository,
       Clock clock) {
     AtomicBoolean running = new AtomicBoolean(true);
+    ensureTopicsExist(configuration);
     EventEnvelopeJsonCodec codec = new EventEnvelopeJsonCodec();
     KafkaProducer<String, String> producer = new KafkaProducer<>(producerProperties(configuration));
     KafkaConsumer<String, String> consumer = new KafkaConsumer<>(consumerProperties(configuration));
@@ -124,6 +134,46 @@ public final class MessagingRuntime implements AutoCloseable {
     properties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
     properties.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, "10");
     return properties;
+  }
+
+  private static void ensureTopicsExist(MessagingRuntimeConfiguration configuration) {
+    Properties properties = new Properties();
+    properties.put(
+        AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, configuration.kafkaBootstrapServers());
+    try (AdminClient adminClient = AdminClient.create(properties)) {
+      List<String> existingTopics =
+          new ArrayList<>(
+              adminClient.listTopics().names().get(ADMIN_TIMEOUT.toSeconds(), TimeUnit.SECONDS));
+      List<NewTopic> missingTopics =
+          provisionedTopics().stream()
+              .filter(topic -> !existingTopics.contains(topic))
+              .map(topic -> new NewTopic(topic, 1, (short) 1))
+              .toList();
+      if (!missingTopics.isEmpty()) {
+        adminClient
+            .createTopics(missingTopics)
+            .all()
+            .get(ADMIN_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+      }
+    } catch (Exception exception) {
+      throw new IllegalStateException("Failed to provision Kafka topics for messaging runtime.", exception);
+    }
+  }
+
+  private static List<String> provisionedTopics() {
+    List<String> topics = new ArrayList<>();
+    for (String topic : MessagingTopics.domainLifecycleTopics()) {
+      topics.add(topic);
+      topics.add(topic + ".retry");
+      topics.add(topic + ".dlq");
+    }
+    topics.add(MessagingTopics.NOTIFICATION_COMMAND);
+    topics.add(MessagingTopics.NOTIFICATION_COMMAND + ".retry");
+    topics.add(MessagingTopics.NOTIFICATION_COMMAND + ".dlq");
+    topics.add(MessagingTopics.NOTIFICATION_RESULT);
+    topics.add(MessagingTopics.NOTIFICATION_RESULT + ".retry");
+    topics.add(MessagingTopics.NOTIFICATION_RESULT + ".dlq");
+    return List.copyOf(topics);
   }
 
   private static void sleep(java.time.Duration duration) {

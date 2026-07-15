@@ -4,6 +4,9 @@ import com.sentinel.enforcement.application.casefile.CaseApplicationService;
 import com.sentinel.enforcement.application.casefile.CaseRepository;
 import com.sentinel.enforcement.application.casefile.SortDirection;
 import com.sentinel.enforcement.application.casefile.TransitionCaseCommand;
+import com.sentinel.enforcement.application.appeal.AppealApplicationService;
+import com.sentinel.enforcement.application.decision.DecisionRepository;
+import com.sentinel.enforcement.application.recommendation.RecommendationRepository;
 import com.sentinel.enforcement.application.security.ApplicationActor;
 import com.sentinel.enforcement.application.security.AuthorizationContext;
 import com.sentinel.enforcement.application.security.AuthorizationService;
@@ -22,20 +25,30 @@ public final class WorkflowTaskApplicationService {
   private static final String INVESTIGATION_TASK_KEY = "investigationTask";
   private static final String REVIEW_TASK_KEY = "reviewTask";
   private static final String DECISION_TASK_KEY = "decisionTask";
+  private static final String APPEAL_REVIEW_TASK_KEY = "appealReviewTask";
 
   private final AuthorizationService authorizationService;
   private final CaseRepository caseRepository;
   private final CaseApplicationService caseApplicationService;
+  private final RecommendationRepository recommendationRepository;
+  private final DecisionRepository decisionRepository;
+  private final AppealApplicationService appealApplicationService;
   private final CaseWorkflowPort workflowPort;
 
   public WorkflowTaskApplicationService(
       AuthorizationService authorizationService,
       CaseRepository caseRepository,
       CaseApplicationService caseApplicationService,
+      RecommendationRepository recommendationRepository,
+      DecisionRepository decisionRepository,
+      AppealApplicationService appealApplicationService,
       CaseWorkflowPort workflowPort) {
     this.authorizationService = authorizationService;
     this.caseRepository = caseRepository;
     this.caseApplicationService = caseApplicationService;
+    this.recommendationRepository = recommendationRepository;
+    this.decisionRepository = decisionRepository;
+    this.appealApplicationService = appealApplicationService;
     this.workflowPort = workflowPort;
   }
 
@@ -128,7 +141,7 @@ public final class WorkflowTaskApplicationService {
               currentCase,
               CaseStatus.UNDER_INVESTIGATION,
               CaseStatus.PENDING_REVIEW,
-              "Workflow investigation task completed.",
+              "Workflow investigation task completed after submitted recommendation.",
               correlationId,
               sourceIp);
       case REVIEW_TASK_KEY ->
@@ -137,7 +150,7 @@ public final class WorkflowTaskApplicationService {
               currentCase,
               CaseStatus.PENDING_REVIEW,
               CaseStatus.PENDING_DECISION,
-              "Workflow review task completed.",
+              "Workflow review task completed after approved recommendation.",
               correlationId,
               sourceIp);
       case DECISION_TASK_KEY ->
@@ -146,9 +159,12 @@ public final class WorkflowTaskApplicationService {
               currentCase,
               CaseStatus.PENDING_DECISION,
               CaseStatus.DECIDED,
-              "Workflow decision task completed.",
+              "Workflow decision task completed after published decision.",
               correlationId,
               sourceIp);
+      case APPEAL_REVIEW_TASK_KEY ->
+          appealApplicationService.finalizeAppealWorkflowTask(
+              actor, currentCase.id(), correlationId, sourceIp);
       default ->
           throw new WorkflowTaskConflictException(
               "TASK_TRANSITION_NOT_SUPPORTED",
@@ -200,6 +216,7 @@ public final class WorkflowTaskApplicationService {
       String reason,
       String correlationId,
       String sourceIp) {
+    ensureTaskPrerequisite(currentCase, expectedCurrent);
     if (currentCase.status() == expectedCurrent) {
       caseApplicationService.transitionCase(
           actor,
@@ -215,6 +232,33 @@ public final class WorkflowTaskApplicationService {
     }
   }
 
+  private void ensureTaskPrerequisite(CaseRecord currentCase, CaseStatus expectedCurrent) {
+    switch (expectedCurrent) {
+      case UNDER_INVESTIGATION -> {
+        if (!recommendationRepository.existsSubmittedForCase(currentCase.id())) {
+          throw new WorkflowTaskConflictException(
+              "TASK_PREREQUISITE_MISSING",
+              "Investigation task requires a submitted recommendation before completion.");
+        }
+      }
+      case PENDING_REVIEW -> {
+        if (!recommendationRepository.existsApprovedForCase(currentCase.id())) {
+          throw new WorkflowTaskConflictException(
+              "TASK_PREREQUISITE_MISSING",
+              "Review task requires an approved recommendation before completion.");
+        }
+      }
+      case PENDING_DECISION -> {
+        if (!decisionRepository.existsPublishedForCase(currentCase.id())) {
+          throw new WorkflowTaskConflictException(
+              "TASK_PREREQUISITE_MISSING",
+              "Decision task requires a published decision before completion.");
+        }
+      }
+      default -> {}
+    }
+  }
+
   private boolean isVisibleToActor(ApplicationActor actor, WorkflowTaskView task) {
     if (!actor.hasJurisdiction(task.jurisdictionCode())) {
       return false;
@@ -227,6 +271,7 @@ public final class WorkflowTaskApplicationService {
                   && actor.username().equals(resolveAssignedUserId(task.caseId())));
       case REVIEW_TASK_KEY -> actor.hasRole("CASE_REVIEWER") || actor.hasRole("SUPERVISOR");
       case DECISION_TASK_KEY -> actor.hasRole("DECISION_MAKER") || actor.hasRole("SUPERVISOR");
+      case APPEAL_REVIEW_TASK_KEY -> actor.hasRole("APPEAL_OFFICER") || actor.hasRole("SUPERVISOR");
       default -> false;
     };
   }

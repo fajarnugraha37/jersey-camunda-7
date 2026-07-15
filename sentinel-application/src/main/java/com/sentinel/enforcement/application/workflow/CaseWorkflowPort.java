@@ -15,7 +15,17 @@ public interface CaseWorkflowPort {
       Duration investigationEscalationDuration,
       String startedBy);
 
+  StartedWorkflowInstance startAppealWorkflow(
+      UUID caseId,
+      UUID appealId,
+      String jurisdictionCode,
+      String caseNumber,
+      String caseTitle,
+      String startedBy);
+
   void cancelCaseWorkflow(UUID caseId, String reason);
+
+  void cancelAppealWorkflow(UUID caseId, String reason);
 
   List<WorkflowTaskView> listActiveTasks();
 

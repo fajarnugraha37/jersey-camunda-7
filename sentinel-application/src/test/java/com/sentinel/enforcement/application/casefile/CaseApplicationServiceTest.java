@@ -55,6 +55,7 @@ class CaseApplicationServiceTest {
             caseRepository,
             reportRepository,
             outboxRepository,
+            new NoOpCaseProgressionGuard(),
             workflowPort,
             Duration.ofHours(4),
             clock);
@@ -108,6 +109,7 @@ class CaseApplicationServiceTest {
             caseRepository,
             reportRepository,
             outboxRepository,
+            new NoOpCaseProgressionGuard(),
             workflowPort,
             Duration.ofHours(4),
             clock);
@@ -159,6 +161,7 @@ class CaseApplicationServiceTest {
             caseRepository,
             reportRepository,
             outboxRepository,
+            new NoOpCaseProgressionGuard(),
             workflowPort,
             Duration.ofHours(4),
             clock);
@@ -205,6 +208,7 @@ class CaseApplicationServiceTest {
             caseRepository,
             reportRepository,
             outboxRepository,
+            new NoOpCaseProgressionGuard(),
             workflowPort,
             Duration.ofHours(4),
             clock);
@@ -255,6 +259,7 @@ class CaseApplicationServiceTest {
             caseRepository,
             reportRepository,
             outboxRepository,
+            new NoOpCaseProgressionGuard(),
             workflowPort,
             Duration.ofHours(4),
             clock);
@@ -467,6 +472,21 @@ class CaseApplicationServiceTest {
     public void cancelCaseWorkflow(UUID caseId, String reason) {}
 
     @Override
+    public StartedWorkflowInstance startAppealWorkflow(
+        UUID caseId,
+        UUID appealId,
+        String jurisdictionCode,
+        String caseNumber,
+        String caseTitle,
+        String startedBy) {
+      return new StartedWorkflowInstance(
+          caseId, "appeal-process-1", "decisionAppealReview:1:deployment", 1, caseId + ":appeal:" + appealId);
+    }
+
+    @Override
+    public void cancelAppealWorkflow(UUID caseId, String reason) {}
+
+    @Override
     public List<WorkflowTaskView> listActiveTasks() {
       return List.of();
     }
@@ -495,6 +515,11 @@ class CaseApplicationServiceTest {
     public <T> T required(java.util.function.Supplier<T> work) {
       return work.get();
     }
+  }
+
+  private static final class NoOpCaseProgressionGuard implements CaseProgressionGuard {
+    @Override
+    public void requireTargetStatePrerequisites(UUID caseId, CaseStatus targetStatus) {}
   }
 
   private static final class InMemoryOutboxRepository implements OutboxRepository {

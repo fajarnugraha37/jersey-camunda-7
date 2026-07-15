@@ -68,8 +68,14 @@ public final class RoleBasedAuthorizationService implements AuthorizationService
               "CASE_REVIEWER",
               "DECISION_MAKER",
               "APPEAL_OFFICER",
-              "SUPERVISOR",
-              "AUDITOR");
+               "SUPERVISOR",
+               "AUDITOR");
+      case CREATE_RECOMMENDATION, SUBMIT_RECOMMENDATION ->
+          Set.of("INVESTIGATOR", "SUPERVISOR");
+      case REVIEW_RECOMMENDATION -> Set.of("CASE_REVIEWER", "SUPERVISOR");
+      case CREATE_DECISION, APPROVE_DECISION, PUBLISH_DECISION ->
+          Set.of("DECISION_MAKER", "SUPERVISOR");
+      case CREATE_APPEAL, DECIDE_APPEAL -> Set.of("APPEAL_OFFICER", "SUPERVISOR");
       case ASSIGN_CASE -> Set.of("TRIAGE_OFFICER", "SUPERVISOR");
       case TRANSITION_CASE ->
           Set.of(
@@ -81,7 +87,13 @@ public final class RoleBasedAuthorizationService implements AuthorizationService
               "SUPERVISOR");
       case READ_CASE_AUDIT -> Set.of("SUPERVISOR", "AUDITOR");
       case LIST_TASKS, CLAIM_TASK, COMPLETE_TASK ->
-          Set.of("TRIAGE_OFFICER", "INVESTIGATOR", "CASE_REVIEWER", "DECISION_MAKER", "SUPERVISOR");
+          Set.of(
+              "TRIAGE_OFFICER",
+              "INVESTIGATOR",
+              "CASE_REVIEWER",
+              "DECISION_MAKER",
+              "APPEAL_OFFICER",
+              "SUPERVISOR");
       case RECONCILE_WORKFLOW -> Set.of("SUPERVISOR");
     };
   }
@@ -92,7 +104,9 @@ public final class RoleBasedAuthorizationService implements AuthorizationService
         && permission != Permission.CREATE_EVIDENCE_UPLOAD_SESSION
         && permission != Permission.FINALIZE_EVIDENCE
         && permission != Permission.READ_EVIDENCE
-        && permission != Permission.CREATE_EVIDENCE_DOWNLOAD_SESSION) {
+        && permission != Permission.CREATE_EVIDENCE_DOWNLOAD_SESSION
+        && permission != Permission.CREATE_RECOMMENDATION
+        && permission != Permission.SUBMIT_RECOMMENDATION) {
       return false;
     }
     if (!actor.hasRole("INVESTIGATOR")) {

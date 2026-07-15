@@ -9,3 +9,5 @@ databaseChangeLog:
       file: db/changelog/releases/0004-evidence.yaml
   - include:
       file: db/changelog/releases/0005-messaging.yaml
+  - include:
+      file: db/changelog/releases/0006-phase7-decision-appeal.yaml

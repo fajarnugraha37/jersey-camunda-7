@@ -105,6 +105,32 @@ final class NotificationEventHandler {
                 + " is now active.";
         caseId = UUID.fromString(required(payload, "caseId"));
       }
+      case "DecisionPublished" -> {
+        title = "Decision published";
+        body = "Decision " + required(payload, "title") + " is now published.";
+        caseId = UUID.fromString(required(payload, "caseId"));
+      }
+      case "SanctionCreated" -> {
+        title = "Sanction created";
+        body =
+            "Sanction obligation due on " + required(payload, "obligationDueDate") + " is active.";
+        caseId = UUID.fromString(required(payload, "caseId"));
+      }
+      case "SanctionCancelled" -> {
+        title = "Sanction cancelled";
+        body = "Sanction obligations for the appeal outcome were cancelled.";
+        caseId = UUID.fromString(required(payload, "caseId"));
+      }
+      case "AppealFiled" -> {
+        title = "Appeal filed";
+        body = "An appeal has been filed for the published decision.";
+        caseId = UUID.fromString(required(payload, "caseId"));
+      }
+      case "AppealDecided" -> {
+        title = "Appeal decided";
+        body = "Appeal decision outcome: " + required(payload, "outcome") + ".";
+        caseId = UUID.fromString(required(payload, "caseId"));
+      }
       default -> throw new IllegalArgumentException("Unsupported event type: " + eventType);
     }
 

@@ -10,9 +10,15 @@ public interface WorkflowInstanceStore {
 
   void saveStarted(StartedWorkflowInstance startedWorkflowInstance, Instant now);
 
+  void saveAppealStarted(StartedWorkflowInstance startedWorkflowInstance, Instant now);
+
   Optional<WorkflowInstanceCorrelation> findByCaseId(UUID caseId);
+
+  Optional<WorkflowInstanceCorrelation> findAppealByCaseId(UUID caseId);
 
   void markCompleted(String processInstanceId, Instant now);
 
   void markCancelled(UUID caseId, Instant now);
+
+  void markAppealCancelled(UUID caseId, Instant now);
 }

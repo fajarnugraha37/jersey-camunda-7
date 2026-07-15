@@ -1,6 +1,14 @@
 package com.sentinel.enforcement.integration;
 
 import com.sentinel.enforcement.api.generated.model.CreateReportRequest;
+import com.sentinel.enforcement.api.generated.model.CreateAppealRequest;
+import com.sentinel.enforcement.api.generated.model.CreateDecisionRequest;
+import com.sentinel.enforcement.api.generated.model.CreateRecommendationRequest;
+import com.sentinel.enforcement.api.generated.model.AppealResponse;
+import com.sentinel.enforcement.api.generated.model.DecideAppealRequest;
+import com.sentinel.enforcement.api.generated.model.DecisionResponse;
+import com.sentinel.enforcement.api.generated.model.RecommendationResponse;
+import com.sentinel.enforcement.api.generated.model.ReviewRecommendationRequest;
 import com.sentinel.enforcement.api.generated.model.ReportResponse;
 import com.sentinel.enforcement.api.generated.model.TriageReportRequest;
 import com.sentinel.enforcement.api.json.ObjectMapperContextResolver;
@@ -19,6 +27,9 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -181,6 +192,152 @@ abstract class AbstractApiIT {
                 new TriageReportRequest().expectedVersion(expectedVersion).reason(reason),
                 MediaType.APPLICATION_JSON_TYPE),
             ReportResponse.class);
+  }
+
+  protected static RecommendationResponse createRecommendation(
+      String accessToken,
+      UUID caseId,
+      String title,
+      String summary,
+      String proposedDecision,
+      String proposedSanction) {
+    try (Response response =
+        client
+            .target(applicationRuntime.baseUri())
+            .path("/api/v1/cases/" + caseId + "/recommendations")
+            .request(MediaType.APPLICATION_JSON_TYPE)
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+            .post(
+                Entity.entity(
+                    new CreateRecommendationRequest()
+                        .title(title)
+                        .summary(summary)
+                        .proposedDecision(proposedDecision)
+                        .proposedSanction(proposedSanction),
+                    MediaType.APPLICATION_JSON_TYPE))) {
+      if (response.getStatusInfo().getFamily() != Response.Status.Family.SUCCESSFUL) {
+        String body = response.hasEntity() ? response.readEntity(String.class) : "";
+        throw new IllegalStateException(
+            "Create recommendation failed with status "
+                + response.getStatus()
+                + " and body: "
+                + body);
+      }
+      return response.readEntity(RecommendationResponse.class);
+    }
+  }
+
+  protected static RecommendationResponse submitRecommendation(
+      String accessToken, UUID recommendationId) {
+    return client
+        .target(applicationRuntime.baseUri())
+        .path("/api/v1/recommendations/" + recommendationId + "/submit")
+        .request(MediaType.APPLICATION_JSON_TYPE)
+        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+        .post(Entity.entity("", MediaType.APPLICATION_JSON_TYPE), RecommendationResponse.class);
+  }
+
+  protected static RecommendationResponse approveRecommendation(
+      String accessToken, UUID recommendationId, String reviewSummary) {
+    return client
+        .target(applicationRuntime.baseUri())
+        .path("/api/v1/recommendations/" + recommendationId + "/reviews")
+        .request(MediaType.APPLICATION_JSON_TYPE)
+        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+        .post(
+            Entity.entity(
+                new ReviewRecommendationRequest().reviewSummary(reviewSummary),
+                MediaType.APPLICATION_JSON_TYPE),
+            RecommendationResponse.class);
+  }
+
+  protected static DecisionResponse createDecision(
+      String accessToken,
+      UUID caseId,
+      String title,
+      String summary,
+      boolean violationProven,
+      String sanctionSummary,
+      String obligationTitle,
+      String obligationDetails,
+      LocalDate obligationDueDate,
+      LocalDate appealDeadline) {
+    return client
+        .target(applicationRuntime.baseUri())
+        .path("/api/v1/cases/" + caseId + "/decisions")
+        .request(MediaType.APPLICATION_JSON_TYPE)
+        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+        .post(
+            Entity.entity(
+                new CreateDecisionRequest()
+                    .title(title)
+                    .summary(summary)
+                    .violationProven(violationProven)
+                    .sanctionSummary(sanctionSummary)
+                    .obligationTitle(obligationTitle)
+                    .obligationDetails(obligationDetails)
+                    .obligationDueDate(obligationDueDate)
+                    .appealDeadline(appealDeadline),
+                MediaType.APPLICATION_JSON_TYPE),
+            DecisionResponse.class);
+  }
+
+  protected static DecisionResponse approveDecision(String accessToken, UUID decisionId) {
+    return client
+        .target(applicationRuntime.baseUri())
+        .path("/api/v1/decisions/" + decisionId + "/approve")
+        .request(MediaType.APPLICATION_JSON_TYPE)
+        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+        .post(Entity.entity("", MediaType.APPLICATION_JSON_TYPE), DecisionResponse.class);
+  }
+
+  protected static DecisionResponse publishDecision(String accessToken, UUID decisionId) {
+    return client
+        .target(applicationRuntime.baseUri())
+        .path("/api/v1/decisions/" + decisionId + "/publish")
+        .request(MediaType.APPLICATION_JSON_TYPE)
+        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+        .post(Entity.entity("", MediaType.APPLICATION_JSON_TYPE), DecisionResponse.class);
+  }
+
+  protected static AppealResponse createAppeal(
+      String accessToken,
+      UUID decisionId,
+      String rationale,
+      OffsetDateTime submittedAt,
+      Boolean supervisorOverride,
+      String supervisorOverrideReason) {
+    return client
+        .target(applicationRuntime.baseUri())
+        .path("/api/v1/decisions/" + decisionId + "/appeals")
+        .request(MediaType.APPLICATION_JSON_TYPE)
+        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+        .post(
+            Entity.entity(
+                new CreateAppealRequest()
+                    .rationale(rationale)
+                    .submittedAt(submittedAt)
+                    .supervisorOverride(supervisorOverride)
+                    .supervisorOverrideReason(supervisorOverrideReason),
+                MediaType.APPLICATION_JSON_TYPE),
+            AppealResponse.class);
+  }
+
+  protected static AppealResponse decideAppeal(
+      String accessToken,
+      UUID appealId,
+      com.sentinel.enforcement.api.generated.model.AppealDecisionOutcomeValue outcome,
+      String summary) {
+    return client
+        .target(applicationRuntime.baseUri())
+        .path("/api/v1/appeals/" + appealId + "/decisions")
+        .request(MediaType.APPLICATION_JSON_TYPE)
+        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+        .post(
+            Entity.entity(
+                new DecideAppealRequest().outcome(outcome).summary(summary),
+                MediaType.APPLICATION_JSON_TYPE),
+            AppealResponse.class);
   }
 
   protected static String accessToken(String username) {

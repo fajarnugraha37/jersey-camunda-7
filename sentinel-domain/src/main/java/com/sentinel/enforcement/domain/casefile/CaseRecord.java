@@ -185,7 +185,9 @@ public record CaseRecord(
           targetStatus == CaseStatus.UNDER_APPEAL
               || targetStatus == CaseStatus.ENFORCEMENT_IN_PROGRESS;
       case UNDER_APPEAL ->
-          targetStatus == CaseStatus.DECIDED || targetStatus == CaseStatus.ENFORCEMENT_IN_PROGRESS;
+          targetStatus == CaseStatus.DECIDED
+              || targetStatus == CaseStatus.ENFORCEMENT_IN_PROGRESS
+              || targetStatus == CaseStatus.CLOSED;
       case ENFORCEMENT_IN_PROGRESS -> targetStatus == CaseStatus.CLOSED;
       case CLOSED, CANCELLED -> false;
     };

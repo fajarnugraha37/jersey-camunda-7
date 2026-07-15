@@ -282,16 +282,43 @@ class WorkflowReconciliationApiIT extends AbstractApiIT {
         singleTask(
             accessToken("investigator-jkt"), Map.of("caseId", caseId.toString(), "limit", "10"));
     claimTask(accessToken("investigator-jkt"), investigationTask.getTaskId());
+    UUID recommendationId =
+        createRecommendation(
+                accessToken("investigator-jkt"),
+                caseId,
+                "Workflow reconciliation recommendation",
+                "Recommendation created for reconciliation flow.",
+                "Proceed to decision.",
+                null)
+            .getId();
+    submitRecommendation(accessToken("investigator-jkt"), recommendationId);
     completeTask(accessToken("investigator-jkt"), investigationTask.getTaskId());
 
     WorkflowTaskResponse reviewTask =
         singleTask(accessToken("reviewer-jkt"), Map.of("caseId", caseId.toString(), "limit", "10"));
     claimTask(accessToken("reviewer-jkt"), reviewTask.getTaskId());
+    approveRecommendation(
+        accessToken("reviewer-jkt"), recommendationId, "Workflow reconciliation review approved.");
     completeTask(accessToken("reviewer-jkt"), reviewTask.getTaskId());
 
     WorkflowTaskResponse decisionTask =
         singleTask(accessToken("decision-jkt"), Map.of("caseId", caseId.toString(), "limit", "10"));
     claimTask(accessToken("decision-jkt"), decisionTask.getTaskId());
+    UUID decisionId =
+        createDecision(
+                accessToken("decision-jkt"),
+                caseId,
+                "Workflow reconciliation decision",
+                "Decision created for reconciliation flow.",
+                false,
+                null,
+                null,
+                null,
+                null,
+                java.time.LocalDate.parse("2026-08-01"))
+            .getId();
+    approveDecision(accessToken("supervisor-jkt"), decisionId);
+    publishDecision(accessToken("decision-jkt"), decisionId);
     completeTask(accessToken("decision-jkt"), decisionTask.getTaskId());
   }
 

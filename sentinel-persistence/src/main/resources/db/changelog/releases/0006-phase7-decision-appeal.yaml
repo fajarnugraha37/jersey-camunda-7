@@ -1,0 +1,658 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0006-workflow-instance-types
+      author: codex
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE workflow_instance
+                ADD COLUMN workflow_type VARCHAR(32) DEFAULT 'CASE_MAIN' NOT NULL;
+              ALTER TABLE workflow_instance
+                DROP CONSTRAINT IF EXISTS workflow_instance_pkey;
+              ALTER TABLE workflow_instance
+                ADD CONSTRAINT workflow_instance_pkey PRIMARY KEY (case_id, workflow_type);
+              ALTER TABLE workflow_instance
+                ADD CONSTRAINT ck_workflow_instance_type
+                  CHECK (workflow_type IN ('CASE_MAIN', 'APPEAL'));
+      rollback:
+        - sql:
+            sql: |
+              ALTER TABLE workflow_instance DROP CONSTRAINT IF EXISTS ck_workflow_instance_type;
+              ALTER TABLE workflow_instance DROP CONSTRAINT IF EXISTS workflow_instance_pkey;
+              ALTER TABLE workflow_instance ADD CONSTRAINT workflow_instance_pkey PRIMARY KEY (case_id);
+              ALTER TABLE workflow_instance DROP COLUMN IF EXISTS workflow_type;
+  - changeSet:
+      id: 0006-recommendation
+      author: codex
+      changes:
+        - createTable:
+            tableName: recommendation
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: case_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    unique: true
+                    foreignKeyName: fk_recommendation_case
+                    references: case_record(id)
+              - column:
+                  name: title
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: summary
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: proposed_decision
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: proposed_sanction
+                  type: TEXT
+              - column:
+                  name: status
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: submitted_at
+                  type: TIMESTAMPTZ
+              - column:
+                  name: submitted_by
+                  type: VARCHAR(100)
+              - column:
+                  name: approved_review_id
+                  type: UUID
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+        - sql:
+            sql: |
+              ALTER TABLE recommendation
+                ADD CONSTRAINT ck_recommendation_status
+                  CHECK (status IN ('DRAFT', 'SUBMITTED', 'APPROVED')),
+                ADD CONSTRAINT ck_recommendation_version_non_negative
+                  CHECK (version >= 0);
+        - createTable:
+            tableName: recommendation_review
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: recommendation_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_recommendation_review_recommendation
+                    references: recommendation(id)
+              - column:
+                  name: outcome
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: review_summary
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: reviewed_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: reviewed_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+        - sql:
+            sql: |
+              ALTER TABLE recommendation_review
+                ADD CONSTRAINT ck_recommendation_review_outcome
+                  CHECK (outcome IN ('APPROVED')),
+                ADD CONSTRAINT ck_recommendation_review_version_non_negative
+                  CHECK (version >= 0);
+      rollback:
+        - dropTable:
+            tableName: recommendation_review
+        - dropTable:
+            tableName: recommendation
+  - changeSet:
+      id: 0006-decision-sanction-appeal
+      author: codex
+      changes:
+        - createTable:
+            tableName: decision
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: case_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    unique: true
+                    foreignKeyName: fk_decision_case
+                    references: case_record(id)
+              - column:
+                  name: recommendation_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_decision_recommendation
+                    references: recommendation(id)
+              - column:
+                  name: title
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: summary
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: violation_proven
+                  type: BOOLEAN
+                  constraints:
+                    nullable: false
+              - column:
+                  name: sanction_summary
+                  type: TEXT
+              - column:
+                  name: obligation_title
+                  type: VARCHAR(200)
+              - column:
+                  name: obligation_details
+                  type: TEXT
+              - column:
+                  name: obligation_due_date
+                  type: DATE
+              - column:
+                  name: appeal_deadline
+                  type: DATE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: approved_at
+                  type: TIMESTAMPTZ
+              - column:
+                  name: approved_by
+                  type: VARCHAR(100)
+              - column:
+                  name: published_at
+                  type: TIMESTAMPTZ
+              - column:
+                  name: published_by
+                  type: VARCHAR(100)
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+        - sql:
+            sql: |
+              ALTER TABLE decision
+                ADD CONSTRAINT ck_decision_status
+                  CHECK (status IN ('DRAFT', 'APPROVED', 'PUBLISHED')),
+                ADD CONSTRAINT ck_decision_version_non_negative
+                  CHECK (version >= 0);
+        - createTable:
+            tableName: decision_version
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: decision_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_decision_version_decision
+                    references: decision(id)
+              - column:
+                  name: version_number
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+              - column:
+                  name: title
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: summary
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: violation_proven
+                  type: BOOLEAN
+                  constraints:
+                    nullable: false
+              - column:
+                  name: sanction_summary
+                  type: TEXT
+              - column:
+                  name: obligation_title
+                  type: VARCHAR(200)
+              - column:
+                  name: obligation_details
+                  type: TEXT
+              - column:
+                  name: obligation_due_date
+                  type: DATE
+              - column:
+                  name: appeal_deadline
+                  type: DATE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: published_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: published_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: decision_version
+            columnNames: decision_id, version_number
+            constraintName: uk_decision_version_decision_version
+        - createTable:
+            tableName: sanction
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: case_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_sanction_case
+                    references: case_record(id)
+              - column:
+                  name: decision_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    unique: true
+                    foreignKeyName: fk_sanction_decision
+                    references: decision(id)
+              - column:
+                  name: summary
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+        - sql:
+            sql: |
+              ALTER TABLE sanction
+                ADD CONSTRAINT ck_sanction_status
+                  CHECK (status IN ('ACTIVE', 'CANCELLED')),
+                ADD CONSTRAINT ck_sanction_version_non_negative
+                  CHECK (version >= 0);
+        - createTable:
+            tableName: sanction_obligation
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: sanction_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    unique: true
+                    foreignKeyName: fk_sanction_obligation_sanction
+                    references: sanction(id)
+              - column:
+                  name: title
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: details
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: due_date
+                  type: DATE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+        - sql:
+            sql: |
+              ALTER TABLE sanction_obligation
+                ADD CONSTRAINT ck_sanction_obligation_status
+                  CHECK (status IN ('ACTIVE', 'SATISFIED', 'CANCELLED')),
+                ADD CONSTRAINT ck_sanction_obligation_version_non_negative
+                  CHECK (version >= 0);
+        - createTable:
+            tableName: appeal
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: case_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_appeal_case
+                    references: case_record(id)
+              - column:
+                  name: decision_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    unique: true
+                    foreignKeyName: fk_appeal_decision
+                    references: decision(id)
+              - column:
+                  name: rationale
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: supervisor_override
+                  type: BOOLEAN
+                  constraints:
+                    nullable: false
+              - column:
+                  name: supervisor_override_reason
+                  type: TEXT
+              - column:
+                  name: status
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: submitted_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: submitted_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: decided_by_appeal_decision_id
+                  type: UUID
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+        - sql:
+            sql: |
+              ALTER TABLE appeal
+                ADD CONSTRAINT ck_appeal_status
+                  CHECK (status IN ('ACTIVE', 'DECIDED')),
+                ADD CONSTRAINT ck_appeal_version_non_negative
+                  CHECK (version >= 0);
+        - createTable:
+            tableName: appeal_decision
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: appeal_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    unique: true
+                    foreignKeyName: fk_appeal_decision_appeal
+                    references: appeal(id)
+              - column:
+                  name: outcome
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: summary
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: decided_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: decided_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+        - sql:
+            sql: |
+              ALTER TABLE appeal_decision
+                ADD CONSTRAINT ck_appeal_decision_outcome
+                  CHECK (outcome IN ('DENIED', 'GRANTED')),
+                ADD CONSTRAINT ck_appeal_decision_version_non_negative
+                  CHECK (version >= 0);
+      rollback:
+        - dropTable:
+            tableName: appeal_decision
+        - dropTable:
+            tableName: appeal
+        - dropTable:
+            tableName: sanction_obligation
+        - dropTable:
+            tableName: sanction
+        - dropTable:
+            tableName: decision_version
+        - dropTable:
+            tableName: decision

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_Appeal" targetNamespace="https://sentinel.local/workflow">
+  <bpmn:process id="decisionAppealReview" name="Decision Appeal Review" isExecutable="true" camunda:historyTimeToLive="30">
+    <bpmn:startEvent id="appealStartEvent" name="Appeal Filed">
+      <bpmn:outgoing>AppealFlow_1</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:userTask id="appealReviewTask" name="Review Appeal" camunda:candidateGroups="APPEAL_OFFICER,SUPERVISOR">
+      <bpmn:incoming>AppealFlow_1</bpmn:incoming>
+      <bpmn:outgoing>AppealFlow_2</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:endEvent id="appealReviewCompleted" name="Appeal Review Completed">
+      <bpmn:incoming>AppealFlow_2</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="AppealFlow_1" sourceRef="appealStartEvent" targetRef="appealReviewTask" />
+    <bpmn:sequenceFlow id="AppealFlow_2" sourceRef="appealReviewTask" targetRef="appealReviewCompleted" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="AppealDiagram">
+    <bpmndi:BPMNPlane id="AppealPlane" bpmnElement="decisionAppealReview">
+      <bpmndi:BPMNShape id="AppealStartShape" bpmnElement="appealStartEvent">
+        <dc:Bounds x="152" y="132" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="AppealTaskShape" bpmnElement="appealReviewTask">
+        <dc:Bounds x="240" y="110" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="AppealEndShape" bpmnElement="appealReviewCompleted">
+        <dc:Bounds x="392" y="132" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="AppealFlow_1_di" bpmnElement="AppealFlow_1">
+        <di:waypoint x="188" y="150" />
+        <di:waypoint x="240" y="150" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="AppealFlow_2_di" bpmnElement="AppealFlow_2">
+        <di:waypoint x="340" y="150" />
+        <di:waypoint x="392" y="150" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

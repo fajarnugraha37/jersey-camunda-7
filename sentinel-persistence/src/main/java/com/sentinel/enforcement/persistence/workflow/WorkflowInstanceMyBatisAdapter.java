@@ -3,6 +3,7 @@ package com.sentinel.enforcement.persistence.workflow;
 import com.sentinel.enforcement.application.workflow.StartedWorkflowInstance;
 import com.sentinel.enforcement.application.workflow.WorkflowInstanceCorrelation;
 import com.sentinel.enforcement.application.workflow.WorkflowInstanceStore;
+import com.sentinel.enforcement.application.workflow.WorkflowType;
 import com.sentinel.enforcement.persistence.MyBatisRepositorySupport;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -40,11 +41,33 @@ public final class WorkflowInstanceMyBatisAdapter extends MyBatisRepositorySuppo
   }
 
   @Override
+  public void saveAppealStarted(StartedWorkflowInstance startedWorkflowInstance, Instant now) {
+    executeWrite(
+        session -> {
+          session
+              .getMapper(WorkflowInstanceMyBatisMapper.class)
+              .upsertWorkflowInstance(toData(startedWorkflowInstance, WorkflowType.APPEAL, now));
+          return null;
+        });
+  }
+
+  @Override
   public Optional<WorkflowInstanceCorrelation> findByCaseId(UUID caseId) {
     return executeRead(
         session ->
             Optional.ofNullable(
                     session.getMapper(WorkflowInstanceMyBatisMapper.class).findByCaseId(caseId))
+                .map(this::toCorrelation));
+  }
+
+  @Override
+  public Optional<WorkflowInstanceCorrelation> findAppealByCaseId(UUID caseId) {
+    return executeRead(
+        session ->
+            Optional.ofNullable(
+                    session
+                        .getMapper(WorkflowInstanceMyBatisMapper.class)
+                        .findAppealByCaseId(caseId))
                 .map(this::toCorrelation));
   }
 
@@ -70,10 +93,27 @@ public final class WorkflowInstanceMyBatisAdapter extends MyBatisRepositorySuppo
         });
   }
 
+  @Override
+  public void markAppealCancelled(UUID caseId, Instant now) {
+    executeWrite(
+        session -> {
+          session
+              .getMapper(WorkflowInstanceMyBatisMapper.class)
+              .markAppealCancelled(caseId, now.atOffset(ZoneOffset.UTC));
+          return null;
+        });
+  }
+
   private WorkflowInstanceData toData(
       StartedWorkflowInstance startedWorkflowInstance, Instant now) {
+    return toData(startedWorkflowInstance, WorkflowType.CASE_MAIN, now);
+  }
+
+  private WorkflowInstanceData toData(
+      StartedWorkflowInstance startedWorkflowInstance, WorkflowType workflowType, Instant now) {
     return new WorkflowInstanceData(
         startedWorkflowInstance.caseId(),
+        workflowType.name(),
         startedWorkflowInstance.processInstanceId(),
         startedWorkflowInstance.processDefinitionId(),
         startedWorkflowInstance.processDefinitionVersion(),
@@ -87,6 +127,7 @@ public final class WorkflowInstanceMyBatisAdapter extends MyBatisRepositorySuppo
       WorkflowInstanceCorrelation workflowInstanceCorrelation, Instant now) {
     return new WorkflowInstanceData(
         workflowInstanceCorrelation.caseId(),
+        WorkflowType.CASE_MAIN.name(),
         workflowInstanceCorrelation.processInstanceId(),
         workflowInstanceCorrelation.processDefinitionId(),
         workflowInstanceCorrelation.processDefinitionVersion(),

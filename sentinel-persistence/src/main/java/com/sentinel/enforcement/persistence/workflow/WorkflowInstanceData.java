@@ -5,6 +5,7 @@ import java.util.UUID;
 
 public record WorkflowInstanceData(
     UUID caseId,
+    String workflowType,
     String processInstanceId,
     String processDefinitionId,
     int processDefinitionVersion,

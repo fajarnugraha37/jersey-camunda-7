@@ -21,34 +21,37 @@ import com.sentinel.enforcement.domain.evidence.EvidenceStorageStatus;
 import com.sentinel.enforcement.domain.evidence.EvidenceVersion;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.ReportingPolicy;
-import org.mapstruct.factory.Mappers;
 
-@Mapper(unmappedTargetPolicy = ReportingPolicy.ERROR)
-public interface ApiEvidenceMapper {
-  ApiEvidenceMapper INSTANCE = Mappers.getMapper(ApiEvidenceMapper.class);
+public final class ApiEvidenceMapper {
+  public static final ApiEvidenceMapper INSTANCE = new ApiEvidenceMapper();
 
-  @Mapping(
-      target = "classification",
-      expression = "java(toDomainClassification(request.getClassification()))")
-  @Mapping(target = "correlationId", source = "correlationId")
-  @Mapping(target = "sourceIp", source = "sourceIp")
-  CreateEvidenceUploadSessionCommand toCreateUploadSessionCommand(
-      CreateEvidenceUploadSessionRequest request, String correlationId, String sourceIp);
+  private ApiEvidenceMapper() {}
 
-  @Mapping(target = "correlationId", source = "correlationId")
-  @Mapping(target = "sourceIp", source = "sourceIp")
-  FinalizeEvidenceVersionCommand toFinalizeCommand(
-      FinalizeEvidenceVersionRequest request, String correlationId, String sourceIp);
+  public CreateEvidenceUploadSessionCommand toCreateUploadSessionCommand(
+      CreateEvidenceUploadSessionRequest request, String correlationId, String sourceIp) {
+    return new CreateEvidenceUploadSessionCommand(
+        request.getExistingEvidenceId(),
+        request.getTitle(),
+        toDomainClassification(request.getClassification()),
+        request.getOriginalFilename(),
+        request.getMediaType(),
+        request.getSizeBytes() == null ? 0L : request.getSizeBytes(),
+        request.getSha256Checksum(),
+        correlationId,
+        sourceIp);
+  }
 
-  @Mapping(target = "correlationId", source = "correlationId")
-  @Mapping(target = "sourceIp", source = "sourceIp")
-  CreateEvidenceDownloadSessionCommand toCreateDownloadSessionCommand(
-      CreateEvidenceDownloadSessionRequest request, String correlationId, String sourceIp);
+  public FinalizeEvidenceVersionCommand toFinalizeCommand(
+      FinalizeEvidenceVersionRequest request, String correlationId, String sourceIp) {
+    return new FinalizeEvidenceVersionCommand(request.getUploadSessionId(), correlationId, sourceIp);
+  }
 
-  default CreateEvidenceUploadSessionResponse toCreateUploadSessionResponse(
+  public CreateEvidenceDownloadSessionCommand toCreateDownloadSessionCommand(
+      CreateEvidenceDownloadSessionRequest request, String correlationId, String sourceIp) {
+    return new CreateEvidenceDownloadSessionCommand(request.getReason(), correlationId, sourceIp);
+  }
+
+  public CreateEvidenceUploadSessionResponse toCreateUploadSessionResponse(
       PreparedEvidenceUploadSession preparedSession) {
     return new CreateEvidenceUploadSessionResponse()
         .evidenceId(preparedSession.evidenceId())
@@ -59,14 +62,14 @@ public interface ApiEvidenceMapper {
         .objectKey(preparedSession.objectKey());
   }
 
-  default CreateEvidenceDownloadSessionResponse toCreateDownloadSessionResponse(
+  public CreateEvidenceDownloadSessionResponse toCreateDownloadSessionResponse(
       EvidenceDownloadSession downloadSession) {
     return new CreateEvidenceDownloadSessionResponse()
         .downloadUrl(downloadSession.downloadUrl())
         .expiresAt(OffsetDateTime.ofInstant(downloadSession.expiresAt(), ZoneOffset.UTC));
   }
 
-  default EvidenceResponse toResponse(EvidenceDetailsView detailsView) {
+  public EvidenceResponse toResponse(EvidenceDetailsView detailsView) {
     Evidence evidence = detailsView.evidence();
     return new EvidenceResponse()
         .id(evidence.id())
@@ -83,7 +86,7 @@ public interface ApiEvidenceMapper {
         .latestVersionMetadata(toVersionResponse(detailsView.latestVersion()));
   }
 
-  default EvidenceVersionResponse toVersionResponse(EvidenceVersion evidenceVersion) {
+  public EvidenceVersionResponse toVersionResponse(EvidenceVersion evidenceVersion) {
     return new EvidenceVersionResponse()
         .id(evidenceVersion.id())
         .evidenceId(evidenceVersion.evidenceId())
@@ -101,15 +104,15 @@ public interface ApiEvidenceMapper {
         .createdBy(evidenceVersion.createdBy());
   }
 
-  default EvidenceClassification toDomainClassification(EvidenceClassificationValue value) {
+  public EvidenceClassification toDomainClassification(EvidenceClassificationValue value) {
     return EvidenceClassification.valueOf(value.toString());
   }
 
-  default EvidenceClassificationValue toApiClassification(EvidenceClassification classification) {
+  public EvidenceClassificationValue toApiClassification(EvidenceClassification classification) {
     return EvidenceClassificationValue.fromValue(classification.name());
   }
 
-  default EvidenceStorageStatusValue toApiStorageStatus(EvidenceStorageStatus storageStatus) {
+  public EvidenceStorageStatusValue toApiStorageStatus(EvidenceStorageStatus storageStatus) {
     return EvidenceStorageStatusValue.fromValue(storageStatus.name());
   }
 }

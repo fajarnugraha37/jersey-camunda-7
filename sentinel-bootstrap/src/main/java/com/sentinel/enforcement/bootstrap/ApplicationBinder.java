@@ -1,8 +1,11 @@
 package com.sentinel.enforcement.bootstrap;
 
 import com.sentinel.enforcement.application.casefile.CaseApplicationService;
+import com.sentinel.enforcement.application.appeal.AppealApplicationService;
+import com.sentinel.enforcement.application.decision.DecisionApplicationService;
 import com.sentinel.enforcement.application.evidence.EvidenceApplicationService;
 import com.sentinel.enforcement.application.health.HealthStatusService;
+import com.sentinel.enforcement.application.recommendation.RecommendationApplicationService;
 import com.sentinel.enforcement.application.report.ReportApplicationService;
 import com.sentinel.enforcement.application.security.AuthorizationService;
 import com.sentinel.enforcement.application.security.TokenVerifier;
@@ -14,6 +17,9 @@ public final class ApplicationBinder extends AbstractBinder {
   private final HealthStatusService healthStatusService;
   private final CaseApplicationService caseApplicationService;
   private final EvidenceApplicationService evidenceApplicationService;
+  private final RecommendationApplicationService recommendationApplicationService;
+  private final DecisionApplicationService decisionApplicationService;
+  private final AppealApplicationService appealApplicationService;
   private final WorkflowTaskApplicationService workflowTaskApplicationService;
   private final WorkflowReconciliationApplicationService workflowReconciliationApplicationService;
   private final ReportApplicationService reportApplicationService;
@@ -24,6 +30,9 @@ public final class ApplicationBinder extends AbstractBinder {
       HealthStatusService healthStatusService,
       CaseApplicationService caseApplicationService,
       EvidenceApplicationService evidenceApplicationService,
+      RecommendationApplicationService recommendationApplicationService,
+      DecisionApplicationService decisionApplicationService,
+      AppealApplicationService appealApplicationService,
       WorkflowTaskApplicationService workflowTaskApplicationService,
       WorkflowReconciliationApplicationService workflowReconciliationApplicationService,
       ReportApplicationService reportApplicationService,
@@ -32,6 +41,9 @@ public final class ApplicationBinder extends AbstractBinder {
     this.healthStatusService = healthStatusService;
     this.caseApplicationService = caseApplicationService;
     this.evidenceApplicationService = evidenceApplicationService;
+    this.recommendationApplicationService = recommendationApplicationService;
+    this.decisionApplicationService = decisionApplicationService;
+    this.appealApplicationService = appealApplicationService;
     this.workflowTaskApplicationService = workflowTaskApplicationService;
     this.workflowReconciliationApplicationService = workflowReconciliationApplicationService;
     this.reportApplicationService = reportApplicationService;
@@ -44,6 +56,9 @@ public final class ApplicationBinder extends AbstractBinder {
     bind(healthStatusService).to(HealthStatusService.class);
     bind(caseApplicationService).to(CaseApplicationService.class);
     bind(evidenceApplicationService).to(EvidenceApplicationService.class);
+    bind(recommendationApplicationService).to(RecommendationApplicationService.class);
+    bind(decisionApplicationService).to(DecisionApplicationService.class);
+    bind(appealApplicationService).to(AppealApplicationService.class);
     bind(workflowTaskApplicationService).to(WorkflowTaskApplicationService.class);
     bind(workflowReconciliationApplicationService)
         .to(WorkflowReconciliationApplicationService.class);

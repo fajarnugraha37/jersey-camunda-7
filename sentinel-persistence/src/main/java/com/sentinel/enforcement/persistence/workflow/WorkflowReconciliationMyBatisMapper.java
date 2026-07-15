@@ -24,7 +24,7 @@ public interface WorkflowReconciliationMyBatisMapper {
           w.business_key AS correlationBusinessKey,
           w.status AS correlationStatus
       FROM case_record c
-      LEFT JOIN workflow_instance w ON w.case_id = c.id
+      LEFT JOIN workflow_instance w ON w.case_id = c.id AND w.workflow_type = 'CASE_MAIN'
       """)
   List<WorkflowReconciliationCandidateData> findCandidates();
 
@@ -44,7 +44,7 @@ public interface WorkflowReconciliationMyBatisMapper {
           w.business_key AS correlationBusinessKey,
           w.status AS correlationStatus
       FROM case_record c
-      LEFT JOIN workflow_instance w ON w.case_id = c.id
+      LEFT JOIN workflow_instance w ON w.case_id = c.id AND w.workflow_type = 'CASE_MAIN'
       WHERE c.id = #{caseId}
       """)
   WorkflowReconciliationCandidateData findCandidateByCaseId(UUID caseId);

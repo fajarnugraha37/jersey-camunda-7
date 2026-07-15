@@ -1,18 +1,28 @@
 package com.sentinel.enforcement.bootstrap;
 
 import com.sentinel.enforcement.api.casefile.CaseResource;
+import com.sentinel.enforcement.api.decision.CaseDecisionResource;
+import com.sentinel.enforcement.api.recommendation.CaseRecommendationResource;
+import com.sentinel.enforcement.api.appeal.AppealResource;
+import com.sentinel.enforcement.api.decision.DecisionResource;
 import com.sentinel.enforcement.api.error.AuthorizationDeniedExceptionMapper;
+import com.sentinel.enforcement.api.error.AppealConflictExceptionMapper;
+import com.sentinel.enforcement.api.error.AppealNotFoundExceptionMapper;
 import com.sentinel.enforcement.api.error.BadRequestExceptionMapper;
 import com.sentinel.enforcement.api.error.CaseConflictExceptionMapper;
 import com.sentinel.enforcement.api.error.CaseNotFoundExceptionMapper;
 import com.sentinel.enforcement.api.error.ConstraintViolationExceptionMapper;
 import com.sentinel.enforcement.api.error.CorrelationIdFilter;
+import com.sentinel.enforcement.api.error.DecisionConflictExceptionMapper;
+import com.sentinel.enforcement.api.error.DecisionNotFoundExceptionMapper;
 import com.sentinel.enforcement.api.error.EvidenceConflictExceptionMapper;
 import com.sentinel.enforcement.api.error.EvidenceNotFoundExceptionMapper;
 import com.sentinel.enforcement.api.error.EvidenceObjectMissingExceptionMapper;
 import com.sentinel.enforcement.api.error.EvidenceStorageUnavailableExceptionMapper;
 import com.sentinel.enforcement.api.error.GenericExceptionMapper;
 import com.sentinel.enforcement.api.error.NotFoundExceptionMapper;
+import com.sentinel.enforcement.api.error.RecommendationConflictExceptionMapper;
+import com.sentinel.enforcement.api.error.RecommendationNotFoundExceptionMapper;
 import com.sentinel.enforcement.api.error.ReportConflictExceptionMapper;
 import com.sentinel.enforcement.api.error.ReportNotFoundExceptionMapper;
 import com.sentinel.enforcement.api.error.UnauthenticatedExceptionMapper;
@@ -23,18 +33,27 @@ import com.sentinel.enforcement.api.evidence.CaseEvidenceResource;
 import com.sentinel.enforcement.api.evidence.EvidenceResource;
 import com.sentinel.enforcement.api.health.HealthResource;
 import com.sentinel.enforcement.api.json.ObjectMapperContextResolver;
+import com.sentinel.enforcement.api.recommendation.RecommendationResource;
 import com.sentinel.enforcement.api.report.ReportResource;
 import com.sentinel.enforcement.api.security.BearerAuthenticationFilter;
 import com.sentinel.enforcement.api.workflow.TaskResource;
 import com.sentinel.enforcement.api.workflow.WorkflowReconciliationResource;
 import com.sentinel.enforcement.application.casefile.CaseApplicationService;
+import com.sentinel.enforcement.application.casefile.PhaseSevenCaseProgressionGuard;
+import com.sentinel.enforcement.application.appeal.AppealApplicationService;
+import com.sentinel.enforcement.application.appeal.AppealRepository;
+import com.sentinel.enforcement.application.decision.DecisionApplicationService;
+import com.sentinel.enforcement.application.decision.DecisionRepository;
 import com.sentinel.enforcement.application.evidence.EvidenceApplicationService;
 import com.sentinel.enforcement.application.health.HealthStatusService;
 import com.sentinel.enforcement.application.messaging.ApplicationTransactionManager;
 import com.sentinel.enforcement.application.messaging.InboxRepository;
 import com.sentinel.enforcement.application.messaging.NotificationRepository;
 import com.sentinel.enforcement.application.messaging.OutboxRepository;
+import com.sentinel.enforcement.application.recommendation.RecommendationApplicationService;
+import com.sentinel.enforcement.application.recommendation.RecommendationRepository;
 import com.sentinel.enforcement.application.report.ReportApplicationService;
+import com.sentinel.enforcement.application.sanction.SanctionRepository;
 import com.sentinel.enforcement.application.security.AuthorizationService;
 import com.sentinel.enforcement.application.security.TokenVerifier;
 import com.sentinel.enforcement.application.workflow.WorkflowReconciliationApplicationService;
@@ -43,11 +62,15 @@ import com.sentinel.enforcement.messaging.MessagingRuntime;
 import com.sentinel.enforcement.messaging.MessagingRuntimeConfiguration;
 import com.sentinel.enforcement.persistence.MyBatisTransactionManager;
 import com.sentinel.enforcement.persistence.PersistenceModule;
+import com.sentinel.enforcement.persistence.appeal.AppealRepositoryMyBatisAdapter;
 import com.sentinel.enforcement.persistence.casefile.CaseRepositoryMyBatisAdapter;
+import com.sentinel.enforcement.persistence.decision.DecisionRepositoryMyBatisAdapter;
+import com.sentinel.enforcement.persistence.decision.SanctionRepositoryMyBatisAdapter;
 import com.sentinel.enforcement.persistence.evidence.EvidenceRepositoryMyBatisAdapter;
 import com.sentinel.enforcement.persistence.messaging.InboxRepositoryMyBatisAdapter;
 import com.sentinel.enforcement.persistence.messaging.NotificationRepositoryMyBatisAdapter;
 import com.sentinel.enforcement.persistence.messaging.OutboxRepositoryMyBatisAdapter;
+import com.sentinel.enforcement.persistence.recommendation.RecommendationRepositoryMyBatisAdapter;
 import com.sentinel.enforcement.persistence.report.ReportRepositoryMyBatisAdapter;
 import com.sentinel.enforcement.persistence.workflow.WorkflowInstanceMyBatisAdapter;
 import com.sentinel.enforcement.persistence.workflow.WorkflowReconciliationMyBatisAdapter;
@@ -108,6 +131,11 @@ public final class ApplicationRuntime implements AutoCloseable {
           new EvidenceRepositoryMyBatisAdapter(sqlSessionFactory);
       ReportRepositoryMyBatisAdapter reportRepository =
           new ReportRepositoryMyBatisAdapter(sqlSessionFactory);
+      RecommendationRepository recommendationRepository =
+          new RecommendationRepositoryMyBatisAdapter(sqlSessionFactory);
+      DecisionRepository decisionRepository = new DecisionRepositoryMyBatisAdapter(sqlSessionFactory);
+      SanctionRepository sanctionRepository = new SanctionRepositoryMyBatisAdapter(sqlSessionFactory);
+      AppealRepository appealRepository = new AppealRepositoryMyBatisAdapter(sqlSessionFactory);
       OutboxRepository outboxRepository = new OutboxRepositoryMyBatisAdapter(sqlSessionFactory);
       InboxRepository inboxRepository = new InboxRepositoryMyBatisAdapter(sqlSessionFactory);
       NotificationRepository notificationRepository =
@@ -157,14 +185,49 @@ public final class ApplicationRuntime implements AutoCloseable {
               caseRepository,
               reportRepository,
               outboxRepository,
+              new PhaseSevenCaseProgressionGuard(
+                  recommendationRepository,
+                  decisionRepository,
+                  appealRepository,
+                  sanctionRepository),
               workflowRuntime.caseWorkflowPort(),
               configuration.workflowInvestigationEscalationDuration(),
+              clock);
+      RecommendationApplicationService recommendationApplicationService =
+          new RecommendationApplicationService(
+              authorizationService,
+              transactionManager,
+              caseRepository,
+              recommendationRepository,
+              clock);
+      DecisionApplicationService decisionApplicationService =
+          new DecisionApplicationService(
+              authorizationService,
+              transactionManager,
+              caseRepository,
+              recommendationRepository,
+              decisionRepository,
+              outboxRepository,
+              clock);
+      AppealApplicationService appealApplicationService =
+          new AppealApplicationService(
+              authorizationService,
+              transactionManager,
+              caseRepository,
+              decisionRepository,
+              appealRepository,
+              sanctionRepository,
+              outboxRepository,
+              workflowRuntime.caseWorkflowPort(),
               clock);
       WorkflowTaskApplicationService workflowTaskApplicationService =
           new WorkflowTaskApplicationService(
               authorizationService,
               caseRepository,
               caseApplicationService,
+              recommendationRepository,
+              decisionRepository,
+              appealApplicationService,
               workflowRuntime.caseWorkflowPort());
       WorkflowReconciliationApplicationService workflowReconciliationApplicationService =
           new WorkflowReconciliationApplicationService(
@@ -200,6 +263,9 @@ public final class ApplicationRuntime implements AutoCloseable {
                       healthStatusService,
                       caseApplicationService,
                       evidenceApplicationService,
+                      recommendationApplicationService,
+                      decisionApplicationService,
+                      appealApplicationService,
                       workflowTaskApplicationService,
                       workflowReconciliationApplicationService,
                       reportApplicationService,
@@ -212,25 +278,36 @@ public final class ApplicationRuntime implements AutoCloseable {
               .register(ConstraintViolationExceptionMapper.class)
               .register(BadRequestExceptionMapper.class)
               .register(UnauthenticatedExceptionMapper.class)
-              .register(AuthorizationDeniedExceptionMapper.class)
-              .register(CaseConflictExceptionMapper.class)
-              .register(CaseNotFoundExceptionMapper.class)
-              .register(EvidenceConflictExceptionMapper.class)
-              .register(EvidenceNotFoundExceptionMapper.class)
+               .register(AuthorizationDeniedExceptionMapper.class)
+               .register(AppealConflictExceptionMapper.class)
+               .register(AppealNotFoundExceptionMapper.class)
+               .register(CaseConflictExceptionMapper.class)
+               .register(CaseNotFoundExceptionMapper.class)
+               .register(DecisionConflictExceptionMapper.class)
+               .register(DecisionNotFoundExceptionMapper.class)
+               .register(EvidenceConflictExceptionMapper.class)
+               .register(EvidenceNotFoundExceptionMapper.class)
               .register(EvidenceObjectMissingExceptionMapper.class)
               .register(EvidenceStorageUnavailableExceptionMapper.class)
-              .register(NotFoundExceptionMapper.class)
-              .register(ReportConflictExceptionMapper.class)
-              .register(ReportNotFoundExceptionMapper.class)
+               .register(NotFoundExceptionMapper.class)
+               .register(RecommendationConflictExceptionMapper.class)
+               .register(RecommendationNotFoundExceptionMapper.class)
+               .register(ReportConflictExceptionMapper.class)
+               .register(ReportNotFoundExceptionMapper.class)
               .register(WorkflowReconciliationConflictExceptionMapper.class)
               .register(WorkflowTaskConflictExceptionMapper.class)
               .register(WorkflowTaskNotFoundExceptionMapper.class)
               .register(GenericExceptionMapper.class)
-              .register(HealthResource.class)
-              .register(CaseResource.class)
-              .register(CaseEvidenceResource.class)
-              .register(EvidenceResource.class)
-              .register(ReportResource.class)
+               .register(HealthResource.class)
+               .register(AppealResource.class)
+               .register(CaseResource.class)
+               .register(CaseDecisionResource.class)
+               .register(CaseEvidenceResource.class)
+               .register(CaseRecommendationResource.class)
+               .register(DecisionResource.class)
+               .register(EvidenceResource.class)
+               .register(RecommendationResource.class)
+               .register(ReportResource.class)
               .register(TaskResource.class)
               .register(WorkflowReconciliationResource.class)
               .property(ServerProperties.WADL_FEATURE_DISABLE, true);

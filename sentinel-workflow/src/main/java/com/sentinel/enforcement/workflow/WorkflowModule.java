@@ -11,7 +11,9 @@ import org.camunda.bpm.engine.impl.el.JuelExpressionManager;
 
 public final class WorkflowModule {
   public static final String PROCESS_DEFINITION_KEY = "regulatoryEnforcementCase";
+  public static final String APPEAL_PROCESS_DEFINITION_KEY = "decisionAppealReview";
   private static final String BPMN_RESOURCE = "bpmn/regulatory-enforcement-case.bpmn";
+  private static final String APPEAL_BPMN_RESOURCE = "bpmn/decision-appeal-review.bpmn";
 
   private WorkflowModule() {}
 
@@ -43,6 +45,7 @@ public final class WorkflowModule {
         .name("sentinel-regulatory-enforcement")
         .enableDuplicateFiltering(true)
         .addClasspathResource(BPMN_RESOURCE)
+        .addClasspathResource(APPEAL_BPMN_RESOURCE)
         .deploy();
 
     CamundaCaseWorkflowAdapter workflowAdapter =

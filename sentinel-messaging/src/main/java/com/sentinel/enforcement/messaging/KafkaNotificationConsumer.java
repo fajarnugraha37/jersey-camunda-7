@@ -17,6 +17,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.header.internals.RecordHeader;
+import org.apache.kafka.common.errors.WakeupException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,6 +55,11 @@ final class KafkaNotificationConsumer {
         for (ConsumerRecord<String, String> record : records) {
           processRecord(record);
         }
+      } catch (WakeupException exception) {
+        if (!running.get()) {
+          return;
+        }
+        LOGGER.warn("Notification consumer loop received an unexpected wakeup.", exception);
       } catch (Exception exception) {
         LOGGER.warn("Notification consumer loop failed. Poll will retry.", exception);
       }
@@ -142,12 +148,8 @@ final class KafkaNotificationConsumer {
   }
 
   private List<String> subscribedTopics() {
-    return List.of(
-        MessagingTopics.CASE_LIFECYCLE,
-        MessagingTopics.CASE_LIFECYCLE + ".retry",
-        MessagingTopics.CASE_ASSIGNMENT,
-        MessagingTopics.CASE_ASSIGNMENT + ".retry",
-        MessagingTopics.EVIDENCE_LIFECYCLE,
-        MessagingTopics.EVIDENCE_LIFECYCLE + ".retry");
+    return MessagingTopics.notificationProjectionTopics().stream()
+        .flatMap(topic -> java.util.stream.Stream.of(topic, topic + ".retry"))
+        .toList();
   }
 }

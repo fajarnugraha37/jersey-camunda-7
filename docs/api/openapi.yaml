@@ -525,6 +525,426 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/cases/{caseId}/recommendations:
+    post:
+      operationId: createRecommendation
+      tags:
+        - recommendations
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: caseId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRecommendationRequest'
+      responses:
+        '201':
+          description: Recommendation created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationResponse'
+        '400':
+          description: Request body failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to create the recommendation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Case not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Recommendation conflicts with current case or recommendation state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/recommendations/{recommendationId}/submit:
+    post:
+      operationId: submitRecommendation
+      tags:
+        - recommendations
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: recommendationId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Recommendation submitted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to submit the recommendation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Recommendation not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Recommendation cannot be submitted in its current state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/recommendations/{recommendationId}/reviews:
+    post:
+      operationId: reviewRecommendation
+      tags:
+        - recommendations
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: recommendationId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewRecommendationRequest'
+      responses:
+        '200':
+          description: Recommendation reviewed and approved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationResponse'
+        '400':
+          description: Request body failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to review the recommendation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Recommendation not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Recommendation review violates maker-checker or current state rules.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/cases/{caseId}/decisions:
+    post:
+      operationId: createDecision
+      tags:
+        - decisions
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: caseId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDecisionRequest'
+      responses:
+        '201':
+          description: Decision created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionResponse'
+        '400':
+          description: Request body failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to create the decision.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Case not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Decision conflicts with current case, recommendation, or decision state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/decisions/{decisionId}/approve:
+    post:
+      operationId: approveDecision
+      tags:
+        - decisions
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: decisionId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Decision approved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to approve the decision.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Decision not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Decision approval violates maker-checker or current state rules.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/decisions/{decisionId}/publish:
+    post:
+      operationId: publishDecision
+      tags:
+        - decisions
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: decisionId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Decision published.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecisionResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to publish the decision.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Decision not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Decision cannot be published in its current state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/decisions/{decisionId}/appeals:
+    post:
+      operationId: createAppeal
+      tags:
+        - appeals
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: decisionId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAppealRequest'
+      responses:
+        '201':
+          description: Appeal created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppealResponse'
+        '400':
+          description: Request body failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to create the appeal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Decision not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Appeal conflicts with deadline, existing appeal, or current case state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/appeals/{appealId}/decisions:
+    post:
+      operationId: decideAppeal
+      tags:
+        - appeals
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: appealId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecideAppealRequest'
+      responses:
+        '200':
+          description: Appeal decision recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppealResponse'
+        '400':
+          description: Request body failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to decide the appeal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Appeal not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Appeal cannot be decided in its current state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/cases/{caseId}/evidence/upload-sessions:
     post:
       operationId: createEvidenceUploadSession
@@ -1384,6 +1804,318 @@ components:
           type: string
           minLength: 1
           maxLength: 500
+    CreateRecommendationRequest:
+      type: object
+      required:
+        - title
+        - summary
+        - proposedDecision
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        summary:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        proposedDecision:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        proposedSanction:
+          type: string
+          nullable: true
+          maxLength: 2000
+    ReviewRecommendationRequest:
+      type: object
+      required:
+        - reviewSummary
+      properties:
+        reviewSummary:
+          type: string
+          minLength: 1
+          maxLength: 2000
+    RecommendationStatusValue:
+      type: string
+      enum:
+        - DRAFT
+        - SUBMITTED
+        - APPROVED
+    RecommendationResponse:
+      type: object
+      required:
+        - id
+        - caseId
+        - title
+        - summary
+        - proposedDecision
+        - status
+        - createdAt
+        - createdBy
+        - updatedAt
+        - updatedBy
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        caseId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        summary:
+          type: string
+        proposedDecision:
+          type: string
+        proposedSanction:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/RecommendationStatusValue'
+        submittedAt:
+          type: string
+          format: date-time
+          nullable: true
+        submittedBy:
+          type: string
+          nullable: true
+        approvedReviewId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+        updatedBy:
+          type: string
+        version:
+          type: integer
+          format: int64
+    CreateDecisionRequest:
+      type: object
+      required:
+        - title
+        - summary
+        - violationProven
+        - appealDeadline
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        summary:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        violationProven:
+          type: boolean
+        sanctionSummary:
+          type: string
+          nullable: true
+          maxLength: 2000
+        obligationTitle:
+          type: string
+          nullable: true
+          maxLength: 200
+        obligationDetails:
+          type: string
+          nullable: true
+          maxLength: 2000
+        obligationDueDate:
+          type: string
+          format: date
+          nullable: true
+        appealDeadline:
+          type: string
+          format: date
+    DecisionStatusValue:
+      type: string
+      enum:
+        - DRAFT
+        - APPROVED
+        - PUBLISHED
+    DecisionResponse:
+      type: object
+      required:
+        - id
+        - caseId
+        - recommendationId
+        - title
+        - summary
+        - violationProven
+        - appealDeadline
+        - status
+        - createdAt
+        - createdBy
+        - updatedAt
+        - updatedBy
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        caseId:
+          type: string
+          format: uuid
+        recommendationId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        summary:
+          type: string
+        violationProven:
+          type: boolean
+        sanctionSummary:
+          type: string
+          nullable: true
+        obligationTitle:
+          type: string
+          nullable: true
+        obligationDetails:
+          type: string
+          nullable: true
+        obligationDueDate:
+          type: string
+          format: date
+          nullable: true
+        appealDeadline:
+          type: string
+          format: date
+        status:
+          $ref: '#/components/schemas/DecisionStatusValue'
+        approvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        approvedBy:
+          type: string
+          nullable: true
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        publishedBy:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+        updatedBy:
+          type: string
+        version:
+          type: integer
+          format: int64
+    CreateAppealRequest:
+      type: object
+      required:
+        - rationale
+        - submittedAt
+      properties:
+        rationale:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        submittedAt:
+          type: string
+          format: date-time
+        supervisorOverride:
+          type: boolean
+        supervisorOverrideReason:
+          type: string
+          nullable: true
+          maxLength: 2000
+    AppealDecisionOutcomeValue:
+      type: string
+      enum:
+        - DENIED
+        - GRANTED
+    DecideAppealRequest:
+      type: object
+      required:
+        - outcome
+        - summary
+      properties:
+        outcome:
+          $ref: '#/components/schemas/AppealDecisionOutcomeValue'
+        summary:
+          type: string
+          minLength: 1
+          maxLength: 2000
+    AppealStatusValue:
+      type: string
+      enum:
+        - ACTIVE
+        - DECIDED
+    AppealResponse:
+      type: object
+      required:
+        - id
+        - caseId
+        - decisionId
+        - rationale
+        - supervisorOverride
+        - status
+        - submittedAt
+        - submittedBy
+        - createdAt
+        - createdBy
+        - updatedAt
+        - updatedBy
+        - version
+      properties:
+        id:
+          type: string
+          format: uuid
+        caseId:
+          type: string
+          format: uuid
+        decisionId:
+          type: string
+          format: uuid
+        rationale:
+          type: string
+        supervisorOverride:
+          type: boolean
+        supervisorOverrideReason:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/AppealStatusValue'
+        submittedAt:
+          type: string
+          format: date-time
+        submittedBy:
+          type: string
+        decidedByAppealDecisionId:
+          type: string
+          format: uuid
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+        updatedBy:
+          type: string
+        version:
+          type: integer
+          format: int64
     CaseStatusValue:
       type: string
       enum:
