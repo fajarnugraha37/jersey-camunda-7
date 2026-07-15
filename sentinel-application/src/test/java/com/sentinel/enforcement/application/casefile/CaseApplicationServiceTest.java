@@ -7,6 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.sentinel.enforcement.application.messaging.ApplicationTransactionManager;
+import com.sentinel.enforcement.application.messaging.OutboxEvent;
+import com.sentinel.enforcement.application.messaging.OutboxRepository;
 import com.sentinel.enforcement.application.report.ReportRepository;
 import com.sentinel.enforcement.application.security.ApplicationActor;
 import com.sentinel.enforcement.application.security.AuthorizationContext;
@@ -17,6 +20,7 @@ import com.sentinel.enforcement.application.workflow.StartedWorkflowInstance;
 import com.sentinel.enforcement.application.workflow.WorkflowTaskView;
 import com.sentinel.enforcement.domain.casefile.AuditEvent;
 import com.sentinel.enforcement.domain.casefile.CaseAssignment;
+import com.sentinel.enforcement.domain.casefile.CaseConflictException;
 import com.sentinel.enforcement.domain.casefile.CaseRecord;
 import com.sentinel.enforcement.domain.casefile.CaseStatus;
 import com.sentinel.enforcement.domain.casefile.CaseStatusHistoryEntry;
@@ -40,14 +44,17 @@ class CaseApplicationServiceTest {
   void createCaseUsesReportJurisdictionAndPersistsInitialHistoryAndAudit() {
     InMemoryCaseRepository caseRepository = new InMemoryCaseRepository();
     InMemoryReportRepository reportRepository = new InMemoryReportRepository();
+    InMemoryOutboxRepository outboxRepository = new InMemoryOutboxRepository();
     CapturingAuthorizationService authorizationService = new CapturingAuthorizationService();
     StubWorkflowPort workflowPort = new StubWorkflowPort();
     Clock clock = Clock.fixed(Instant.parse("2026-07-14T10:15:30Z"), ZoneOffset.UTC);
     CaseApplicationService service =
         new CaseApplicationService(
             authorizationService,
+            new ImmediateTransactionManager(),
             caseRepository,
             reportRepository,
+            outboxRepository,
             workflowPort,
             Duration.ofHours(4),
             clock);
@@ -82,20 +89,25 @@ class CaseApplicationServiceTest {
     assertNotNull(caseRepository.savedHistoryEntry);
     assertNotNull(caseRepository.savedAuditEvent);
     assertEquals(caseRecord.id(), workflowPort.startedWorkflow.caseId());
+    assertEquals(1, outboxRepository.events.size());
+    assertEquals("CaseCreated", outboxRepository.events.get(0).envelope().eventType());
   }
 
   @Test
   void createCaseRejectsReportThatHasNotBeenTriagedYet() {
     InMemoryCaseRepository caseRepository = new InMemoryCaseRepository();
     InMemoryReportRepository reportRepository = new InMemoryReportRepository();
+    InMemoryOutboxRepository outboxRepository = new InMemoryOutboxRepository();
     CapturingAuthorizationService authorizationService = new CapturingAuthorizationService();
     StubWorkflowPort workflowPort = new StubWorkflowPort();
     Clock clock = Clock.fixed(Instant.parse("2026-07-14T10:15:30Z"), ZoneOffset.UTC);
     CaseApplicationService service =
         new CaseApplicationService(
             authorizationService,
+            new ImmediateTransactionManager(),
             caseRepository,
             reportRepository,
+            outboxRepository,
             workflowPort,
             Duration.ofHours(4),
             clock);
@@ -136,14 +148,17 @@ class CaseApplicationServiceTest {
   void listCasesRestrictsInvestigatorToAssignedCases() {
     InMemoryCaseRepository caseRepository = new InMemoryCaseRepository();
     InMemoryReportRepository reportRepository = new InMemoryReportRepository();
+    InMemoryOutboxRepository outboxRepository = new InMemoryOutboxRepository();
     CapturingAuthorizationService authorizationService = new CapturingAuthorizationService();
     StubWorkflowPort workflowPort = new StubWorkflowPort();
     Clock clock = Clock.fixed(Instant.parse("2026-07-14T10:15:30Z"), ZoneOffset.UTC);
     CaseApplicationService service =
         new CaseApplicationService(
             authorizationService,
+            new ImmediateTransactionManager(),
             caseRepository,
             reportRepository,
+            outboxRepository,
             workflowPort,
             Duration.ofHours(4),
             clock);
@@ -179,14 +194,17 @@ class CaseApplicationServiceTest {
   void listCasesPassesDynamicSearchFilterAndSortParameters() {
     InMemoryCaseRepository caseRepository = new InMemoryCaseRepository();
     InMemoryReportRepository reportRepository = new InMemoryReportRepository();
+    InMemoryOutboxRepository outboxRepository = new InMemoryOutboxRepository();
     CapturingAuthorizationService authorizationService = new CapturingAuthorizationService();
     StubWorkflowPort workflowPort = new StubWorkflowPort();
     Clock clock = Clock.fixed(Instant.parse("2026-07-14T10:15:30Z"), ZoneOffset.UTC);
     CaseApplicationService service =
         new CaseApplicationService(
             authorizationService,
+            new ImmediateTransactionManager(),
             caseRepository,
             reportRepository,
+            outboxRepository,
             workflowPort,
             Duration.ofHours(4),
             clock);
@@ -226,14 +244,17 @@ class CaseApplicationServiceTest {
   void getCaseAuditEventsBuildsCursorAwareAuditPage() {
     InMemoryCaseRepository caseRepository = new InMemoryCaseRepository();
     InMemoryReportRepository reportRepository = new InMemoryReportRepository();
+    InMemoryOutboxRepository outboxRepository = new InMemoryOutboxRepository();
     CapturingAuthorizationService authorizationService = new CapturingAuthorizationService();
     StubWorkflowPort workflowPort = new StubWorkflowPort();
     Clock clock = Clock.fixed(Instant.parse("2026-07-14T10:15:30Z"), ZoneOffset.UTC);
     CaseApplicationService service =
         new CaseApplicationService(
             authorizationService,
+            new ImmediateTransactionManager(),
             caseRepository,
             reportRepository,
+            outboxRepository,
             workflowPort,
             Duration.ofHours(4),
             clock);
@@ -467,5 +488,43 @@ class CaseApplicationServiceTest {
 
     @Override
     public void completeTask(String taskId) {}
+  }
+
+  private static final class ImmediateTransactionManager implements ApplicationTransactionManager {
+    @Override
+    public <T> T required(java.util.function.Supplier<T> work) {
+      return work.get();
+    }
+  }
+
+  private static final class InMemoryOutboxRepository implements OutboxRepository {
+    private final List<OutboxEvent> events = new java.util.ArrayList<>();
+
+    @Override
+    public void enqueue(OutboxEvent outboxEvent) {
+      events.add(outboxEvent);
+    }
+
+    @Override
+    public List<OutboxEvent> claimPending(
+        String leaseOwner, Instant now, Duration leaseDuration, int batchSize, String updatedBy) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void markPublished(UUID eventId, Instant publishedAt, String updatedBy) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void releaseForRetry(
+        UUID eventId, Instant now, Instant nextAttemptAt, String lastError, String updatedBy) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public long countPending() {
+      return events.size();
+    }
   }
 }

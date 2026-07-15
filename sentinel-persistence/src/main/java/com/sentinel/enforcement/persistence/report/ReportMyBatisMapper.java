@@ -53,7 +53,8 @@ public interface ReportMyBatisMapper {
               AND version = #{expectedVersion}
             </script>
             """)
-  int update(@Param("report") ReportRecord reportRecord, @Param("expectedVersion") long expectedVersion);
+  int update(
+      @Param("report") ReportRecord reportRecord, @Param("expectedVersion") long expectedVersion);
 
   @Select(
       """

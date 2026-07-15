@@ -37,6 +37,7 @@ Workflow schema:
 - Health only checked database reachability, not workflow readiness.
 - Embedded engine lifecycle was singleton in practice, but not represented as an explicit provider/service boundary.
 - Transaction semantics for `create case -> start workflow -> persist case` are still compensation-based rather than fully atomic.
+- Kafka publishing for domain events now uses transactional outbox, but workflow start intent still does not.
 
 ## Target architecture
 

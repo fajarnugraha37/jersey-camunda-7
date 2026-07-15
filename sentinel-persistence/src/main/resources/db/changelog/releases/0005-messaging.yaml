@@ -1,0 +1,310 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0005-messaging-foundation
+      author: codex
+      changes:
+        - createTable:
+            tableName: outbox_event
+            columns:
+              - column:
+                  name: event_id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: topic
+                  type: VARCHAR(120)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: message_key
+                  type: VARCHAR(120)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: event_type
+                  type: VARCHAR(120)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: event_version
+                  type: INTEGER
+                  constraints:
+                    nullable: false
+              - column:
+                  name: aggregate_type
+                  type: VARCHAR(80)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: aggregate_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: occurred_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: correlation_id
+                  type: VARCHAR(120)
+              - column:
+                  name: causation_id
+                  type: VARCHAR(120)
+              - column:
+                  name: actor_type
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: actor_id
+                  type: VARCHAR(120)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: payload_json
+                  type: JSONB
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: available_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: lease_owner
+                  type: VARCHAR(120)
+              - column:
+                  name: lease_expires_at
+                  type: TIMESTAMPTZ
+              - column:
+                  name: publish_attempts
+                  type: INTEGER
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: last_error
+                  type: TEXT
+              - column:
+                  name: published_at
+                  type: TIMESTAMPTZ
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(120)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(120)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+        - sql:
+            sql: |
+              ALTER TABLE outbox_event
+                ADD CONSTRAINT ck_outbox_event_status
+                  CHECK (status IN ('PENDING', 'PUBLISHED')),
+                ADD CONSTRAINT ck_outbox_event_event_version_positive
+                  CHECK (event_version > 0),
+                ADD CONSTRAINT ck_outbox_event_publish_attempts_non_negative
+                  CHECK (publish_attempts >= 0),
+                ADD CONSTRAINT ck_outbox_event_version_non_negative
+                  CHECK (version >= 0);
+        - createIndex:
+            tableName: outbox_event
+            indexName: idx_outbox_event_pending
+            columns:
+              - column:
+                  name: status
+              - column:
+                  name: available_at
+              - column:
+                  name: occurred_at
+        - createIndex:
+            tableName: outbox_event
+            indexName: idx_outbox_event_lease
+            columns:
+              - column:
+                  name: lease_expires_at
+        - createTable:
+            tableName: inbox_event
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: consumer_name
+                  type: VARCHAR(120)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: event_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: topic
+                  type: VARCHAR(120)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(120)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: processed_at
+                  type: TIMESTAMPTZ
+              - column:
+                  name: result_reference
+                  type: VARCHAR(120)
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: inbox_event
+            columnNames: consumer_name, event_id
+            constraintName: uk_inbox_event_consumer_event
+        - sql:
+            sql: |
+              ALTER TABLE inbox_event
+                ADD CONSTRAINT ck_inbox_event_version_non_negative
+                  CHECK (version >= 0);
+        - createIndex:
+            tableName: inbox_event
+            indexName: idx_inbox_event_created_at
+            columns:
+              - column:
+                  name: created_at
+        - createTable:
+            tableName: notification
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: consumer_name
+                  type: VARCHAR(120)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: event_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+              - column:
+                  name: case_id
+                  type: UUID
+                  constraints:
+                    nullable: true
+                    foreignKeyName: fk_notification_case
+                    references: case_record(id)
+              - column:
+                  name: notification_type
+                  type: VARCHAR(120)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: title
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: body
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(120)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(120)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            tableName: notification
+            columnNames: consumer_name, event_id
+            constraintName: uk_notification_consumer_event
+        - sql:
+            sql: |
+              ALTER TABLE notification
+                ADD CONSTRAINT ck_notification_status
+                  CHECK (status IN ('GENERATED')),
+                ADD CONSTRAINT ck_notification_version_non_negative
+                  CHECK (version >= 0);
+        - createIndex:
+            tableName: notification
+            indexName: idx_notification_case_created_at
+            columns:
+              - column:
+                  name: case_id
+              - column:
+                  name: created_at
+      rollback:
+        - dropTable:
+            tableName: notification
+        - dropTable:
+            tableName: inbox_event
+        - dropTable:
+            tableName: outbox_event

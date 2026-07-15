@@ -30,7 +30,9 @@ import org.mapstruct.factory.Mappers;
 public interface ApiEvidenceMapper {
   ApiEvidenceMapper INSTANCE = Mappers.getMapper(ApiEvidenceMapper.class);
 
-  @Mapping(target = "classification", expression = "java(toDomainClassification(request.getClassification()))")
+  @Mapping(
+      target = "classification",
+      expression = "java(toDomainClassification(request.getClassification()))")
   @Mapping(target = "correlationId", source = "correlationId")
   @Mapping(target = "sourceIp", source = "sourceIp")
   CreateEvidenceUploadSessionCommand toCreateUploadSessionCommand(

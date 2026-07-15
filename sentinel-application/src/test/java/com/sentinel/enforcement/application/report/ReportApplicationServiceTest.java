@@ -91,8 +91,7 @@ class ReportApplicationServiceTest {
     ReportApplicationService service =
         new ReportApplicationService(authorizationService, repository, clock);
     ApplicationActor actor =
-        new ApplicationActor(
-            "subject-3", "triage-jkt", Set.of("TRIAGE_OFFICER"), Set.of("JKT"));
+        new ApplicationActor("subject-3", "triage-jkt", Set.of("TRIAGE_OFFICER"), Set.of("JKT"));
     Report existing =
         new Report(
             UUID.randomUUID(),
@@ -110,7 +109,9 @@ class ReportApplicationServiceTest {
 
     Report triaged =
         service.triageReport(
-            actor, existing.id(), new TriageReportCommand(0L, "Ready for case creation.", null, null));
+            actor,
+            existing.id(),
+            new TriageReportCommand(0L, "Ready for case creation.", null, null));
 
     assertEquals(ReportStatus.TRIAGED, triaged.status());
     assertEquals(1L, triaged.version());

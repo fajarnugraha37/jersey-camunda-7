@@ -10,6 +10,7 @@ import com.sentinel.enforcement.domain.casefile.CaseConflictException;
 import com.sentinel.enforcement.domain.casefile.CaseRecord;
 import com.sentinel.enforcement.domain.casefile.CaseStatus;
 import com.sentinel.enforcement.domain.casefile.CaseStatusHistoryEntry;
+import com.sentinel.enforcement.persistence.MyBatisRepositorySupport;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -19,44 +20,41 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;
 
-public final class CaseRepositoryMyBatisAdapter implements CaseRepository {
-  private final SqlSessionFactory sqlSessionFactory;
+public final class CaseRepositoryMyBatisAdapter extends MyBatisRepositorySupport
+    implements CaseRepository {
 
   public CaseRepositoryMyBatisAdapter(SqlSessionFactory sqlSessionFactory) {
-    this.sqlSessionFactory = sqlSessionFactory;
+    super(sqlSessionFactory);
   }
 
   @Override
   public String nextCaseNumber(String jurisdictionCode, int year) {
-    try (SqlSession session = sqlSessionFactory.openSession(false)) {
-      CaseMyBatisMapper mapper = session.getMapper(CaseMyBatisMapper.class);
-      String caseNumber = mapper.nextCaseNumber(jurisdictionCode, year);
-      session.commit();
-      return caseNumber;
-    }
+    return executeWrite(
+        session ->
+            session.getMapper(CaseMyBatisMapper.class).nextCaseNumber(jurisdictionCode, year));
   }
 
   @Override
   public void save(
       CaseRecord caseRecord, CaseStatusHistoryEntry statusHistoryEntry, AuditEvent auditEvent) {
-    try (SqlSession session = sqlSessionFactory.openSession(false)) {
-      CaseMyBatisMapper mapper = session.getMapper(CaseMyBatisMapper.class);
-      mapper.insertCase(toCaseData(caseRecord));
-      mapper.insertStatusHistory(toHistoryData(statusHistoryEntry));
-      mapper.insertAuditEvent(toAuditData(auditEvent));
-      session.commit();
-    }
+    executeWrite(
+        session -> {
+          CaseMyBatisMapper mapper = session.getMapper(CaseMyBatisMapper.class);
+          mapper.insertCase(toCaseData(caseRecord));
+          mapper.insertStatusHistory(toHistoryData(statusHistoryEntry));
+          mapper.insertAuditEvent(toAuditData(auditEvent));
+          return null;
+        });
   }
 
   @Override
   public Optional<CaseRecord> findById(UUID caseId) {
-    try (SqlSession session = sqlSessionFactory.openSession()) {
-      return Optional.ofNullable(session.getMapper(CaseMyBatisMapper.class).findCaseById(caseId))
-          .map(this::toCaseDomain);
-    }
+    return executeRead(
+        session ->
+            Optional.ofNullable(session.getMapper(CaseMyBatisMapper.class).findCaseById(caseId))
+                .map(this::toCaseDomain));
   }
 
   @Override
@@ -64,106 +62,111 @@ public final class CaseRepositoryMyBatisAdapter implements CaseRepository {
     if (caseIds.isEmpty()) {
       return List.of();
     }
-    try (SqlSession session = sqlSessionFactory.openSession()) {
-      return session.getMapper(CaseMyBatisMapper.class).findCasesByIds(caseIds).stream()
-          .map(this::toCaseDomain)
-          .collect(Collectors.toList());
-    }
+    return executeRead(
+        session ->
+            session.getMapper(CaseMyBatisMapper.class).findCasesByIds(caseIds).stream()
+                .map(this::toCaseDomain)
+                .collect(Collectors.toList()));
   }
 
   @Override
   public List<CaseRecord> findPage(CasePageRequest pageRequest) {
-    try (SqlSession session = sqlSessionFactory.openSession()) {
-      CasePageQueryData queryData =
-          new CasePageQueryData(
-              pageRequest.jurisdictionCodes(),
-              pageRequest.restrictedAssigneeUserId(),
-              pageRequest.requestedAssigneeUserId(),
-              toContainsPattern(pageRequest.quickSearch()),
-              pageRequest.searchField() == null ? null : pageRequest.searchField().name(),
-              toContainsPattern(pageRequest.searchValue()),
-              pageRequest.status() == null ? null : pageRequest.status().name(),
-              pageRequest.assignedUnitId(),
-              pageRequest.createdBy(),
-              pageRequest.reportId(),
-              pageRequest.sortBy().name(),
-              pageRequest.sortDirection().name(),
-              toCursorTimestamp(pageRequest.cursorValue(), pageRequest.sortBy()),
-              toCursorText(pageRequest.cursorValue(), pageRequest.sortBy()),
-              pageRequest.cursorId(),
-              pageRequest.limitPlusOne());
-      return session.getMapper(CaseMyBatisMapper.class).findCasePage(queryData).stream()
-          .map(this::toCaseDomain)
-          .collect(Collectors.toList());
-    }
+    return executeRead(
+        session -> {
+          CasePageQueryData queryData =
+              new CasePageQueryData(
+                  pageRequest.jurisdictionCodes(),
+                  pageRequest.restrictedAssigneeUserId(),
+                  pageRequest.requestedAssigneeUserId(),
+                  toContainsPattern(pageRequest.quickSearch()),
+                  pageRequest.searchField() == null ? null : pageRequest.searchField().name(),
+                  toContainsPattern(pageRequest.searchValue()),
+                  pageRequest.status() == null ? null : pageRequest.status().name(),
+                  pageRequest.assignedUnitId(),
+                  pageRequest.createdBy(),
+                  pageRequest.reportId(),
+                  pageRequest.sortBy().name(),
+                  pageRequest.sortDirection().name(),
+                  toCursorTimestamp(pageRequest.cursorValue(), pageRequest.sortBy()),
+                  toCursorText(pageRequest.cursorValue(), pageRequest.sortBy()),
+                  pageRequest.cursorId(),
+                  pageRequest.limitPlusOne());
+          return session.getMapper(CaseMyBatisMapper.class).findCasePage(queryData).stream()
+              .map(this::toCaseDomain)
+              .collect(Collectors.toList());
+        });
   }
 
   @Override
   public void assign(CaseRecord caseRecord, CaseAssignment caseAssignment, AuditEvent auditEvent) {
-    try (SqlSession session = sqlSessionFactory.openSession(false)) {
-      CaseMyBatisMapper mapper = session.getMapper(CaseMyBatisMapper.class);
-      int updated = mapper.updateCase(toCaseData(caseRecord), caseRecord.version() - 1);
-      if (updated == 0) {
-        session.rollback();
-        throw new CaseConflictException(
-            "CONCURRENT_MODIFICATION",
-            "Case " + caseRecord.caseNumber() + " was modified by another transaction.");
-      }
-      mapper.insertAssignment(toAssignmentData(caseAssignment));
-      mapper.insertAuditEvent(toAuditData(auditEvent));
-      session.commit();
-    }
+    executeWrite(
+        session -> {
+          CaseMyBatisMapper mapper = session.getMapper(CaseMyBatisMapper.class);
+          int updated = mapper.updateCase(toCaseData(caseRecord), caseRecord.version() - 1);
+          if (updated == 0) {
+            throw new CaseConflictException(
+                "CONCURRENT_MODIFICATION",
+                "Case " + caseRecord.caseNumber() + " was modified by another transaction.");
+          }
+          mapper.insertAssignment(toAssignmentData(caseAssignment));
+          mapper.insertAuditEvent(toAuditData(auditEvent));
+          return null;
+        });
   }
 
   @Override
   public void transition(
       CaseRecord caseRecord, CaseStatusHistoryEntry statusHistoryEntry, AuditEvent auditEvent) {
-    try (SqlSession session = sqlSessionFactory.openSession(false)) {
-      CaseMyBatisMapper mapper = session.getMapper(CaseMyBatisMapper.class);
-      int updated = mapper.updateCase(toCaseData(caseRecord), caseRecord.version() - 1);
-      if (updated == 0) {
-        session.rollback();
-        throw new CaseConflictException(
-            "CONCURRENT_MODIFICATION",
-            "Case " + caseRecord.caseNumber() + " was modified by another transaction.");
-      }
-      mapper.insertStatusHistory(toHistoryData(statusHistoryEntry));
-      mapper.insertAuditEvent(toAuditData(auditEvent));
-      session.commit();
-    }
+    executeWrite(
+        session -> {
+          CaseMyBatisMapper mapper = session.getMapper(CaseMyBatisMapper.class);
+          int updated = mapper.updateCase(toCaseData(caseRecord), caseRecord.version() - 1);
+          if (updated == 0) {
+            throw new CaseConflictException(
+                "CONCURRENT_MODIFICATION",
+                "Case " + caseRecord.caseNumber() + " was modified by another transaction.");
+          }
+          mapper.insertStatusHistory(toHistoryData(statusHistoryEntry));
+          mapper.insertAuditEvent(toAuditData(auditEvent));
+          return null;
+        });
   }
 
   @Override
   public List<AuditEvent> findAuditEventsPage(AuditEventPageRequest pageRequest) {
-    try (SqlSession session = sqlSessionFactory.openSession()) {
-      AuditEventPageQueryData queryData =
-          new AuditEventPageQueryData(
-              pageRequest.caseId(),
-              toContainsPattern(pageRequest.quickSearch()),
-              pageRequest.searchField() == null ? null : pageRequest.searchField().name(),
-              toContainsPattern(pageRequest.searchValue()),
-              pageRequest.actorId(),
-              pageRequest.eventType(),
-              pageRequest.action(),
-              pageRequest.result(),
-              pageRequest.sortBy().name(),
-              pageRequest.sortDirection().name(),
-              toCursorTimestamp(pageRequest.cursorValue(), pageRequest.sortBy()),
-              toCursorText(pageRequest.cursorValue(), pageRequest.sortBy()),
-              pageRequest.cursorId(),
-              pageRequest.limitPlusOne());
-      return session.getMapper(CaseMyBatisMapper.class).findAuditEventsPage(queryData).stream()
-          .map(this::toAuditDomain)
-          .collect(Collectors.toList());
-    }
+    return executeRead(
+        session -> {
+          AuditEventPageQueryData queryData =
+              new AuditEventPageQueryData(
+                  pageRequest.caseId(),
+                  toContainsPattern(pageRequest.quickSearch()),
+                  pageRequest.searchField() == null ? null : pageRequest.searchField().name(),
+                  toContainsPattern(pageRequest.searchValue()),
+                  pageRequest.actorId(),
+                  pageRequest.eventType(),
+                  pageRequest.action(),
+                  pageRequest.result(),
+                  pageRequest.sortBy().name(),
+                  pageRequest.sortDirection().name(),
+                  toCursorTimestamp(pageRequest.cursorValue(), pageRequest.sortBy()),
+                  toCursorText(pageRequest.cursorValue(), pageRequest.sortBy()),
+                  pageRequest.cursorId(),
+                  pageRequest.limitPlusOne());
+          return session.getMapper(CaseMyBatisMapper.class).findAuditEventsPage(queryData).stream()
+              .map(this::toAuditDomain)
+              .collect(Collectors.toList());
+        });
   }
 
   @Override
   public void appendAuditEvent(AuditEvent auditEvent) {
-    try (SqlSession session = sqlSessionFactory.openSession(false)) {
-      session.getMapper(CaseMyBatisMapper.class).insertAuditEventIfAbsent(toAuditData(auditEvent));
-      session.commit();
-    }
+    executeWrite(
+        session -> {
+          session
+              .getMapper(CaseMyBatisMapper.class)
+              .insertAuditEventIfAbsent(toAuditData(auditEvent));
+          return null;
+        });
   }
 
   private CaseRecordData toCaseData(CaseRecord caseRecord) {

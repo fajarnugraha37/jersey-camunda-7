@@ -106,8 +106,7 @@ class RoleBasedAuthorizationServiceTest {
   @Test
   void allowsTriageOfficerToTriageReportWithinJurisdiction() {
     ApplicationActor actor =
-        new ApplicationActor(
-            "subject-7", "triage-jkt", Set.of("TRIAGE_OFFICER"), Set.of("JKT"));
+        new ApplicationActor("subject-7", "triage-jkt", Set.of("TRIAGE_OFFICER"), Set.of("JKT"));
 
     assertDoesNotThrow(
         () ->

@@ -2,6 +2,7 @@ package com.sentinel.enforcement.persistence;
 
 import com.sentinel.enforcement.persistence.casefile.CaseMyBatisMapper;
 import com.sentinel.enforcement.persistence.evidence.EvidenceMyBatisMapper;
+import com.sentinel.enforcement.persistence.messaging.MessagingMyBatisMapper;
 import com.sentinel.enforcement.persistence.report.ReportMyBatisMapper;
 import com.sentinel.enforcement.persistence.typehandler.UuidTypeHandler;
 import com.sentinel.enforcement.persistence.workflow.WorkflowInstanceMyBatisMapper;
@@ -30,6 +31,7 @@ public final class PersistenceModule {
     configuration.setMapUnderscoreToCamelCase(true);
     configuration.addMapper(CaseMyBatisMapper.class);
     configuration.addMapper(EvidenceMyBatisMapper.class);
+    configuration.addMapper(MessagingMyBatisMapper.class);
     configuration.addMapper(ReportMyBatisMapper.class);
     configuration.addMapper(WorkflowInstanceMyBatisMapper.class);
     configuration.addMapper(WorkflowReconciliationMyBatisMapper.class);

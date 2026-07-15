@@ -39,7 +39,13 @@ public record Report(
     if (expectedVersion != version) {
       throw new ReportConflictException(
           "CONCURRENT_MODIFICATION",
-          "Report " + id + " expected version " + expectedVersion + " but current version is " + version + ".");
+          "Report "
+              + id
+              + " expected version "
+              + expectedVersion
+              + " but current version is "
+              + version
+              + ".");
     }
     if (status != ReportStatus.SUBMITTED) {
       throw new ReportConflictException(

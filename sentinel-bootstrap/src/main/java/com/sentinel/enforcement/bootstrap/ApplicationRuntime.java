@@ -12,12 +12,14 @@ import com.sentinel.enforcement.api.error.EvidenceNotFoundExceptionMapper;
 import com.sentinel.enforcement.api.error.EvidenceObjectMissingExceptionMapper;
 import com.sentinel.enforcement.api.error.EvidenceStorageUnavailableExceptionMapper;
 import com.sentinel.enforcement.api.error.GenericExceptionMapper;
+import com.sentinel.enforcement.api.error.NotFoundExceptionMapper;
 import com.sentinel.enforcement.api.error.ReportConflictExceptionMapper;
 import com.sentinel.enforcement.api.error.ReportNotFoundExceptionMapper;
 import com.sentinel.enforcement.api.error.UnauthenticatedExceptionMapper;
 import com.sentinel.enforcement.api.error.WorkflowReconciliationConflictExceptionMapper;
 import com.sentinel.enforcement.api.error.WorkflowTaskConflictExceptionMapper;
 import com.sentinel.enforcement.api.error.WorkflowTaskNotFoundExceptionMapper;
+import com.sentinel.enforcement.api.evidence.CaseEvidenceResource;
 import com.sentinel.enforcement.api.evidence.EvidenceResource;
 import com.sentinel.enforcement.api.health.HealthResource;
 import com.sentinel.enforcement.api.json.ObjectMapperContextResolver;
@@ -28,14 +30,24 @@ import com.sentinel.enforcement.api.workflow.WorkflowReconciliationResource;
 import com.sentinel.enforcement.application.casefile.CaseApplicationService;
 import com.sentinel.enforcement.application.evidence.EvidenceApplicationService;
 import com.sentinel.enforcement.application.health.HealthStatusService;
+import com.sentinel.enforcement.application.messaging.ApplicationTransactionManager;
+import com.sentinel.enforcement.application.messaging.InboxRepository;
+import com.sentinel.enforcement.application.messaging.NotificationRepository;
+import com.sentinel.enforcement.application.messaging.OutboxRepository;
 import com.sentinel.enforcement.application.report.ReportApplicationService;
 import com.sentinel.enforcement.application.security.AuthorizationService;
 import com.sentinel.enforcement.application.security.TokenVerifier;
 import com.sentinel.enforcement.application.workflow.WorkflowReconciliationApplicationService;
 import com.sentinel.enforcement.application.workflow.WorkflowTaskApplicationService;
+import com.sentinel.enforcement.messaging.MessagingRuntime;
+import com.sentinel.enforcement.messaging.MessagingRuntimeConfiguration;
+import com.sentinel.enforcement.persistence.MyBatisTransactionManager;
 import com.sentinel.enforcement.persistence.PersistenceModule;
 import com.sentinel.enforcement.persistence.casefile.CaseRepositoryMyBatisAdapter;
 import com.sentinel.enforcement.persistence.evidence.EvidenceRepositoryMyBatisAdapter;
+import com.sentinel.enforcement.persistence.messaging.InboxRepositoryMyBatisAdapter;
+import com.sentinel.enforcement.persistence.messaging.NotificationRepositoryMyBatisAdapter;
+import com.sentinel.enforcement.persistence.messaging.OutboxRepositoryMyBatisAdapter;
 import com.sentinel.enforcement.persistence.report.ReportRepositoryMyBatisAdapter;
 import com.sentinel.enforcement.persistence.workflow.WorkflowInstanceMyBatisAdapter;
 import com.sentinel.enforcement.persistence.workflow.WorkflowReconciliationMyBatisAdapter;
@@ -63,16 +75,19 @@ public final class ApplicationRuntime implements AutoCloseable {
 
   private final HikariDataSource dataSource;
   private final WorkflowRuntime workflowRuntime;
+  private final MessagingRuntime messagingRuntime;
   private final HttpServer server;
   private final URI baseUri;
 
   private ApplicationRuntime(
       HikariDataSource dataSource,
       WorkflowRuntime workflowRuntime,
+      MessagingRuntime messagingRuntime,
       HttpServer server,
       URI baseUri) {
     this.dataSource = dataSource;
     this.workflowRuntime = workflowRuntime;
+    this.messagingRuntime = messagingRuntime;
     this.server = server;
     this.baseUri = baseUri;
   }
@@ -80,16 +95,23 @@ public final class ApplicationRuntime implements AutoCloseable {
   public static ApplicationRuntime start(AppConfiguration configuration) {
     HikariDataSource dataSource = createDataSource(configuration);
     WorkflowRuntime workflowRuntime = null;
+    MessagingRuntime messagingRuntime = null;
     try {
       Clock clock = Clock.systemUTC();
       SqlSessionFactory sqlSessionFactory = PersistenceModule.createSqlSessionFactory(dataSource);
       AuthorizationService authorizationService = new RoleBasedAuthorizationService();
+      ApplicationTransactionManager transactionManager =
+          new MyBatisTransactionManager(sqlSessionFactory);
       CaseRepositoryMyBatisAdapter caseRepository =
           new CaseRepositoryMyBatisAdapter(sqlSessionFactory);
       EvidenceRepositoryMyBatisAdapter evidenceRepository =
           new EvidenceRepositoryMyBatisAdapter(sqlSessionFactory);
       ReportRepositoryMyBatisAdapter reportRepository =
           new ReportRepositoryMyBatisAdapter(sqlSessionFactory);
+      OutboxRepository outboxRepository = new OutboxRepositoryMyBatisAdapter(sqlSessionFactory);
+      InboxRepository inboxRepository = new InboxRepositoryMyBatisAdapter(sqlSessionFactory);
+      NotificationRepository notificationRepository =
+          new NotificationRepositoryMyBatisAdapter(sqlSessionFactory);
       MinioEvidenceStorageAdapter evidenceStorage =
           new MinioEvidenceStorageAdapter(
               configuration.minioEndpoint(),
@@ -119,8 +141,10 @@ public final class ApplicationRuntime implements AutoCloseable {
       EvidenceApplicationService evidenceApplicationService =
           new EvidenceApplicationService(
               authorizationService,
+              transactionManager,
               caseRepository,
               evidenceRepository,
+              outboxRepository,
               evidenceStorage,
               clock,
               configuration.minioEvidenceBucket(),
@@ -129,8 +153,10 @@ public final class ApplicationRuntime implements AutoCloseable {
       CaseApplicationService caseApplicationService =
           new CaseApplicationService(
               authorizationService,
+              transactionManager,
               caseRepository,
               reportRepository,
+              outboxRepository,
               workflowRuntime.caseWorkflowPort(),
               configuration.workflowInvestigationEscalationDuration(),
               clock);
@@ -151,6 +177,21 @@ public final class ApplicationRuntime implements AutoCloseable {
       HealthStatusService healthStatusService =
           new WorkflowAwareHealthStatusService(
               new DatabaseHealthService(dataSource, clock), workflowRuntime, clock);
+      messagingRuntime =
+          MessagingRuntime.start(
+              new MessagingRuntimeConfiguration(
+                  configuration.kafkaBootstrapServers(),
+                  configuration.appInstanceId(),
+                  configuration.outboxPollInterval(),
+                  configuration.outboxLeaseDuration(),
+                  configuration.outboxBatchSize(),
+                  configuration.notificationConsumerGroupId(),
+                  configuration.notificationMaxRetries()),
+              transactionManager,
+              outboxRepository,
+              inboxRepository,
+              notificationRepository,
+              clock);
 
       ResourceConfig resourceConfig =
           new ResourceConfig()
@@ -178,6 +219,7 @@ public final class ApplicationRuntime implements AutoCloseable {
               .register(EvidenceNotFoundExceptionMapper.class)
               .register(EvidenceObjectMissingExceptionMapper.class)
               .register(EvidenceStorageUnavailableExceptionMapper.class)
+              .register(NotFoundExceptionMapper.class)
               .register(ReportConflictExceptionMapper.class)
               .register(ReportNotFoundExceptionMapper.class)
               .register(WorkflowReconciliationConflictExceptionMapper.class)
@@ -186,6 +228,7 @@ public final class ApplicationRuntime implements AutoCloseable {
               .register(GenericExceptionMapper.class)
               .register(HealthResource.class)
               .register(CaseResource.class)
+              .register(CaseEvidenceResource.class)
               .register(EvidenceResource.class)
               .register(ReportResource.class)
               .register(TaskResource.class)
@@ -200,6 +243,7 @@ public final class ApplicationRuntime implements AutoCloseable {
       try {
         server.start();
       } catch (Exception exception) {
+        messagingRuntime.close();
         workflowRuntime.close();
         dataSource.close();
         throw new IllegalStateException("Failed to start HTTP server", exception);
@@ -208,8 +252,11 @@ public final class ApplicationRuntime implements AutoCloseable {
       int actualPort = server.getListeners().iterator().next().getPort();
       URI baseUri = URI.create("http://127.0.0.1:" + actualPort + "/");
       LOGGER.info("Sentinel app started at {}", baseUri);
-      return new ApplicationRuntime(dataSource, workflowRuntime, server, baseUri);
+      return new ApplicationRuntime(dataSource, workflowRuntime, messagingRuntime, server, baseUri);
     } catch (RuntimeException exception) {
+      if (messagingRuntime != null) {
+        messagingRuntime.close();
+      }
       if (workflowRuntime != null) {
         workflowRuntime.close();
       }
@@ -225,6 +272,12 @@ public final class ApplicationRuntime implements AutoCloseable {
     }
   }
 
+  public static void rollback(AppConfiguration configuration, int rollbackCount) {
+    try (HikariDataSource dataSource = createDataSource(configuration)) {
+      LiquibaseMigrator.rollbackCount(dataSource, rollbackCount);
+    }
+  }
+
   public URI baseUri() {
     return baseUri;
   }
@@ -233,6 +286,9 @@ public final class ApplicationRuntime implements AutoCloseable {
   public void close() {
     if (server != null) {
       server.shutdownNow();
+    }
+    if (messagingRuntime != null) {
+      messagingRuntime.close();
     }
     if (workflowRuntime != null) {
       workflowRuntime.close();

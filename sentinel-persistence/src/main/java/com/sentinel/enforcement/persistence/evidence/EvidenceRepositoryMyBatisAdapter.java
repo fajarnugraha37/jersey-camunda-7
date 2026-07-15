@@ -8,85 +8,96 @@ import com.sentinel.enforcement.domain.evidence.EvidenceStorageStatus;
 import com.sentinel.enforcement.domain.evidence.EvidenceUploadSession;
 import com.sentinel.enforcement.domain.evidence.EvidenceUploadSessionStatus;
 import com.sentinel.enforcement.domain.evidence.EvidenceVersion;
+import com.sentinel.enforcement.persistence.MyBatisRepositorySupport;
 import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
-import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;
 
-public final class EvidenceRepositoryMyBatisAdapter implements EvidenceRepository {
-  private final SqlSessionFactory sqlSessionFactory;
+public final class EvidenceRepositoryMyBatisAdapter extends MyBatisRepositorySupport
+    implements EvidenceRepository {
 
   public EvidenceRepositoryMyBatisAdapter(SqlSessionFactory sqlSessionFactory) {
-    this.sqlSessionFactory = sqlSessionFactory;
+    super(sqlSessionFactory);
   }
 
   @Override
   public void prepareNewEvidenceUpload(Evidence evidence, EvidenceUploadSession uploadSession) {
-    try (SqlSession session = sqlSessionFactory.openSession(false)) {
-      EvidenceMyBatisMapper mapper = session.getMapper(EvidenceMyBatisMapper.class);
-      mapper.insertEvidence(toRecord(evidence));
-      mapper.insertUploadSession(toRecord(uploadSession));
-      session.commit();
-    }
+    executeWrite(
+        session -> {
+          EvidenceMyBatisMapper mapper = session.getMapper(EvidenceMyBatisMapper.class);
+          mapper.insertEvidence(toRecord(evidence));
+          mapper.insertUploadSession(toRecord(uploadSession));
+          return null;
+        });
   }
 
   @Override
   public void prepareExistingEvidenceUpload(EvidenceUploadSession uploadSession) {
-    try (SqlSession session = sqlSessionFactory.openSession(false)) {
-      session.getMapper(EvidenceMyBatisMapper.class).insertUploadSession(toRecord(uploadSession));
-      session.commit();
-    }
+    executeWrite(
+        session -> {
+          session
+              .getMapper(EvidenceMyBatisMapper.class)
+              .insertUploadSession(toRecord(uploadSession));
+          return null;
+        });
   }
 
   @Override
   public Optional<Evidence> findEvidenceById(UUID evidenceId) {
-    try (SqlSession session = sqlSessionFactory.openSession()) {
-      return Optional.ofNullable(session.getMapper(EvidenceMyBatisMapper.class).findEvidenceById(evidenceId))
-          .map(this::toDomain);
-    }
+    return executeRead(
+        session ->
+            Optional.ofNullable(
+                    session.getMapper(EvidenceMyBatisMapper.class).findEvidenceById(evidenceId))
+                .map(this::toDomain));
   }
 
   @Override
   public Optional<EvidenceVersion> findLatestVersion(UUID evidenceId) {
-    try (SqlSession session = sqlSessionFactory.openSession()) {
-      return Optional.ofNullable(session.getMapper(EvidenceMyBatisMapper.class).findLatestVersion(evidenceId))
-          .map(this::toDomain);
-    }
+    return executeRead(
+        session ->
+            Optional.ofNullable(
+                    session.getMapper(EvidenceMyBatisMapper.class).findLatestVersion(evidenceId))
+                .map(this::toDomain));
   }
 
   @Override
   public Optional<EvidenceUploadSession> findUploadSessionById(UUID uploadSessionId) {
-    try (SqlSession session = sqlSessionFactory.openSession()) {
-      return Optional.ofNullable(
-              session.getMapper(EvidenceMyBatisMapper.class).findUploadSessionById(uploadSessionId))
-          .map(this::toDomain);
-    }
+    return executeRead(
+        session ->
+            Optional.ofNullable(
+                    session
+                        .getMapper(EvidenceMyBatisMapper.class)
+                        .findUploadSessionById(uploadSessionId))
+                .map(this::toDomain));
   }
 
   @Override
   public void finalizeUpload(
       Evidence evidence, EvidenceVersion evidenceVersion, EvidenceUploadSession uploadSession) {
-    try (SqlSession session = sqlSessionFactory.openSession(false)) {
-      EvidenceMyBatisMapper mapper = session.getMapper(EvidenceMyBatisMapper.class);
-      int updatedEvidence = mapper.updateEvidence(toRecord(evidence), evidence.version() - 1);
-      if (updatedEvidence != 1) {
-        throw new EvidenceConflictException(
-            "CONCURRENT_MODIFICATION",
-            "Evidence " + evidence.id() + " was modified concurrently before finalize completed.");
-      }
-      int updatedSession =
-          mapper.updateUploadSession(toRecord(uploadSession), uploadSession.version() - 1);
-      if (updatedSession != 1) {
-        throw new EvidenceConflictException(
-            "CONCURRENT_MODIFICATION",
-            "Evidence upload session "
-                + uploadSession.id()
-                + " was modified concurrently before finalize completed.");
-      }
-      mapper.insertEvidenceVersion(toRecord(evidenceVersion));
-      session.commit();
-    }
+    executeWrite(
+        session -> {
+          EvidenceMyBatisMapper mapper = session.getMapper(EvidenceMyBatisMapper.class);
+          int updatedEvidence = mapper.updateEvidence(toRecord(evidence), evidence.version() - 1);
+          if (updatedEvidence != 1) {
+            throw new EvidenceConflictException(
+                "CONCURRENT_MODIFICATION",
+                "Evidence "
+                    + evidence.id()
+                    + " was modified concurrently before finalize completed.");
+          }
+          int updatedSession =
+              mapper.updateUploadSession(toRecord(uploadSession), uploadSession.version() - 1);
+          if (updatedSession != 1) {
+            throw new EvidenceConflictException(
+                "CONCURRENT_MODIFICATION",
+                "Evidence upload session "
+                    + uploadSession.id()
+                    + " was modified concurrently before finalize completed.");
+          }
+          mapper.insertEvidenceVersion(toRecord(evidenceVersion));
+          return null;
+        });
   }
 
   private EvidenceRecord toRecord(Evidence evidence) {

@@ -14,6 +14,7 @@
     <module>sentinel-application</module>
     <module>sentinel-api</module>
     <module>sentinel-persistence</module>
+    <module>sentinel-messaging</module>
     <module>sentinel-storage</module>
     <module>sentinel-workflow</module>
     <module>sentinel-security</module>
@@ -35,6 +36,7 @@
     <logback.version>1.5.16</logback.version>
     <logstash.logback.version>8.0</logstash.logback.version>
     <postgres.version>42.7.5</postgres.version>
+    <kafka.clients.version>3.8.1</kafka.clients.version>
     <minio.version>8.5.17</minio.version>
     <hibernate.validator.version>9.0.0.Final</hibernate.validator.version>
     <nimbus.version>10.0.2</nimbus.version>

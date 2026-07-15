@@ -34,4 +34,29 @@ public final class LiquibaseMigrator {
       }
     }
   }
+
+  public static void rollbackCount(DataSource dataSource, int rollbackCount) {
+    if (rollbackCount <= 0) {
+      throw new IllegalArgumentException("Rollback count must be greater than zero.");
+    }
+    String previousDuplicateFileMode = System.getProperty("liquibase.duplicateFileMode");
+    try (Connection connection = dataSource.getConnection()) {
+      System.setProperty("liquibase.duplicateFileMode", "ERROR");
+      var database =
+          DatabaseFactory.getInstance()
+              .findCorrectDatabaseImplementation(new JdbcConnection(connection));
+      try (var liquibase =
+          new liquibase.Liquibase(CHANGELOG, new ClassLoaderResourceAccessor(), database)) {
+        liquibase.rollback(rollbackCount, new Contexts(), new LabelExpression());
+      }
+    } catch (Exception exception) {
+      throw new IllegalStateException("Liquibase rollback failed", exception);
+    } finally {
+      if (previousDuplicateFileMode == null) {
+        System.clearProperty("liquibase.duplicateFileMode");
+      } else {
+        System.setProperty("liquibase.duplicateFileMode", previousDuplicateFileMode);
+      }
+    }
+  }
 }

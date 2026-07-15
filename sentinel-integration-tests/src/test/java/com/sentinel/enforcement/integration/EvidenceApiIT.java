@@ -11,10 +11,10 @@ import com.sentinel.enforcement.api.generated.model.CreateEvidenceDownloadSessio
 import com.sentinel.enforcement.api.generated.model.CreateEvidenceDownloadSessionResponse;
 import com.sentinel.enforcement.api.generated.model.CreateEvidenceUploadSessionRequest;
 import com.sentinel.enforcement.api.generated.model.CreateEvidenceUploadSessionResponse;
+import com.sentinel.enforcement.api.generated.model.ErrorResponse;
 import com.sentinel.enforcement.api.generated.model.EvidenceClassificationValue;
 import com.sentinel.enforcement.api.generated.model.EvidenceResponse;
 import com.sentinel.enforcement.api.generated.model.EvidenceStorageStatusValue;
-import com.sentinel.enforcement.api.generated.model.ErrorResponse;
 import com.sentinel.enforcement.api.generated.model.FinalizeEvidenceVersionRequest;
 import com.sentinel.enforcement.api.generated.model.ReportResponse;
 import jakarta.ws.rs.client.Entity;
@@ -24,7 +24,6 @@ import jakarta.ws.rs.core.Response;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.HexFormat;
-import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class EvidenceApiIT extends AbstractApiIT {
@@ -101,13 +100,11 @@ class EvidenceApiIT extends AbstractApiIT {
                     MediaType.APPLICATION_JSON_TYPE),
                 CreateEvidenceDownloadSessionResponse.class);
 
-    byte[] downloaded =
-        client.target(downloadSession.getDownloadUrl()).request().get(byte[].class);
+    byte[] downloaded = client.target(downloadSession.getDownloadUrl()).request().get(byte[].class);
 
     assertArrayEquals(content, downloaded);
     assertEquals(
-        1L,
-        countAuditEventsByType(assignedCase.getId(), "EvidenceDownloadSessionCreated"));
+        1L, countAuditEventsByType(assignedCase.getId(), "EvidenceDownloadSessionCreated"));
   }
 
   @Test
@@ -198,7 +195,8 @@ class EvidenceApiIT extends AbstractApiIT {
         .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken("investigator-jkt"))
         .post(
             Entity.entity(
-                new FinalizeEvidenceVersionRequest().uploadSessionId(uploadSession.getUploadSessionId()),
+                new FinalizeEvidenceVersionRequest()
+                    .uploadSessionId(uploadSession.getUploadSessionId()),
                 MediaType.APPLICATION_JSON_TYPE),
             EvidenceResponse.class);
 

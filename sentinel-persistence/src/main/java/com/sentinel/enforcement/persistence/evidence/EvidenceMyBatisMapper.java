@@ -101,7 +101,8 @@ public interface EvidenceMyBatisMapper {
             </script>
             """)
   int updateEvidence(
-      @Param("evidence") EvidenceRecord evidenceRecord, @Param("expectedVersion") long expectedVersion);
+      @Param("evidence") EvidenceRecord evidenceRecord,
+      @Param("expectedVersion") long expectedVersion);
 
   @Update(
       """

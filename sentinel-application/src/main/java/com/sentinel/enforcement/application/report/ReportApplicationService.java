@@ -4,8 +4,8 @@ import com.sentinel.enforcement.application.security.ApplicationActor;
 import com.sentinel.enforcement.application.security.AuthorizationContext;
 import com.sentinel.enforcement.application.security.AuthorizationService;
 import com.sentinel.enforcement.application.security.Permission;
-import com.sentinel.enforcement.domain.report.ReportConflictException;
 import com.sentinel.enforcement.domain.report.Report;
+import com.sentinel.enforcement.domain.report.ReportConflictException;
 import com.sentinel.enforcement.domain.report.ReportStatus;
 import java.time.Clock;
 import java.time.Instant;
@@ -70,10 +70,12 @@ public final class ReportApplicationService {
     authorizationService.requirePermission(
         actor,
         Permission.TRIAGE_REPORT,
-        new AuthorizationContext(report.jurisdictionCode(), REPORT_RESOURCE_TYPE, report.id().toString(), null));
+        new AuthorizationContext(
+            report.jurisdictionCode(), REPORT_RESOURCE_TYPE, report.id().toString(), null));
     try {
       Report triaged =
-          report.triage(actor.username(), command.expectedVersion(), command.reason(), clock.instant());
+          report.triage(
+              actor.username(), command.expectedVersion(), command.reason(), clock.instant());
       reportRepository.update(triaged);
       return triaged;
     } catch (ReportConflictException exception) {

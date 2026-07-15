@@ -10,7 +10,8 @@ import jakarta.ws.rs.ext.Provider;
 import java.util.List;
 
 @Provider
-public final class ReportConflictExceptionMapper implements ExceptionMapper<ReportConflictException> {
+public final class ReportConflictExceptionMapper
+    implements ExceptionMapper<ReportConflictException> {
   @Context private ContainerRequestContext requestContext;
 
   @Override

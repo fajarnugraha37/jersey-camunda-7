@@ -2,6 +2,9 @@ package com.sentinel.enforcement.application.evidence;
 
 import com.sentinel.enforcement.application.casefile.CaseNotFoundException;
 import com.sentinel.enforcement.application.casefile.CaseRepository;
+import com.sentinel.enforcement.application.messaging.ApplicationTransactionManager;
+import com.sentinel.enforcement.application.messaging.MessagingEventFactory;
+import com.sentinel.enforcement.application.messaging.OutboxRepository;
 import com.sentinel.enforcement.application.security.ApplicationActor;
 import com.sentinel.enforcement.application.security.AuthorizationContext;
 import com.sentinel.enforcement.application.security.AuthorizationDeniedException;
@@ -10,7 +13,6 @@ import com.sentinel.enforcement.application.security.Permission;
 import com.sentinel.enforcement.domain.casefile.AuditEvent;
 import com.sentinel.enforcement.domain.casefile.CaseRecord;
 import com.sentinel.enforcement.domain.evidence.Evidence;
-import com.sentinel.enforcement.domain.evidence.EvidenceClassification;
 import com.sentinel.enforcement.domain.evidence.EvidenceConflictException;
 import com.sentinel.enforcement.domain.evidence.EvidenceUploadSession;
 import com.sentinel.enforcement.domain.evidence.EvidenceVersion;
@@ -31,8 +33,10 @@ public final class EvidenceApplicationService {
   private static final String EVIDENCE_RESOURCE_TYPE = "EVIDENCE";
 
   private final AuthorizationService authorizationService;
+  private final ApplicationTransactionManager transactionManager;
   private final CaseRepository caseRepository;
   private final EvidenceRepository evidenceRepository;
+  private final OutboxRepository outboxRepository;
   private final EvidenceStoragePort evidenceStoragePort;
   private final Clock clock;
   private final String evidenceBucket;
@@ -41,16 +45,20 @@ public final class EvidenceApplicationService {
 
   public EvidenceApplicationService(
       AuthorizationService authorizationService,
+      ApplicationTransactionManager transactionManager,
       CaseRepository caseRepository,
       EvidenceRepository evidenceRepository,
+      OutboxRepository outboxRepository,
       EvidenceStoragePort evidenceStoragePort,
       Clock clock,
       String evidenceBucket,
       Duration uploadUrlTtl,
       Duration downloadUrlTtl) {
     this.authorizationService = authorizationService;
+    this.transactionManager = transactionManager;
     this.caseRepository = caseRepository;
     this.evidenceRepository = evidenceRepository;
+    this.outboxRepository = outboxRepository;
     this.evidenceStoragePort = evidenceStoragePort;
     this.clock = clock;
     this.evidenceBucket = evidenceBucket;
@@ -62,9 +70,7 @@ public final class EvidenceApplicationService {
       ApplicationActor actor, UUID caseId, CreateEvidenceUploadSessionCommand command) {
     CaseRecord caseRecord = getRequiredCase(caseId);
     authorizationService.requirePermission(
-        actor,
-        Permission.CREATE_EVIDENCE_UPLOAD_SESSION,
-        authorizationContext(caseRecord));
+        actor, Permission.CREATE_EVIDENCE_UPLOAD_SESSION, authorizationContext(caseRecord));
 
     Instant now = clock.instant();
     Evidence existingEvidence = null;
@@ -77,8 +83,8 @@ public final class EvidenceApplicationService {
               .orElseThrow(() -> new EvidenceNotFoundException(command.existingEvidenceId()));
       if (!existingEvidence.caseId().equals(caseId)) {
         throw new EvidenceConflictException(
-              "EVIDENCE_CASE_MISMATCH",
-              "Evidence " + existingEvidence.id() + " does not belong to case " + caseId + ".");
+            "EVIDENCE_CASE_MISMATCH",
+            "Evidence " + existingEvidence.id() + " does not belong to case " + caseId + ".");
       }
       if (!existingEvidence.title().equals(command.title())) {
         throw new EvidenceConflictException(
@@ -130,12 +136,7 @@ public final class EvidenceApplicationService {
     if (existingEvidence == null) {
       evidenceRepository.prepareNewEvidenceUpload(
           Evidence.create(
-              evidenceId,
-              caseId,
-              command.title(),
-              command.classification(),
-              now,
-              actor.username()),
+              evidenceId, caseId, command.title(), command.classification(), now, actor.username()),
           uploadSession);
     } else {
       evidenceRepository.prepareExistingEvidenceUpload(uploadSession);
@@ -154,9 +155,7 @@ public final class EvidenceApplicationService {
     Evidence evidence = getRequiredEvidence(evidenceId);
     CaseRecord caseRecord = getRequiredCase(evidence.caseId());
     authorizationService.requirePermission(
-        actor,
-        Permission.FINALIZE_EVIDENCE,
-        authorizationContext(caseRecord));
+        actor, Permission.FINALIZE_EVIDENCE, authorizationContext(caseRecord));
     EvidenceUploadSession uploadSession =
         evidenceRepository
             .findUploadSessionById(command.uploadSessionId())
@@ -164,11 +163,17 @@ public final class EvidenceApplicationService {
                 () ->
                     new EvidenceConflictException(
                         "EVIDENCE_UPLOAD_SESSION_NOT_FOUND",
-                        "Evidence upload session " + command.uploadSessionId() + " was not found."));
+                        "Evidence upload session "
+                            + command.uploadSessionId()
+                            + " was not found."));
     if (!uploadSession.evidenceId().equals(evidenceId)) {
       throw new EvidenceConflictException(
           "EVIDENCE_UPLOAD_SESSION_MISMATCH",
-          "Upload session " + uploadSession.id() + " does not belong to evidence " + evidenceId + ".");
+          "Upload session "
+              + uploadSession.id()
+              + " does not belong to evidence "
+              + evidenceId
+              + ".");
     }
     if (uploadSession.targetVersionNumber() <= evidence.latestVersion()) {
       throw new EvidenceConflictException(
@@ -223,32 +228,40 @@ public final class EvidenceApplicationService {
             actor.username(),
             now,
             actor.username());
-    evidenceRepository.finalizeUpload(activatedEvidence, evidenceVersion, finalizedSession);
-    caseRepository.appendAuditEvent(
-        auditEvent(
-            actor,
-            caseRecord,
-            evidenceId,
-            "EvidenceVersionFinalized",
-            "EVIDENCE_FINALIZED",
-            "SUCCESS",
-            "Evidence upload finalized.",
-            "evidenceId="
-                + evidenceId
-                + ";version="
-                + evidenceVersion.versionNumber()
-                + ";checksum="
-                + evidenceVersion.sha256Checksum(),
-            command.correlationId(),
-            command.sourceIp(),
-            now));
+    transactionManager.required(
+        () -> {
+          evidenceRepository.finalizeUpload(activatedEvidence, evidenceVersion, finalizedSession);
+          caseRepository.appendAuditEvent(
+              auditEvent(
+                  actor,
+                  caseRecord,
+                  evidenceId,
+                  "EvidenceVersionFinalized",
+                  "EVIDENCE_FINALIZED",
+                  "SUCCESS",
+                  "Evidence upload finalized.",
+                  "evidenceId="
+                      + evidenceId
+                      + ";version="
+                      + evidenceVersion.versionNumber()
+                      + ";checksum="
+                      + evidenceVersion.sha256Checksum(),
+                  command.correlationId(),
+                  command.sourceIp(),
+                  now));
+          outboxRepository.enqueue(
+              MessagingEventFactory.evidenceVersionFinalized(
+                  actor, activatedEvidence, evidenceVersion, command.correlationId(), now));
+          return null;
+        });
     return new EvidenceDetailsView(activatedEvidence, evidenceVersion);
   }
 
   public EvidenceDetailsView getEvidence(ApplicationActor actor, UUID evidenceId) {
     Evidence evidence = getRequiredEvidence(evidenceId);
     CaseRecord caseRecord = getRequiredCase(evidence.caseId());
-    authorizationService.requirePermission(actor, Permission.READ_EVIDENCE, authorizationContext(caseRecord));
+    authorizationService.requirePermission(
+        actor, Permission.READ_EVIDENCE, authorizationContext(caseRecord));
     EvidenceVersion latestVersion =
         evidenceRepository
             .findLatestVersion(evidenceId)
@@ -275,9 +288,7 @@ public final class EvidenceApplicationService {
     Instant now = clock.instant();
     try {
       authorizationService.requirePermission(
-          actor,
-          Permission.CREATE_EVIDENCE_DOWNLOAD_SESSION,
-          authorizationContext(caseRecord));
+          actor, Permission.CREATE_EVIDENCE_DOWNLOAD_SESSION, authorizationContext(caseRecord));
     } catch (AuthorizationDeniedException exception) {
       caseRepository.appendAuditEvent(
           auditEvent(
@@ -386,7 +397,8 @@ public final class EvidenceApplicationService {
     }
     String normalized = checksum.trim().toLowerCase(Locale.ROOT);
     if (normalized.length() != 64) {
-      throw new IllegalArgumentException("sha256Checksum must be a 64 character lowercase hex digest");
+      throw new IllegalArgumentException(
+          "sha256Checksum must be a 64 character lowercase hex digest");
     }
     return normalized;
   }
@@ -399,12 +411,13 @@ public final class EvidenceApplicationService {
       throw new IllegalStateException("SHA-256 digest is not available.", exception);
     }
     try (InputStream inputStream =
-            new DigestInputStream(evidenceStoragePort.getObjectStream(bucket, objectKey), digest)) {
+        new DigestInputStream(evidenceStoragePort.getObjectStream(bucket, objectKey), digest)) {
       inputStream.transferTo(java.io.OutputStream.nullOutputStream());
       return HexFormat.of().formatHex(digest.digest());
     } catch (IOException exception) {
       throw new IllegalStateException(
-          "Failed to compute SHA-256 for object " + objectKey + " in bucket " + bucket + ".", exception);
+          "Failed to compute SHA-256 for object " + objectKey + " in bucket " + bucket + ".",
+          exception);
     }
   }
 }

@@ -19,6 +19,7 @@ class ApplicationRuntimeSchemaLifecycleIT {
   @Test
   void applicationStartupRequiresMigrationToRunFirst() {
     try (PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:18.3-alpine");
+        AbstractApiIT.FixedPortKafkaContainer kafka = new AbstractApiIT.FixedPortKafkaContainer();
         GenericContainer<?> keycloak =
             new GenericContainer<>("quay.io/keycloak/keycloak:26.6")
                 .withExposedPorts(8080, 9000)
@@ -47,6 +48,7 @@ class ApplicationRuntimeSchemaLifecycleIT {
                         .forStatusCode(200)
                         .withStartupTimeout(Duration.ofMinutes(2)))) {
       postgres.start();
+      kafka.start();
       keycloak.start();
       minio.start();
 
@@ -57,6 +59,8 @@ class ApplicationRuntimeSchemaLifecycleIT {
                   Map.entry("DB_URL", postgres.getJdbcUrl()),
                   Map.entry("DB_USERNAME", postgres.getUsername()),
                   Map.entry("DB_PASSWORD", postgres.getPassword()),
+                  Map.entry("KAFKA_BOOTSTRAP_SERVERS", AbstractApiIT.kafkaBootstrapServers()),
+                  Map.entry("APP_INSTANCE_ID", "schema-lifecycle-it"),
                   Map.entry("MINIO_ENDPOINT", "http://127.0.0.1:" + minio.getMappedPort(9000)),
                   Map.entry("MINIO_ACCESS_KEY", "sentinel"),
                   Map.entry("MINIO_SECRET_KEY", "sentinel-secret"),

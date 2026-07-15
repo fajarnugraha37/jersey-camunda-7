@@ -7,3 +7,5 @@ databaseChangeLog:
       file: db/changelog/releases/0003-workflow.yaml
   - include:
       file: db/changelog/releases/0004-evidence.yaml
+  - include:
+      file: db/changelog/releases/0005-messaging.yaml

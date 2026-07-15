@@ -2,12 +2,20 @@ package com.sentinel.enforcement.bootstrap;
 
 import java.time.Duration;
 import java.util.Map;
+import java.util.UUID;
 
 public record AppConfiguration(
     int httpPort,
     String dbUrl,
     String dbUsername,
     String dbPassword,
+    String kafkaBootstrapServers,
+    String appInstanceId,
+    Duration outboxPollInterval,
+    Duration outboxLeaseDuration,
+    int outboxBatchSize,
+    String notificationConsumerGroupId,
+    int notificationMaxRetries,
     String minioEndpoint,
     String minioAccessKey,
     String minioSecretKey,
@@ -30,6 +38,14 @@ public record AppConfiguration(
         required(environment, "DB_URL"),
         required(environment, "DB_USERNAME"),
         required(environment, "DB_PASSWORD"),
+        required(environment, "KAFKA_BOOTSTRAP_SERVERS"),
+        environment.getOrDefault("APP_INSTANCE_ID", UUID.randomUUID().toString()),
+        Duration.parse(environment.getOrDefault("OUTBOX_POLL_INTERVAL", "PT2S")),
+        Duration.parse(environment.getOrDefault("OUTBOX_LEASE_DURATION", "PT30S")),
+        Integer.parseInt(environment.getOrDefault("OUTBOX_BATCH_SIZE", "20")),
+        environment.getOrDefault(
+            "NOTIFICATION_CONSUMER_GROUP_ID", "sentinel-notification-consumer"),
+        Integer.parseInt(environment.getOrDefault("NOTIFICATION_MAX_RETRIES", "3")),
         required(environment, "MINIO_ENDPOINT"),
         required(environment, "MINIO_ACCESS_KEY"),
         required(environment, "MINIO_SECRET_KEY"),

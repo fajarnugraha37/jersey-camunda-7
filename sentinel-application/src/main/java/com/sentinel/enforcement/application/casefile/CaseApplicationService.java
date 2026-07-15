@@ -1,5 +1,8 @@
 package com.sentinel.enforcement.application.casefile;
 
+import com.sentinel.enforcement.application.messaging.ApplicationTransactionManager;
+import com.sentinel.enforcement.application.messaging.MessagingEventFactory;
+import com.sentinel.enforcement.application.messaging.OutboxRepository;
 import com.sentinel.enforcement.application.report.ReportNotFoundException;
 import com.sentinel.enforcement.application.report.ReportRepository;
 import com.sentinel.enforcement.application.security.ApplicationActor;
@@ -30,22 +33,28 @@ public final class CaseApplicationService {
   private static final String CASE_RESOURCE_TYPE = "CASE";
 
   private final AuthorizationService authorizationService;
+  private final ApplicationTransactionManager transactionManager;
   private final CaseRepository caseRepository;
   private final ReportRepository reportRepository;
+  private final OutboxRepository outboxRepository;
   private final CaseWorkflowPort workflowPort;
   private final Duration investigationEscalationDuration;
   private final Clock clock;
 
   public CaseApplicationService(
       AuthorizationService authorizationService,
+      ApplicationTransactionManager transactionManager,
       CaseRepository caseRepository,
       ReportRepository reportRepository,
+      OutboxRepository outboxRepository,
       CaseWorkflowPort workflowPort,
       Duration investigationEscalationDuration,
       Clock clock) {
     this.authorizationService = authorizationService;
+    this.transactionManager = transactionManager;
     this.caseRepository = caseRepository;
     this.reportRepository = reportRepository;
+    this.outboxRepository = outboxRepository;
     this.workflowPort = workflowPort;
     this.investigationEscalationDuration = investigationEscalationDuration;
     this.clock = clock;
@@ -115,7 +124,13 @@ public final class CaseApplicationService {
             command.sourceIp(),
             now);
     try {
-      caseRepository.save(caseRecord, historyEntry, auditEvent);
+      transactionManager.required(
+          () -> {
+            caseRepository.save(caseRecord, historyEntry, auditEvent);
+            outboxRepository.enqueue(
+                MessagingEventFactory.caseCreated(actor, caseRecord, command.correlationId(), now));
+            return null;
+          });
     } catch (RuntimeException exception) {
       try {
         workflowPort.cancelCaseWorkflow(
@@ -225,7 +240,14 @@ public final class CaseApplicationService {
             command.correlationId(),
             command.sourceIp(),
             now);
-    caseRepository.assign(updated, assignment, auditEvent);
+    transactionManager.required(
+        () -> {
+          caseRepository.assign(updated, assignment, auditEvent);
+          outboxRepository.enqueue(
+              MessagingEventFactory.caseAssigned(
+                  actor, updated, command.reason(), command.correlationId(), now));
+          return null;
+        });
     return updated;
   }
 
@@ -271,7 +293,19 @@ public final class CaseApplicationService {
             command.correlationId(),
             command.sourceIp(),
             now);
-    caseRepository.transition(updated, historyEntry, auditEvent);
+    transactionManager.required(
+        () -> {
+          caseRepository.transition(updated, historyEntry, auditEvent);
+          outboxRepository.enqueue(
+              MessagingEventFactory.caseTransitioned(
+                  actor,
+                  updated,
+                  current.status(),
+                  command.reason(),
+                  command.correlationId(),
+                  now));
+          return null;
+        });
     return updated;
   }
 

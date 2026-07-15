@@ -83,7 +83,8 @@ public final class MinioEvidenceStorageAdapter implements EvidenceStoragePort {
                   .bucket(validBucket(bucket))
                   .object(validObjectKey(objectKey))
                   .build());
-      return new StoredEvidenceObject(response.size(), normalizeContentType(response.contentType()));
+      return new StoredEvidenceObject(
+          response.size(), normalizeContentType(response.contentType()));
     } catch (ErrorResponseException exception) {
       if (isMissingObject(exception)) {
         throw new EvidenceObjectMissingException(bucket, objectKey);

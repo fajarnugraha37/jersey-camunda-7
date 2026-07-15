@@ -5,6 +5,7 @@ COPY sentinel-domain/pom.xml sentinel-domain/pom.xml
 COPY sentinel-application/pom.xml sentinel-application/pom.xml
 COPY sentinel-api/pom.xml sentinel-api/pom.xml
 COPY sentinel-persistence/pom.xml sentinel-persistence/pom.xml
+COPY sentinel-messaging/pom.xml sentinel-messaging/pom.xml
 COPY sentinel-storage/pom.xml sentinel-storage/pom.xml
 COPY sentinel-workflow/pom.xml sentinel-workflow/pom.xml
 COPY sentinel-security/pom.xml sentinel-security/pom.xml
@@ -15,6 +16,7 @@ COPY sentinel-domain/src sentinel-domain/src
 COPY sentinel-application/src sentinel-application/src
 COPY sentinel-api/src sentinel-api/src
 COPY sentinel-persistence/src sentinel-persistence/src
+COPY sentinel-messaging/src sentinel-messaging/src
 COPY sentinel-storage/src sentinel-storage/src
 COPY sentinel-workflow/src sentinel-workflow/src
 COPY sentinel-security/src sentinel-security/src

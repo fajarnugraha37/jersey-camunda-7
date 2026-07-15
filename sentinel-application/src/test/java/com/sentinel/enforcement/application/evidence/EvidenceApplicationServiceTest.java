@@ -6,6 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.sentinel.enforcement.application.casefile.CaseRepository;
+import com.sentinel.enforcement.application.messaging.ApplicationTransactionManager;
+import com.sentinel.enforcement.application.messaging.OutboxEvent;
+import com.sentinel.enforcement.application.messaging.OutboxRepository;
 import com.sentinel.enforcement.application.security.ApplicationActor;
 import com.sentinel.enforcement.application.security.AuthorizationContext;
 import com.sentinel.enforcement.application.security.AuthorizationDeniedException;
@@ -43,21 +46,25 @@ class EvidenceApplicationServiceTest {
   void createUploadSessionPreparesNewEvidenceAndPresignedUrl() {
     InMemoryCaseRepository caseRepository = new InMemoryCaseRepository();
     InMemoryEvidenceRepository evidenceRepository = new InMemoryEvidenceRepository();
+    InMemoryOutboxRepository outboxRepository = new InMemoryOutboxRepository();
     CapturingAuthorizationService authorizationService = new CapturingAuthorizationService();
     FakeEvidenceStoragePort storagePort = new FakeEvidenceStoragePort();
     Clock clock = Clock.fixed(Instant.parse("2026-07-14T10:15:30Z"), ZoneOffset.UTC);
     EvidenceApplicationService service =
         new EvidenceApplicationService(
             authorizationService,
+            new ImmediateTransactionManager(),
             caseRepository,
             evidenceRepository,
+            outboxRepository,
             storagePort,
             clock,
             "sentinel-evidence",
             Duration.ofMinutes(15),
             Duration.ofMinutes(10));
     ApplicationActor actor =
-        new ApplicationActor("subject-1", "investigator-jkt", Set.of("INVESTIGATOR"), Set.of("JKT"));
+        new ApplicationActor(
+            "subject-1", "investigator-jkt", Set.of("INVESTIGATOR"), Set.of("JKT"));
     CaseRecord caseRecord = sampleCase("investigator-jkt");
     caseRepository.caseById.put(caseRecord.id(), caseRecord);
 
@@ -82,28 +89,33 @@ class EvidenceApplicationServiceTest {
     assertEquals("sentinel-evidence", evidenceRepository.savedUploadSession.bucket());
     assertEquals("https://storage.local/upload", preparedSession.uploadUrl());
     assertSame(
-        evidenceRepository.savedEvidence, evidenceRepository.evidenceById.get(preparedSession.evidenceId()));
+        evidenceRepository.savedEvidence,
+        evidenceRepository.evidenceById.get(preparedSession.evidenceId()));
   }
 
   @Test
   void finalizeEvidenceVersionRejectsChecksumMismatch() {
     InMemoryCaseRepository caseRepository = new InMemoryCaseRepository();
     InMemoryEvidenceRepository evidenceRepository = new InMemoryEvidenceRepository();
+    InMemoryOutboxRepository outboxRepository = new InMemoryOutboxRepository();
     CapturingAuthorizationService authorizationService = new CapturingAuthorizationService();
     FakeEvidenceStoragePort storagePort = new FakeEvidenceStoragePort();
     Clock clock = Clock.fixed(Instant.parse("2026-07-14T10:15:30Z"), ZoneOffset.UTC);
     EvidenceApplicationService service =
         new EvidenceApplicationService(
             authorizationService,
+            new ImmediateTransactionManager(),
             caseRepository,
             evidenceRepository,
+            outboxRepository,
             storagePort,
             clock,
             "sentinel-evidence",
             Duration.ofMinutes(15),
             Duration.ofMinutes(10));
     ApplicationActor actor =
-        new ApplicationActor("subject-2", "investigator-jkt", Set.of("INVESTIGATOR"), Set.of("JKT"));
+        new ApplicationActor(
+            "subject-2", "investigator-jkt", Set.of("INVESTIGATOR"), Set.of("JKT"));
     CaseRecord caseRecord = sampleCase("investigator-jkt");
     caseRepository.caseById.put(caseRecord.id(), caseRecord);
     UUID evidenceId = UUID.randomUUID();
@@ -140,8 +152,7 @@ class EvidenceApplicationServiceTest {
     evidenceRepository.evidenceById.put(evidenceId, evidence);
     evidenceRepository.uploadSessionById.put(uploadSession.id(), uploadSession);
     storagePort.objectBytes = "hello-world".getBytes(StandardCharsets.UTF_8);
-    storagePort.storedObject =
-        new EvidenceStoragePort.StoredEvidenceObject(11L, "text/csv");
+    storagePort.storedObject = new EvidenceStoragePort.StoredEvidenceObject(11L, "text/csv");
 
     EvidenceConflictException conflict =
         assertThrows(
@@ -159,6 +170,7 @@ class EvidenceApplicationServiceTest {
   void deniedDownloadIsAuditedBeforeAuthorizationErrorReturns() {
     InMemoryCaseRepository caseRepository = new InMemoryCaseRepository();
     InMemoryEvidenceRepository evidenceRepository = new InMemoryEvidenceRepository();
+    InMemoryOutboxRepository outboxRepository = new InMemoryOutboxRepository();
     CapturingAuthorizationService authorizationService = new CapturingAuthorizationService();
     authorizationService.deniedPermission = Permission.CREATE_EVIDENCE_DOWNLOAD_SESSION;
     FakeEvidenceStoragePort storagePort = new FakeEvidenceStoragePort();
@@ -166,15 +178,18 @@ class EvidenceApplicationServiceTest {
     EvidenceApplicationService service =
         new EvidenceApplicationService(
             authorizationService,
+            new ImmediateTransactionManager(),
             caseRepository,
             evidenceRepository,
+            outboxRepository,
             storagePort,
             clock,
             "sentinel-evidence",
             Duration.ofMinutes(15),
             Duration.ofMinutes(10));
     ApplicationActor actor =
-        new ApplicationActor("subject-3", "intake-jkt", Set.of("CASE_INTAKE_OFFICER"), Set.of("JKT"));
+        new ApplicationActor(
+            "subject-3", "intake-jkt", Set.of("CASE_INTAKE_OFFICER"), Set.of("JKT"));
     CaseRecord caseRecord = sampleCase("investigator-jkt");
     caseRepository.caseById.put(caseRecord.id(), caseRecord);
     UUID evidenceId = UUID.randomUUID();
@@ -223,6 +238,82 @@ class EvidenceApplicationServiceTest {
     assertEquals("EvidenceDownloadDenied", caseRepository.auditEvents.get(0).eventType());
   }
 
+  @Test
+  void finalizeEvidenceVersionEnqueuesLifecycleEventAlongsideAuditAndVersionUpdate() {
+    InMemoryCaseRepository caseRepository = new InMemoryCaseRepository();
+    InMemoryEvidenceRepository evidenceRepository = new InMemoryEvidenceRepository();
+    InMemoryOutboxRepository outboxRepository = new InMemoryOutboxRepository();
+    CapturingAuthorizationService authorizationService = new CapturingAuthorizationService();
+    FakeEvidenceStoragePort storagePort = new FakeEvidenceStoragePort();
+    Clock clock = Clock.fixed(Instant.parse("2026-07-14T10:15:30Z"), ZoneOffset.UTC);
+    EvidenceApplicationService service =
+        new EvidenceApplicationService(
+            authorizationService,
+            new ImmediateTransactionManager(),
+            caseRepository,
+            evidenceRepository,
+            outboxRepository,
+            storagePort,
+            clock,
+            "sentinel-evidence",
+            Duration.ofMinutes(15),
+            Duration.ofMinutes(10));
+    ApplicationActor actor =
+        new ApplicationActor(
+            "subject-4", "investigator-jkt", Set.of("INVESTIGATOR"), Set.of("JKT"));
+    CaseRecord caseRecord = sampleCase("investigator-jkt");
+    caseRepository.caseById.put(caseRecord.id(), caseRecord);
+    UUID evidenceId = UUID.randomUUID();
+    byte[] content = "hello-world".getBytes(StandardCharsets.UTF_8);
+    String checksum = "afa27b44d43b02a9fea41d13cedc2e4016cfcf87c5dbf990e593669aa8ce286d";
+    Evidence evidence =
+        new Evidence(
+            evidenceId,
+            caseRecord.id(),
+            "Gift ledger export",
+            EvidenceClassification.CONFIDENTIAL,
+            EvidenceStorageStatus.PENDING_UPLOAD,
+            0,
+            Instant.parse("2026-07-14T09:00:00Z"),
+            "investigator-jkt",
+            Instant.parse("2026-07-14T09:00:00Z"),
+            "investigator-jkt",
+            0L);
+    EvidenceUploadSession uploadSession =
+        EvidenceUploadSession.create(
+            UUID.randomUUID(),
+            caseRecord.id(),
+            evidenceId,
+            1,
+            "ledger.csv",
+            "generated.csv",
+            "sentinel-evidence",
+            "/JKT/" + caseRecord.id() + "/" + evidenceId + "/1/generated.csv",
+            "text/plain",
+            (long) content.length,
+            checksum,
+            EvidenceClassification.CONFIDENTIAL,
+            Instant.parse("2026-07-14T09:10:00Z"),
+            Instant.parse("2026-07-14T10:25:30Z"),
+            "investigator-jkt");
+    evidenceRepository.evidenceById.put(evidenceId, evidence);
+    evidenceRepository.uploadSessionById.put(uploadSession.id(), uploadSession);
+    storagePort.objectBytes = content;
+    storagePort.storedObject =
+        new EvidenceStoragePort.StoredEvidenceObject((long) content.length, "text/plain");
+
+    EvidenceDetailsView finalized =
+        service.finalizeEvidenceVersion(
+            actor,
+            evidenceId,
+            new FinalizeEvidenceVersionCommand(uploadSession.id(), "corr-2", "127.0.0.1"));
+
+    assertEquals(1, finalized.latestVersion().versionNumber());
+    assertEquals(1, caseRepository.auditEvents.size());
+    assertEquals(1, outboxRepository.events.size());
+    assertEquals("EvidenceVersionFinalized", outboxRepository.events.get(0).envelope().eventType());
+  }
+
   private static CaseRecord sampleCase(String assigneeUserId) {
     return new CaseRecord(
         UUID.randomUUID(),
@@ -267,12 +358,14 @@ class EvidenceApplicationServiceTest {
     }
 
     @Override
-    public List<CaseRecord> findPage(com.sentinel.enforcement.application.casefile.CasePageRequest pageRequest) {
+    public List<CaseRecord> findPage(
+        com.sentinel.enforcement.application.casefile.CasePageRequest pageRequest) {
       return List.of();
     }
 
     @Override
-    public void assign(CaseRecord caseRecord, CaseAssignment caseAssignment, AuditEvent auditEvent) {
+    public void assign(
+        CaseRecord caseRecord, CaseAssignment caseAssignment, AuditEvent auditEvent) {
       throw new UnsupportedOperationException();
     }
 
@@ -354,7 +447,8 @@ class EvidenceApplicationServiceTest {
   }
 
   private static final class FakeEvidenceStoragePort implements EvidenceStoragePort {
-    private StoredEvidenceObject storedObject = new StoredEvidenceObject(0L, "application/octet-stream");
+    private StoredEvidenceObject storedObject =
+        new StoredEvidenceObject(0L, "application/octet-stream");
     private byte[] objectBytes = new byte[0];
 
     @Override
@@ -375,6 +469,44 @@ class EvidenceApplicationServiceTest {
     @Override
     public InputStream getObjectStream(String bucket, String objectKey) {
       return new ByteArrayInputStream(objectBytes);
+    }
+  }
+
+  private static final class ImmediateTransactionManager implements ApplicationTransactionManager {
+    @Override
+    public <T> T required(java.util.function.Supplier<T> work) {
+      return work.get();
+    }
+  }
+
+  private static final class InMemoryOutboxRepository implements OutboxRepository {
+    private final List<OutboxEvent> events = new java.util.ArrayList<>();
+
+    @Override
+    public void enqueue(OutboxEvent outboxEvent) {
+      events.add(outboxEvent);
+    }
+
+    @Override
+    public List<OutboxEvent> claimPending(
+        String leaseOwner, Instant now, Duration leaseDuration, int batchSize, String updatedBy) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void markPublished(UUID eventId, Instant publishedAt, String updatedBy) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void releaseForRetry(
+        UUID eventId, Instant now, Instant nextAttemptAt, String lastError, String updatedBy) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public long countPending() {
+      return events.size();
     }
   }
 }

@@ -21,6 +21,9 @@ import java.sql.ResultSet;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.glassfish.jersey.jackson.JacksonFeature;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -63,6 +66,7 @@ abstract class AbstractApiIT {
                   .forPort(9000)
                   .forStatusCode(200)
                   .withStartupTimeout(Duration.ofMinutes(2)));
+  protected static final FixedPortKafkaContainer KAFKA = new FixedPortKafkaContainer();
 
   protected static ApplicationRuntime applicationRuntime;
   protected static Client client;
@@ -79,6 +83,9 @@ abstract class AbstractApiIT {
     if (!MINIO.isRunning()) {
       MINIO.start();
     }
+    if (!KAFKA.isRunning()) {
+      KAFKA.start();
+    }
     if (testConfiguration == null) {
       testConfiguration =
           AppConfiguration.fromEnvironment(
@@ -87,6 +94,13 @@ abstract class AbstractApiIT {
                   Map.entry("DB_URL", POSTGRES.getJdbcUrl()),
                   Map.entry("DB_USERNAME", POSTGRES.getUsername()),
                   Map.entry("DB_PASSWORD", POSTGRES.getPassword()),
+                  Map.entry("KAFKA_BOOTSTRAP_SERVERS", kafkaBootstrapServers()),
+                  Map.entry("APP_INSTANCE_ID", "integration-tests"),
+                  Map.entry("OUTBOX_POLL_INTERVAL", "PT1S"),
+                  Map.entry("OUTBOX_LEASE_DURATION", "PT10S"),
+                  Map.entry("OUTBOX_BATCH_SIZE", "10"),
+                  Map.entry("NOTIFICATION_CONSUMER_GROUP_ID", "sentinel-it"),
+                  Map.entry("NOTIFICATION_MAX_RETRIES", "2"),
                   Map.entry("MINIO_ENDPOINT", minioEndpoint()),
                   Map.entry("MINIO_ACCESS_KEY", "sentinel"),
                   Map.entry("MINIO_SECRET_KEY", "sentinel-secret"),
@@ -122,6 +136,7 @@ abstract class AbstractApiIT {
       applicationRuntime = null;
     }
     testConfiguration = null;
+    KAFKA.stop();
     MINIO.stop();
     KEYCLOAK.stop();
     POSTGRES.stop();
@@ -144,9 +159,14 @@ abstract class AbstractApiIT {
             ReportResponse.class);
   }
 
-  protected static ReportResponse createTriagedReport(String intakeAccessToken, String triageAccessToken, String jurisdictionCode) {
+  protected static ReportResponse createTriagedReport(
+      String intakeAccessToken, String triageAccessToken, String jurisdictionCode) {
     ReportResponse report = createReport(intakeAccessToken, jurisdictionCode);
-    return triageReport(triageAccessToken, report.getId(), report.getVersion(), "Report accepted for case creation.");
+    return triageReport(
+        triageAccessToken,
+        report.getId(),
+        report.getVersion(),
+        "Report accepted for case creation.");
   }
 
   protected static ReportResponse triageReport(
@@ -294,5 +314,69 @@ abstract class AbstractApiIT {
 
   private static String minioEndpoint() {
     return "http://127.0.0.1:" + MINIO.getMappedPort(9000);
+  }
+
+  protected static long queryForLong(String sql, Object... parameters) {
+    try (Connection connection =
+            DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+        PreparedStatement statement = connection.prepareStatement(sql)) {
+      bindParameters(statement, parameters);
+      try (ResultSet resultSet = statement.executeQuery()) {
+        if (!resultSet.next()) {
+          return 0L;
+        }
+        return resultSet.getLong(1);
+      }
+    } catch (Exception exception) {
+      throw new IllegalStateException("Failed to execute SQL query.", exception);
+    }
+  }
+
+  protected static void produceRawEvent(String topic, String key, String payload) {
+    try (KafkaProducer<String, String> producer = new KafkaProducer<>(kafkaProducerProperties())) {
+      producer.send(new ProducerRecord<>(topic, key, payload)).get();
+    } catch (Exception exception) {
+      throw new IllegalStateException("Failed to produce Kafka test event.", exception);
+    }
+  }
+
+  protected static String kafkaBootstrapServers() {
+    return "127.0.0.1:29092";
+  }
+
+  private static Map<String, Object> kafkaProducerProperties() {
+    return Map.of(
+        "bootstrap.servers", kafkaBootstrapServers(),
+        "key.serializer", StringSerializer.class.getName(),
+        "value.serializer", StringSerializer.class.getName(),
+        "acks", "all");
+  }
+
+  protected static final class FixedPortKafkaContainer
+      extends GenericContainer<FixedPortKafkaContainer> {
+    private static final int HOST_PORT = 29092;
+
+    FixedPortKafkaContainer() {
+      super("confluentinc/cp-kafka:7.8.1");
+      addFixedExposedPort(HOST_PORT, HOST_PORT);
+      withEnv("CLUSTER_ID", "MkU3OEVBNTcwNTJENDM2Qk");
+      withEnv("KAFKA_NODE_ID", "1");
+      withEnv("KAFKA_PROCESS_ROLES", "broker,controller");
+      withEnv("KAFKA_LISTENERS", "PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093");
+      withEnv("KAFKA_ADVERTISED_LISTENERS", "PLAINTEXT://127.0.0.1:29092");
+      withEnv("KAFKA_LISTENER_SECURITY_PROTOCOL_MAP", "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT");
+      withEnv("KAFKA_INTER_BROKER_LISTENER_NAME", "PLAINTEXT");
+      withEnv("KAFKA_CONTROLLER_LISTENER_NAMES", "CONTROLLER");
+      withEnv("KAFKA_CONTROLLER_QUORUM_VOTERS", "1@127.0.0.1:9093");
+      withEnv("KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR", "1");
+      withEnv("KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR", "1");
+      withEnv("KAFKA_TRANSACTION_STATE_LOG_MIN_ISR", "1");
+      withEnv("KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS", "0");
+      withEnv("KAFKA_AUTO_CREATE_TOPICS_ENABLE", "true");
+      waitingFor(
+          Wait.forLogMessage(".*Transitioning from RECOVERY to RUNNING.*", 1)
+              .withStartupTimeout(Duration.ofMinutes(3)));
+    }
   }
 }

@@ -18,6 +18,34 @@ services:
       retries: 10
       start_period: 10s
 
+  kafka:
+    image: confluentinc/cp-kafka:7.8.1
+    container_name: sentinel-kafka
+    hostname: kafka
+    environment:
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:${KAFKA_PORT:-29092}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    ports:
+      - "${KAFKA_PORT:-29092}:29092"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server 127.0.0.1:9092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
   minio:
     image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: sentinel-minio
@@ -88,6 +116,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      kafka:
+        condition: service_healthy
       minio:
         condition: service_healthy
       keycloak:
@@ -97,6 +127,13 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-sentinel}
       DB_USERNAME: ${POSTGRES_USER:-sentinel}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-sentinel}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      APP_INSTANCE_ID: ${APP_INSTANCE_ID:-app-1}
+      OUTBOX_POLL_INTERVAL: ${OUTBOX_POLL_INTERVAL:-PT2S}
+      OUTBOX_LEASE_DURATION: ${OUTBOX_LEASE_DURATION:-PT30S}
+      OUTBOX_BATCH_SIZE: ${OUTBOX_BATCH_SIZE:-20}
+      NOTIFICATION_CONSUMER_GROUP_ID: ${NOTIFICATION_CONSUMER_GROUP_ID:-sentinel-notification-consumer}
+      NOTIFICATION_MAX_RETRIES: ${NOTIFICATION_MAX_RETRIES:-3}
       MINIO_ENDPOINT: http://minio:9000
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-sentinel}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-sentinel-secret}
