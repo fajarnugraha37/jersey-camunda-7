@@ -4,7 +4,6 @@ import com.sentinel.enforcement.application.recommendation.RecommendationReposit
 import com.sentinel.enforcement.domain.recommendation.Recommendation;
 import com.sentinel.enforcement.domain.recommendation.RecommendationConflictException;
 import com.sentinel.enforcement.domain.recommendation.RecommendationReview;
-import com.sentinel.enforcement.domain.recommendation.RecommendationReviewOutcome;
 import com.sentinel.enforcement.domain.recommendation.RecommendationStatus;
 import com.sentinel.enforcement.persistence.MyBatisRepositorySupport;
 import java.time.ZoneOffset;
@@ -83,13 +82,15 @@ public final class RecommendationRepositoryMyBatisAdapter extends MyBatisReposit
   @Override
   public boolean existsApprovedForCase(UUID caseId) {
     return executeRead(
-        session -> session.getMapper(RecommendationMyBatisMapper.class).existsApprovedForCase(caseId));
+        session ->
+            session.getMapper(RecommendationMyBatisMapper.class).existsApprovedForCase(caseId));
   }
 
   @Override
   public boolean existsSubmittedForCase(UUID caseId) {
     return executeRead(
-        session -> session.getMapper(RecommendationMyBatisMapper.class).existsSubmittedForCase(caseId));
+        session ->
+            session.getMapper(RecommendationMyBatisMapper.class).existsSubmittedForCase(caseId));
   }
 
   private RecommendationRecord toRecord(Recommendation recommendation) {
@@ -101,7 +102,9 @@ public final class RecommendationRepositoryMyBatisAdapter extends MyBatisReposit
         recommendation.proposedDecision(),
         recommendation.proposedSanction(),
         recommendation.status().name(),
-        recommendation.submittedAt() == null ? null : recommendation.submittedAt().atOffset(ZoneOffset.UTC),
+        recommendation.submittedAt() == null
+            ? null
+            : recommendation.submittedAt().atOffset(ZoneOffset.UTC),
         recommendation.submittedBy(),
         recommendation.approvedReviewId(),
         recommendation.createdAt().atOffset(ZoneOffset.UTC),
@@ -133,7 +136,9 @@ public final class RecommendationRepositoryMyBatisAdapter extends MyBatisReposit
         recommendationRecord.proposedDecision(),
         recommendationRecord.proposedSanction(),
         RecommendationStatus.valueOf(recommendationRecord.status()),
-        recommendationRecord.submittedAt() == null ? null : recommendationRecord.submittedAt().toInstant(),
+        recommendationRecord.submittedAt() == null
+            ? null
+            : recommendationRecord.submittedAt().toInstant(),
         recommendationRecord.submittedBy(),
         recommendationRecord.approvedReviewId(),
         recommendationRecord.createdAt().toInstant(),

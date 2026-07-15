@@ -1,5 +1,6 @@
 package com.sentinel.enforcement.application.casefile;
 
+import com.sentinel.enforcement.domain.casefile.CaseClassification;
 import com.sentinel.enforcement.domain.casefile.CaseStatus;
 import java.util.Set;
 import java.util.UUID;
@@ -7,6 +8,10 @@ import java.util.UUID;
 public record CasePageRequest(
     Set<String> jurisdictionCodes,
     String restrictedAssigneeUserId,
+    Set<String> restrictedAssignedUnitIds,
+    boolean includeUnassignedWhenUnitRestricted,
+    Set<CaseClassification> allowedClassifications,
+    Set<String> excludedCreatedByUserIds,
     String requestedAssigneeUserId,
     String cursorValue,
     UUID cursorId,
@@ -14,6 +19,7 @@ public record CasePageRequest(
     CaseListSearchField searchField,
     String searchValue,
     CaseStatus status,
+    CaseClassification classification,
     String assignedUnitId,
     String createdBy,
     UUID reportId,
@@ -23,6 +29,9 @@ public record CasePageRequest(
 
   public CasePageRequest {
     jurisdictionCodes = Set.copyOf(jurisdictionCodes);
+    restrictedAssignedUnitIds = Set.copyOf(restrictedAssignedUnitIds);
+    allowedClassifications = Set.copyOf(allowedClassifications);
+    excludedCreatedByUserIds = Set.copyOf(excludedCreatedByUserIds);
     cursorValue = normalize(cursorValue);
     quickSearch = normalize(quickSearch);
     searchValue = normalize(searchValue);
@@ -32,6 +41,9 @@ public record CasePageRequest(
     createdBy = normalize(createdBy);
     if (jurisdictionCodes.isEmpty()) {
       throw new IllegalArgumentException("jurisdictionCodes must not be empty");
+    }
+    if (allowedClassifications.isEmpty()) {
+      throw new IllegalArgumentException("allowedClassifications must not be empty");
     }
     if ((cursorValue == null) != (cursorId == null)) {
       throw new IllegalArgumentException("cursorValue and cursorId must both be present");

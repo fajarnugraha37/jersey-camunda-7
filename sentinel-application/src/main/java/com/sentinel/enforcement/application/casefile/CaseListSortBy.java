@@ -5,6 +5,7 @@ public enum CaseListSortBy {
   UPDATED_AT,
   CASE_NUMBER,
   TITLE,
+  CLASSIFICATION,
   STATUS;
 
   public boolean isTimestampBased() {

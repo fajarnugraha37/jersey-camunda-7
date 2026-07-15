@@ -1,6 +1,5 @@
 package com.sentinel.enforcement.api.recommendation;
 
-import com.sentinel.enforcement.api.generated.model.CreateRecommendationRequest;
 import com.sentinel.enforcement.api.generated.model.RecommendationResponse;
 import com.sentinel.enforcement.api.generated.model.ReviewRecommendationRequest;
 import com.sentinel.enforcement.api.security.RequestActorResolver;

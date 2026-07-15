@@ -1,10 +1,10 @@
 package com.sentinel.enforcement.persistence;
 
+import com.sentinel.enforcement.persistence.appeal.AppealMyBatisMapper;
 import com.sentinel.enforcement.persistence.casefile.CaseMyBatisMapper;
 import com.sentinel.enforcement.persistence.decision.DecisionMyBatisMapper;
 import com.sentinel.enforcement.persistence.evidence.EvidenceMyBatisMapper;
 import com.sentinel.enforcement.persistence.messaging.MessagingMyBatisMapper;
-import com.sentinel.enforcement.persistence.appeal.AppealMyBatisMapper;
 import com.sentinel.enforcement.persistence.recommendation.RecommendationMyBatisMapper;
 import com.sentinel.enforcement.persistence.report.ReportMyBatisMapper;
 import com.sentinel.enforcement.persistence.typehandler.UuidTypeHandler;

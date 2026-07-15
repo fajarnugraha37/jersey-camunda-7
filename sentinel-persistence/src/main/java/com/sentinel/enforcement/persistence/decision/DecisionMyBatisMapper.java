@@ -65,7 +65,8 @@ public interface DecisionMyBatisMapper {
       WHERE id = #{decision.id}
         AND version = #{expectedVersion}
       """)
-  int approve(@Param("decision") DecisionRecord decision, @Param("expectedVersion") long expectedVersion);
+  int approve(
+      @Param("decision") DecisionRecord decision, @Param("expectedVersion") long expectedVersion);
 
   @Update(
       """
@@ -79,7 +80,8 @@ public interface DecisionMyBatisMapper {
       WHERE id = #{decision.id}
         AND version = #{expectedVersion}
       """)
-  int publish(@Param("decision") DecisionRecord decision, @Param("expectedVersion") long expectedVersion);
+  int publish(
+      @Param("decision") DecisionRecord decision, @Param("expectedVersion") long expectedVersion);
 
   @Insert(
       """
@@ -138,7 +140,8 @@ public interface DecisionMyBatisMapper {
       """)
   SanctionRecord findSanctionByCaseId(UUID caseId);
 
-  @Select("SELECT COUNT(*) FROM sanction_obligation so JOIN sanction s ON s.id = so.sanction_id WHERE s.case_id = #{caseId} AND so.status = 'ACTIVE'")
+  @Select(
+      "SELECT COUNT(*) FROM sanction_obligation so JOIN sanction s ON s.id = so.sanction_id WHERE s.case_id = #{caseId} AND so.status = 'ACTIVE'")
   long countActiveObligationsForCase(UUID caseId);
 
   @Select(
@@ -162,7 +165,8 @@ public interface DecisionMyBatisMapper {
       WHERE id = #{sanction.id}
         AND version = #{expectedVersion}
       """)
-  int cancelSanction(@Param("sanction") SanctionRecord sanction, @Param("expectedVersion") long expectedVersion);
+  int cancelSanction(
+      @Param("sanction") SanctionRecord sanction, @Param("expectedVersion") long expectedVersion);
 
   @Update(
       """

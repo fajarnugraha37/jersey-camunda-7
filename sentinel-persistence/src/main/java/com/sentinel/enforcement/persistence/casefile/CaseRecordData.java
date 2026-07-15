@@ -10,6 +10,7 @@ public record CaseRecordData(
     String title,
     String summary,
     String jurisdictionCode,
+    String classification,
     String status,
     String assignedUnitId,
     String assigneeUserId,

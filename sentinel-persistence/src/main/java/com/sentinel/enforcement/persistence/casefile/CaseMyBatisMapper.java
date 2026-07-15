@@ -25,6 +25,7 @@ public interface CaseMyBatisMapper {
                 title,
                 summary,
                 jurisdiction_code,
+                classification,
                 status,
                 assigned_unit_id,
                 assignee_user_id,
@@ -40,6 +41,7 @@ public interface CaseMyBatisMapper {
                 #{title},
                 #{summary},
                 #{jurisdictionCode},
+                #{classification},
                 #{status},
                 #{assignedUnitId},
                 #{assigneeUserId},
@@ -81,6 +83,7 @@ public interface CaseMyBatisMapper {
                 title,
                 summary,
                 jurisdiction_code AS jurisdictionCode,
+                classification,
                 status,
                 assigned_unit_id AS assignedUnitId,
                 assignee_user_id AS assigneeUserId,
@@ -104,6 +107,7 @@ public interface CaseMyBatisMapper {
                 title,
                 summary,
                 jurisdiction_code AS jurisdictionCode,
+                classification,
                 status,
                 assigned_unit_id AS assignedUnitId,
                 assignee_user_id AS assigneeUserId,
@@ -131,6 +135,7 @@ public interface CaseMyBatisMapper {
               title,
               summary,
               jurisdiction_code AS jurisdictionCode,
+              classification,
               status,
               assigned_unit_id AS assignedUnitId,
               assignee_user_id AS assigneeUserId,
@@ -151,8 +156,42 @@ public interface CaseMyBatisMapper {
               <if test="requestedAssigneeUserId != null">
                 AND assignee_user_id = #{requestedAssigneeUserId}
               </if>
+              <if test="restrictedAssignedUnitIds != null and !restrictedAssignedUnitIds.isEmpty()">
+                AND
+                <choose>
+                  <when test="includeUnassignedWhenUnitRestricted">
+                    (
+                      assigned_unit_id IS NULL
+                      OR assigned_unit_id IN
+                      <foreach collection="restrictedAssignedUnitIds" item="restrictedAssignedUnitId" open="(" separator="," close=")">
+                        #{restrictedAssignedUnitId}
+                      </foreach>
+                    )
+                  </when>
+                  <otherwise>
+                    assigned_unit_id IN
+                    <foreach collection="restrictedAssignedUnitIds" item="restrictedAssignedUnitId" open="(" separator="," close=")">
+                      #{restrictedAssignedUnitId}
+                    </foreach>
+                  </otherwise>
+                </choose>
+              </if>
+              AND
+              classification IN
+              <foreach collection="allowedClassifications" item="allowedClassification" open="(" separator="," close=")">
+                #{allowedClassification}
+              </foreach>
+              <if test="excludedCreatedByUserIds != null and !excludedCreatedByUserIds.isEmpty()">
+                AND created_by NOT IN
+                <foreach collection="excludedCreatedByUserIds" item="excludedCreatedByUserId" open="(" separator="," close=")">
+                  #{excludedCreatedByUserId}
+                </foreach>
+              </if>
               <if test="status != null">
                 AND status = #{status}
+              </if>
+              <if test="classification != null">
+                AND classification = #{classification}
               </if>
               <if test="assignedUnitId != null">
                 AND assigned_unit_id = #{assignedUnitId}
@@ -169,6 +208,7 @@ public interface CaseMyBatisMapper {
                   OR LOWER(case_number) LIKE #{quickSearchPattern}
                   OR LOWER(title) LIKE #{quickSearchPattern}
                   OR LOWER(summary) LIKE #{quickSearchPattern}
+                  OR LOWER(classification) LIKE #{quickSearchPattern}
                   OR LOWER(COALESCE(assigned_unit_id, '')) LIKE #{quickSearchPattern}
                   OR LOWER(COALESCE(assignee_user_id, '')) LIKE #{quickSearchPattern}
                   OR LOWER(created_by) LIKE #{quickSearchPattern}
@@ -180,6 +220,7 @@ public interface CaseMyBatisMapper {
                   <when test='searchField == "CASE_NUMBER"'>LOWER(case_number) LIKE #{searchPattern}</when>
                   <when test='searchField == "TITLE"'>LOWER(title) LIKE #{searchPattern}</when>
                   <when test='searchField == "SUMMARY"'>LOWER(summary) LIKE #{searchPattern}</when>
+                  <when test='searchField == "CLASSIFICATION"'>LOWER(classification) LIKE #{searchPattern}</when>
                   <when test='searchField == "ASSIGNED_UNIT_ID"'>LOWER(COALESCE(assigned_unit_id, '')) LIKE #{searchPattern}</when>
                   <when test='searchField == "ASSIGNEE_USER_ID"'>LOWER(COALESCE(assignee_user_id, '')) LIKE #{searchPattern}</when>
                   <when test='searchField == "CREATED_BY"'>LOWER(created_by) LIKE #{searchPattern}</when>
@@ -197,6 +238,8 @@ public interface CaseMyBatisMapper {
                   <when test='sortBy == "CASE_NUMBER" and sortDirection == "ASC"'>(LOWER(case_number) &gt; #{cursorTextValue} OR (LOWER(case_number) = #{cursorTextValue} AND id &gt; #{cursorId}))</when>
                   <when test='sortBy == "TITLE" and sortDirection == "DESC"'>(LOWER(title) &lt; #{cursorTextValue} OR (LOWER(title) = #{cursorTextValue} AND id &lt; #{cursorId}))</when>
                   <when test='sortBy == "TITLE" and sortDirection == "ASC"'>(LOWER(title) &gt; #{cursorTextValue} OR (LOWER(title) = #{cursorTextValue} AND id &gt; #{cursorId}))</when>
+                  <when test='sortBy == "CLASSIFICATION" and sortDirection == "DESC"'>(LOWER(classification) &lt; #{cursorTextValue} OR (LOWER(classification) = #{cursorTextValue} AND id &lt; #{cursorId}))</when>
+                  <when test='sortBy == "CLASSIFICATION" and sortDirection == "ASC"'>(LOWER(classification) &gt; #{cursorTextValue} OR (LOWER(classification) = #{cursorTextValue} AND id &gt; #{cursorId}))</when>
                   <when test='sortBy == "STATUS" and sortDirection == "DESC"'>(LOWER(status) &lt; #{cursorTextValue} OR (LOWER(status) = #{cursorTextValue} AND id &lt; #{cursorId}))</when>
                   <when test='sortBy == "STATUS" and sortDirection == "ASC"'>(LOWER(status) &gt; #{cursorTextValue} OR (LOWER(status) = #{cursorTextValue} AND id &gt; #{cursorId}))</when>
                   <otherwise>1 = 0</otherwise>
@@ -209,6 +252,7 @@ public interface CaseMyBatisMapper {
               <when test='sortBy == "UPDATED_AT"'>updated_at</when>
               <when test='sortBy == "CASE_NUMBER"'>LOWER(case_number)</when>
               <when test='sortBy == "TITLE"'>LOWER(title)</when>
+              <when test='sortBy == "CLASSIFICATION"'>LOWER(classification)</when>
               <when test='sortBy == "STATUS"'>LOWER(status)</when>
               <otherwise>created_at</otherwise>
             </choose>

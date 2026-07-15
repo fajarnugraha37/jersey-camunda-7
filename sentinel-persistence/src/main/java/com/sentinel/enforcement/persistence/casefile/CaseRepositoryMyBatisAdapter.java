@@ -6,6 +6,7 @@ import com.sentinel.enforcement.application.casefile.CasePageRequest;
 import com.sentinel.enforcement.application.casefile.CaseRepository;
 import com.sentinel.enforcement.domain.casefile.AuditEvent;
 import com.sentinel.enforcement.domain.casefile.CaseAssignment;
+import com.sentinel.enforcement.domain.casefile.CaseClassification;
 import com.sentinel.enforcement.domain.casefile.CaseConflictException;
 import com.sentinel.enforcement.domain.casefile.CaseRecord;
 import com.sentinel.enforcement.domain.casefile.CaseStatus;
@@ -77,11 +78,18 @@ public final class CaseRepositoryMyBatisAdapter extends MyBatisRepositorySupport
               new CasePageQueryData(
                   pageRequest.jurisdictionCodes(),
                   pageRequest.restrictedAssigneeUserId(),
+                  pageRequest.restrictedAssignedUnitIds(),
+                  pageRequest.includeUnassignedWhenUnitRestricted(),
+                  pageRequest.allowedClassifications().stream()
+                      .map(CaseClassification::name)
+                      .collect(Collectors.toSet()),
+                  pageRequest.excludedCreatedByUserIds(),
                   pageRequest.requestedAssigneeUserId(),
                   toContainsPattern(pageRequest.quickSearch()),
                   pageRequest.searchField() == null ? null : pageRequest.searchField().name(),
                   toContainsPattern(pageRequest.searchValue()),
                   pageRequest.status() == null ? null : pageRequest.status().name(),
+                  pageRequest.classification() == null ? null : pageRequest.classification().name(),
                   pageRequest.assignedUnitId(),
                   pageRequest.createdBy(),
                   pageRequest.reportId(),
@@ -177,6 +185,7 @@ public final class CaseRepositoryMyBatisAdapter extends MyBatisRepositorySupport
         caseRecord.title(),
         caseRecord.summary(),
         caseRecord.jurisdictionCode(),
+        caseRecord.classification().name(),
         caseRecord.status().name(),
         caseRecord.assignedUnitId(),
         caseRecord.assigneeUserId(),
@@ -245,6 +254,7 @@ public final class CaseRepositoryMyBatisAdapter extends MyBatisRepositorySupport
         caseRecordData.title(),
         caseRecordData.summary(),
         caseRecordData.jurisdictionCode(),
+        CaseClassification.valueOf(caseRecordData.classification()),
         CaseStatus.valueOf(caseRecordData.status()),
         caseRecordData.assignedUnitId(),
         caseRecordData.assigneeUserId(),

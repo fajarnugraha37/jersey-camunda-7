@@ -3,6 +3,7 @@ package com.sentinel.enforcement.api.casefile;
 import com.sentinel.enforcement.api.generated.model.AssignCaseRequest;
 import com.sentinel.enforcement.api.generated.model.CaseAuditEventListResponse;
 import com.sentinel.enforcement.api.generated.model.CaseAuditEventResponse;
+import com.sentinel.enforcement.api.generated.model.CaseClassificationValue;
 import com.sentinel.enforcement.api.generated.model.CaseListResponse;
 import com.sentinel.enforcement.api.generated.model.CaseResponse;
 import com.sentinel.enforcement.api.generated.model.CaseStatusValue;
@@ -14,6 +15,7 @@ import com.sentinel.enforcement.application.casefile.CasePage;
 import com.sentinel.enforcement.application.casefile.CreateCaseCommand;
 import com.sentinel.enforcement.application.casefile.TransitionCaseCommand;
 import com.sentinel.enforcement.domain.casefile.AuditEvent;
+import com.sentinel.enforcement.domain.casefile.CaseClassification;
 import com.sentinel.enforcement.domain.casefile.CaseRecord;
 import com.sentinel.enforcement.domain.casefile.CaseStatus;
 import java.time.OffsetDateTime;
@@ -31,6 +33,9 @@ public interface ApiCaseMapper {
 
   @Mapping(target = "correlationId", source = "correlationId")
   @Mapping(target = "sourceIp", source = "sourceIp")
+  @Mapping(
+      target = "classification",
+      expression = "java(toDomainClassification(request.getClassification()))")
   CreateCaseCommand toCreateCaseCommand(
       CreateCaseRequest request, String correlationId, String sourceIp);
 
@@ -86,8 +91,16 @@ public interface ApiCaseMapper {
     return CaseStatus.valueOf(statusValue.toString());
   }
 
+  default CaseClassification toDomainClassification(CaseClassificationValue classificationValue) {
+    return CaseClassification.valueOf(classificationValue.toString());
+  }
+
   default CaseStatusValue toApiStatus(CaseStatus status) {
     return CaseStatusValue.fromValue(status.name());
+  }
+
+  default CaseClassificationValue toApiClassification(CaseClassification classification) {
+    return CaseClassificationValue.fromValue(classification.name());
   }
 
   default OffsetDateTime toOffsetDateTime(java.time.Instant instant) {

@@ -16,6 +16,7 @@ import com.sentinel.enforcement.application.security.AuthorizationService;
 import com.sentinel.enforcement.application.security.Permission;
 import com.sentinel.enforcement.domain.casefile.AuditEvent;
 import com.sentinel.enforcement.domain.casefile.CaseAssignment;
+import com.sentinel.enforcement.domain.casefile.CaseClassification;
 import com.sentinel.enforcement.domain.casefile.CaseRecord;
 import com.sentinel.enforcement.domain.casefile.CaseStatus;
 import com.sentinel.enforcement.domain.casefile.CaseStatusHistoryEntry;
@@ -322,6 +323,7 @@ class EvidenceApplicationServiceTest {
         "Gift disclosure case",
         "Triaged into case.",
         "JKT",
+        CaseClassification.CONFIDENTIAL,
         CaseStatus.UNDER_INVESTIGATION,
         "JKT-UNIT-1",
         assigneeUserId,

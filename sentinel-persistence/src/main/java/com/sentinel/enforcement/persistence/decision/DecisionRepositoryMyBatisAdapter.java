@@ -7,8 +7,6 @@ import com.sentinel.enforcement.domain.decision.DecisionStatus;
 import com.sentinel.enforcement.domain.decision.DecisionVersion;
 import com.sentinel.enforcement.domain.sanction.Sanction;
 import com.sentinel.enforcement.domain.sanction.SanctionObligation;
-import com.sentinel.enforcement.domain.sanction.SanctionObligationStatus;
-import com.sentinel.enforcement.domain.sanction.SanctionStatus;
 import com.sentinel.enforcement.persistence.MyBatisRepositorySupport;
 import java.time.ZoneOffset;
 import java.util.Optional;

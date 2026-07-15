@@ -39,7 +39,8 @@ public final class AppealRepositoryMyBatisAdapter extends MyBatisRepositorySuppo
   public Optional<Appeal> findLatestByCaseId(UUID caseId) {
     return executeRead(
         session ->
-            Optional.ofNullable(session.getMapper(AppealMyBatisMapper.class).findLatestByCaseId(caseId))
+            Optional.ofNullable(
+                    session.getMapper(AppealMyBatisMapper.class).findLatestByCaseId(caseId))
                 .map(this::toDomain));
   }
 
@@ -87,7 +88,8 @@ public final class AppealRepositoryMyBatisAdapter extends MyBatisRepositorySuppo
 
   @Override
   public boolean existsActiveByCaseId(UUID caseId) {
-    return executeRead(session -> session.getMapper(AppealMyBatisMapper.class).existsActiveByCaseId(caseId));
+    return executeRead(
+        session -> session.getMapper(AppealMyBatisMapper.class).existsActiveByCaseId(caseId));
   }
 
   private AppealRecord toRecord(Appeal appeal) {

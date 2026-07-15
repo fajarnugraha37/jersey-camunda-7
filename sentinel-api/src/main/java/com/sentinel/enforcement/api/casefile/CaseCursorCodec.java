@@ -8,6 +8,7 @@ import com.sentinel.enforcement.application.casefile.CaseListSortBy;
 import com.sentinel.enforcement.application.casefile.CasePage;
 import com.sentinel.enforcement.application.casefile.ListCasesQuery;
 import com.sentinel.enforcement.application.casefile.SortDirection;
+import com.sentinel.enforcement.domain.casefile.CaseClassification;
 import com.sentinel.enforcement.domain.casefile.CaseStatus;
 import jakarta.ws.rs.BadRequestException;
 import java.nio.charset.StandardCharsets;
@@ -30,6 +31,7 @@ final class CaseCursorCodec {
       String searchField,
       String searchValue,
       String status,
+      String classification,
       String assignedUnitId,
       String assigneeUserId,
       String createdBy,
@@ -39,6 +41,8 @@ final class CaseCursorCodec {
     CaseListSearchField parsedSearchField =
         parseEnum(searchField, CaseListSearchField.class, "searchField");
     CaseStatus parsedStatus = parseEnum(status, CaseStatus.class, "status");
+    CaseClassification parsedClassification =
+        parseEnum(classification, CaseClassification.class, "classification");
     CaseListSortBy parsedSortBy =
         sortBy == null || sortBy.isBlank()
             ? CaseListSortBy.CREATED_AT
@@ -58,6 +62,7 @@ final class CaseCursorCodec {
             parsedSearchField,
             searchValue,
             parsedStatus,
+            parsedClassification,
             assignedUnitId,
             assigneeUserId,
             createdBy,
@@ -83,6 +88,7 @@ final class CaseCursorCodec {
             parsedSearchField,
             searchValue,
             parsedStatus,
+            parsedClassification,
             assignedUnitId,
             assigneeUserId,
             createdBy,
@@ -165,6 +171,7 @@ final class CaseCursorCodec {
       CaseListSearchField searchField,
       String searchValue,
       CaseStatus status,
+      CaseClassification classification,
       String assignedUnitId,
       String assigneeUserId,
       String createdBy,
@@ -180,6 +187,7 @@ final class CaseCursorCodec {
           searchField,
           searchValue,
           status,
+          classification,
           assignedUnitId,
           assigneeUserId,
           createdBy,
@@ -202,6 +210,7 @@ final class CaseCursorCodec {
     private final CaseListSearchField searchField;
     private final String searchValue;
     private final CaseStatus status;
+    private final CaseClassification classification;
     private final String assignedUnitId;
     private final String assigneeUserId;
     private final String createdBy;
@@ -217,6 +226,7 @@ final class CaseCursorCodec {
         CaseListSearchField searchField,
         String searchValue,
         CaseStatus status,
+        CaseClassification classification,
         String assignedUnitId,
         String assigneeUserId,
         String createdBy,
@@ -230,6 +240,7 @@ final class CaseCursorCodec {
       this.searchField = searchField;
       this.searchValue = searchValue;
       this.status = status;
+      this.classification = classification;
       this.assignedUnitId = assignedUnitId;
       this.assigneeUserId = assigneeUserId;
       this.createdBy = createdBy;
@@ -247,6 +258,7 @@ final class CaseCursorCodec {
           searchField,
           searchValue,
           status,
+          classification,
           assignedUnitId,
           assigneeUserId,
           createdBy,
@@ -269,6 +281,7 @@ final class CaseCursorCodec {
             searchField,
             searchValue,
             status,
+            classification,
             assignedUnitId,
             assigneeUserId,
             createdBy,

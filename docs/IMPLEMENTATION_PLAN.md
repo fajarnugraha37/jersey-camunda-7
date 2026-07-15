@@ -2,12 +2,11 @@
 
 ## Ordered tasks
 
-1. Move to phase 7 by adding recommendation, review, decision, sanction, and appeal aggregates on top of the now-green phase 0-6 baseline.
-2. Expand assignment and authorization to include assigned units, case classification, and conflict-of-interest checks.
-3. Extend workflow, messaging, and storage flows so later-state prerequisites stop being policy-only placeholders.
-4. Extend hardening with failure-injection coverage, performance review, and operational metrics.
+1. Extend workflow, messaging, and storage flows so later-state prerequisites stop being policy-only placeholders.
+2. Add deeper enforcement-monitoring and obligation-tracking behavior for the post-decision path.
+3. Extend hardening with failure-injection coverage, performance review, and operational metrics.
 
-## Acceptance criteria for phase 0-6 slice
+## Acceptance criteria for phase 0-8 slice
 
 - `make compile` succeeds.
 - `make unit-test` succeeds.
@@ -31,6 +30,8 @@
 - Domain writes that emit messaging side effects persist `outbox_event` rows in the same transaction as the business change.
 - Kafka outage does not roll back successful business commits for case/evidence writes; pending outbox rows remain retryable.
 - Duplicate event delivery results in at most one notification side effect because `inbox_event` enforces consumer idempotency.
+- Case and workflow authorization enforce jurisdiction, direct assignment, assigned unit, classification clearance, and conflict-of-interest checks consistently.
+- `GET /api/v1/cases` accepts classification-aware list filtering without breaking cursor scope validation.
 - Missing token returns `401`.
 - Wrong role returns `403`.
 - Wrong jurisdiction returns `403`.
@@ -39,4 +40,4 @@
 
 ## Current status
 
-All phase 0-6 acceptance criteria remain implemented, and the post-change verification loop is complete in this run. The evidence regression was fixed by restoring the upload-session route on the case resource path, returning a proper `404` envelope for unmatched routes, and aligning domain evidence classifications with the API/database contract before rerunning full verification successfully.
+All phase 0-8 acceptance criteria remain implemented, and the post-change verification loop is complete in this run. The phase 8 regression loop uncovered and fixed two real defects before the final green run: a malformed MyBatis dynamic SQL branch in case listing and stale integration-test unit identifiers that no longer matched the new assigned-unit authorization model.

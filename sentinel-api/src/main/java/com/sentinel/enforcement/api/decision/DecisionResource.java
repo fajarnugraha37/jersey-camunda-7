@@ -1,9 +1,9 @@
 package com.sentinel.enforcement.api.decision;
 
+import com.sentinel.enforcement.api.appeal.ApiAppealMapper;
+import com.sentinel.enforcement.api.generated.model.AppealResponse;
 import com.sentinel.enforcement.api.generated.model.CreateAppealRequest;
 import com.sentinel.enforcement.api.generated.model.DecisionResponse;
-import com.sentinel.enforcement.api.generated.model.AppealResponse;
-import com.sentinel.enforcement.api.appeal.ApiAppealMapper;
 import com.sentinel.enforcement.api.security.RequestActorResolver;
 import com.sentinel.enforcement.api.security.RequestMetadataResolver;
 import com.sentinel.enforcement.application.appeal.AppealApplicationService;

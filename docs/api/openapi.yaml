@@ -222,6 +222,10 @@ paths:
           schema:
             $ref: '#/components/schemas/CaseStatusValue'
         - in: query
+          name: classification
+          schema:
+            $ref: '#/components/schemas/CaseClassificationValue'
+        - in: query
           name: assignedUnitId
           schema:
             type: string
@@ -1751,6 +1755,7 @@ components:
         - reportId
         - title
         - summary
+        - classification
       properties:
         reportId:
           type: string
@@ -1763,6 +1768,14 @@ components:
           type: string
           minLength: 1
           maxLength: 4000
+        classification:
+          $ref: '#/components/schemas/CaseClassificationValue'
+    CaseClassificationValue:
+      type: string
+      enum:
+        - PUBLIC
+        - CONFIDENTIAL
+        - SECRET
     AssignCaseRequest:
       type: object
       required:
@@ -2138,6 +2151,7 @@ components:
         - title
         - summary
         - jurisdictionCode
+        - classification
         - status
         - createdAt
         - createdBy
@@ -2159,6 +2173,8 @@ components:
           type: string
         jurisdictionCode:
           type: string
+        classification:
+          $ref: '#/components/schemas/CaseClassificationValue'
         status:
           $ref: '#/components/schemas/CaseStatusValue'
         assignedUnitId:
@@ -2198,6 +2214,7 @@ components:
         - CASE_NUMBER
         - TITLE
         - SUMMARY
+        - CLASSIFICATION
         - ASSIGNED_UNIT_ID
         - ASSIGNEE_USER_ID
         - CREATED_BY
@@ -2208,6 +2225,7 @@ components:
         - UPDATED_AT
         - CASE_NUMBER
         - TITLE
+        - CLASSIFICATION
         - STATUS
     AuditEventListSearchField:
       type: string

@@ -1,6 +1,6 @@
 # Sentinel Enforcement Platform
 
-Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory enforcement dan complex case management. State repo saat ini mencakup phase 0-6 sesuai roadmap utama: foundation, intake, authentication/authorization, case lifecycle, embedded Camunda workflow, evidence intake berbasis MinIO, dan Kafka reliability dengan transactional outbox, inbox idempotency, notification projection, retry, dan dead-letter flow. Repo ini juga masih membawa workflow reconciliation tooling yang sebelumnya sudah ditambahkan sebagai hardening slice tambahan.
+Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory enforcement dan complex case management. State repo saat ini mencakup phase 0-8 sesuai roadmap utama: foundation, intake, authentication/authorization, case lifecycle, embedded Camunda workflow, evidence intake berbasis MinIO, Kafka reliability, lalu aggregate recommendation/review/decision/sanction/appeal beserta authorization case-level yang lebih ketat. Repo ini juga masih membawa workflow reconciliation tooling yang sebelumnya sudah ditambahkan sebagai hardening slice tambahan.
 
 ## Architecture Overview
 
@@ -24,7 +24,7 @@ Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory
   - `sentinel-messaging` memegang Kafka publisher/consumer runtime, outbox polling, retry, dan dead-letter routing.
   - `sentinel-storage` memegang adapter MinIO untuk evidence storage.
   - `sentinel-workflow` memegang embedded Camunda runtime, BPMN deployment, task query adapter, dan workflow correlation.
-  - `sentinel-security` memegang JWT verification Keycloak dan role/jurisdiction authorization.
+  - `sentinel-security` memegang JWT verification Keycloak dan authorization berbasis role, jurisdiction, assigned unit, classification clearance, direct assignment, dan conflict-of-interest.
   - `sentinel-bootstrap` merakit dependency, start server, readiness, dan migration entrypoint.
 
 ## Technology Stack
@@ -124,6 +124,12 @@ Spesifikasi kontrak ada di [docs/api/openapi.yaml](/C:/Users/nugra/workspace/pro
 
 Pattern wajib untuk endpoint list ada di [docs/api/list-query-pattern.md](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/api/list-query-pattern.md). Semua list API baru harus mengikuti kombinasi `cursor`, `limit`, `q`, `searchField/searchValue`, dan enum-based `sortBy/sortDirection` dengan SQL dinamis yang aman.
 
+## Authorization Model
+
+- JWT actor lokal sekarang membawa claim `jurisdictions`, `assigned_units`, `case_classifications`, dan `conflicted_actor_ids`.
+- Akses resource kasus tidak hanya ditentukan role. Evaluasinya juga mempertimbangkan jurisdiction, assigned unit, direct assignment investigator, classification clearance, dan conflict-of-interest terhadap owner resource.
+- `GET /api/v1/cases` dan visibility task workflow memakai aturan otorisasi yang sama, jadi filter list tidak lagi lebih longgar dari `GET /api/v1/cases/{caseId}`.
+
 ## Default Runtime Configuration
 
 Konfigurasi default untuk local development ada di `.env.example`. Credential di sana adalah dummy local-only credential dan tidak untuk production.
@@ -153,9 +159,12 @@ Untuk local Compose:
 - `triage-bdg` / `sentinel` dengan role `TRIAGE_OFFICER` dan jurisdiction `BDG`
 - `investigator-jkt` / `sentinel` dengan role `INVESTIGATOR` dan jurisdiction `JKT`
 - `reviewer-jkt` / `sentinel` dengan role `CASE_REVIEWER` dan jurisdiction `JKT`
+- `reviewer-jkt-public` / `sentinel` dengan role `CASE_REVIEWER`, jurisdiction `JKT`, dan clearance hanya `PUBLIC`
+- `reviewer-jkt-conflicted` / `sentinel` dengan role `CASE_REVIEWER`, jurisdiction `JKT`, dan conflict terhadap actor `investigator-jkt`
 - `decision-jkt` / `sentinel` dengan role `DECISION_MAKER` dan jurisdiction `JKT`
 - `appeal-jkt` / `sentinel` dengan role `APPEAL_OFFICER` dan jurisdiction `JKT`
 - `supervisor-jkt` / `sentinel` dengan role `SUPERVISOR` dan jurisdiction `JKT`
+- `supervisor-jkt-unit-2` / `sentinel` dengan role `SUPERVISOR`, jurisdiction `JKT`, dan assigned unit `JKT-UNIT-2`
 - `auditor-jkt` / `sentinel` dengan role `AUDITOR` dan jurisdiction `JKT`
 - `system-admin` / `sentinel` dengan role `SYSTEM_ADMIN`
 
@@ -167,6 +176,7 @@ Untuk local Compose:
   - happy path authorized create/get/triage report
   - happy path case lifecycle from create through close
   - investigator visibility filtered to directly assigned cases
+  - assigned-unit restriction, classification clearance, dan conflict-of-interest denial pada case/recommendation access
   - workflow task query, claim, completion, cursor, search, sort, and duplicate-completion safety
   - workflow reconciliation query, cursor, search, sort, authorization, auto-repair from runtime/history, and invalid-runtime termination
   - evidence upload session, presigned upload, finalize, get, download, checksum mismatch, and unauthorized download audit

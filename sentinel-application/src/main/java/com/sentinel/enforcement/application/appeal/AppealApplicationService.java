@@ -11,16 +11,15 @@ import com.sentinel.enforcement.application.sanction.SanctionRepository;
 import com.sentinel.enforcement.application.security.ApplicationActor;
 import com.sentinel.enforcement.application.security.AuthorizationContext;
 import com.sentinel.enforcement.application.security.AuthorizationService;
+import com.sentinel.enforcement.application.security.CaseAuthorizationScope;
 import com.sentinel.enforcement.application.security.Permission;
 import com.sentinel.enforcement.application.workflow.CaseWorkflowPort;
 import com.sentinel.enforcement.application.workflow.StartedWorkflowInstance;
 import com.sentinel.enforcement.domain.appeal.Appeal;
 import com.sentinel.enforcement.domain.appeal.AppealDecision;
 import com.sentinel.enforcement.domain.appeal.AppealDecisionOutcome;
-import com.sentinel.enforcement.domain.appeal.AppealStatus;
 import com.sentinel.enforcement.domain.casefile.AuditEvent;
 import com.sentinel.enforcement.domain.casefile.CaseActionContext;
-import com.sentinel.enforcement.domain.casefile.CaseConflictException;
 import com.sentinel.enforcement.domain.casefile.CaseRecord;
 import com.sentinel.enforcement.domain.casefile.CaseStatus;
 import com.sentinel.enforcement.domain.casefile.CaseStatusHistoryEntry;
@@ -30,7 +29,6 @@ import com.sentinel.enforcement.domain.sanction.Sanction;
 import com.sentinel.enforcement.domain.sanction.SanctionObligation;
 import java.time.Clock;
 import java.time.Instant;
-import java.time.LocalTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
 
@@ -75,15 +73,11 @@ public final class AppealApplicationService {
     authorizationService.requirePermission(
         actor,
         Permission.CREATE_APPEAL,
-        new AuthorizationContext(
-            currentCase.jurisdictionCode(),
-            CASE_RESOURCE_TYPE,
-            currentCase.id().toString(),
-            currentCase.assigneeUserId()));
+        authorizationContext(
+            currentCase, CASE_RESOURCE_TYPE, currentCase.id().toString(), decision.createdBy()));
     if (decision.status() != DecisionStatus.PUBLISHED) {
       throw new com.sentinel.enforcement.domain.appeal.AppealConflictException(
-          "APPEAL_CREATE_NOT_ALLOWED",
-          "Appeals can only be filed for published decisions.");
+          "APPEAL_CREATE_NOT_ALLOWED", "Appeals can only be filed for published decisions.");
     }
     if (currentCase.status() != CaseStatus.DECIDED) {
       throw new com.sentinel.enforcement.domain.appeal.AppealConflictException(
@@ -99,8 +93,7 @@ public final class AppealApplicationService {
     if (command.submittedAt().isAfter(lateThreshold)) {
       if (!command.supervisorOverride() || !actor.hasRole("SUPERVISOR")) {
         throw new com.sentinel.enforcement.domain.appeal.AppealConflictException(
-            "APPEAL_LATE_OVERRIDE_REQUIRED",
-            "Late appeal requires explicit supervisor override.");
+            "APPEAL_LATE_OVERRIDE_REQUIRED", "Late appeal requires explicit supervisor override.");
       }
     }
 
@@ -184,11 +177,8 @@ public final class AppealApplicationService {
     authorizationService.requirePermission(
         actor,
         Permission.DECIDE_APPEAL,
-        new AuthorizationContext(
-            caseRecord.jurisdictionCode(),
-            APPEAL_RESOURCE_TYPE,
-            appealId.toString(),
-            caseRecord.assigneeUserId()));
+        authorizationContext(
+            caseRecord, APPEAL_RESOURCE_TYPE, appealId.toString(), current.createdBy()));
     Instant now = clock.instant();
     AppealDecision appealDecision =
         new AppealDecision(
@@ -291,7 +281,9 @@ public final class AppealApplicationService {
 
     Sanction sanction = sanctionRepository.findByDecisionId(appeal.decisionId()).orElse(null);
     SanctionObligation obligation =
-        sanction == null ? null : sanctionRepository.findActiveObligationBySanctionId(sanction.id()).orElse(null);
+        sanction == null
+            ? null
+            : sanctionRepository.findActiveObligationBySanctionId(sanction.id()).orElse(null);
     Sanction cancelledSanction =
         appealDecision.outcome() == AppealDecisionOutcome.GRANTED && sanction != null
             ? sanction.cancel(now, actor.username())
@@ -317,7 +309,9 @@ public final class AppealApplicationService {
   }
 
   private Appeal getRequiredAppeal(UUID appealId) {
-    return appealRepository.findById(appealId).orElseThrow(() -> new AppealNotFoundException(appealId));
+    return appealRepository
+        .findById(appealId)
+        .orElseThrow(() -> new AppealNotFoundException(appealId));
   }
 
   private Decision getRequiredDecision(UUID decisionId) {
@@ -328,6 +322,20 @@ public final class AppealApplicationService {
 
   private CaseRecord getRequiredCase(UUID caseId) {
     return caseRepository.findById(caseId).orElseThrow(() -> new CaseNotFoundException(caseId));
+  }
+
+  private AuthorizationContext authorizationContext(
+      CaseRecord caseRecord, String resourceType, String resourceId, String resourceOwnerId) {
+    return new AuthorizationContext(
+        caseRecord.jurisdictionCode(),
+        resourceType,
+        resourceId,
+        caseRecord.id(),
+        caseRecord.assigneeUserId(),
+        caseRecord.assignedUnitId(),
+        caseRecord.classification(),
+        resourceOwnerId,
+        CaseAuthorizationScope.RESTRICTED_TO_ASSIGNED_UNITS_WHEN_PRESENT);
   }
 
   private AuditEvent newAuditEvent(

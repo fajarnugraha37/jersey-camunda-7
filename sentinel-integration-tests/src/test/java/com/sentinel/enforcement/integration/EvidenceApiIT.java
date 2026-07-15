@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.sentinel.enforcement.api.generated.model.AssignCaseRequest;
+import com.sentinel.enforcement.api.generated.model.CaseClassificationValue;
 import com.sentinel.enforcement.api.generated.model.CaseResponse;
 import com.sentinel.enforcement.api.generated.model.CreateCaseRequest;
 import com.sentinel.enforcement.api.generated.model.CreateEvidenceDownloadSessionRequest;
@@ -231,7 +232,8 @@ class EvidenceApiIT extends AbstractApiIT {
                     new CreateCaseRequest()
                         .reportId(report.getId())
                         .title("Evidence case")
-                        .summary("Used for evidence API coverage."),
+                        .summary("Used for evidence API coverage.")
+                        .classification(CaseClassificationValue.CONFIDENTIAL),
                     MediaType.APPLICATION_JSON_TYPE),
                 CaseResponse.class);
 
@@ -243,7 +245,7 @@ class EvidenceApiIT extends AbstractApiIT {
         .post(
             Entity.entity(
                 new AssignCaseRequest()
-                    .assignedUnitId("JKT-EVD-1")
+                    .assignedUnitId("JKT-UNIT-1")
                     .assigneeUserId("investigator-jkt")
                     .expectedVersion(createdCase.getVersion())
                     .reason("Assign investigator for evidence handling."),

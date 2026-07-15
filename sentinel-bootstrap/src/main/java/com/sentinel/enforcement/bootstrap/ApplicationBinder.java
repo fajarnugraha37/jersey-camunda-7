@@ -1,7 +1,7 @@
 package com.sentinel.enforcement.bootstrap;
 
-import com.sentinel.enforcement.application.casefile.CaseApplicationService;
 import com.sentinel.enforcement.application.appeal.AppealApplicationService;
+import com.sentinel.enforcement.application.casefile.CaseApplicationService;
 import com.sentinel.enforcement.application.decision.DecisionApplicationService;
 import com.sentinel.enforcement.application.evidence.EvidenceApplicationService;
 import com.sentinel.enforcement.application.health.HealthStatusService;

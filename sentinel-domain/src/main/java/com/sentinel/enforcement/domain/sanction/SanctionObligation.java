@@ -35,7 +35,13 @@ public record SanctionObligation(
   }
 
   public static SanctionObligation create(
-      UUID id, UUID sanctionId, String title, String details, LocalDate dueDate, Instant now, String actorId) {
+      UUID id,
+      UUID sanctionId,
+      String title,
+      String details,
+      LocalDate dueDate,
+      Instant now,
+      String actorId) {
     return new SanctionObligation(
         id,
         sanctionId,

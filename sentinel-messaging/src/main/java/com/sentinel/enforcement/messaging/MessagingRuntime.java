@@ -11,8 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
@@ -156,7 +156,8 @@ public final class MessagingRuntime implements AutoCloseable {
             .get(ADMIN_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
       }
     } catch (Exception exception) {
-      throw new IllegalStateException("Failed to provision Kafka topics for messaging runtime.", exception);
+      throw new IllegalStateException(
+          "Failed to provision Kafka topics for messaging runtime.", exception);
     }
   }
 

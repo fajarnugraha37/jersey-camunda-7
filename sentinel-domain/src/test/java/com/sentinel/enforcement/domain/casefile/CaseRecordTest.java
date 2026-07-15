@@ -80,6 +80,7 @@ class CaseRecordTest {
             "Closed case",
             "No more writes allowed.",
             "JKT",
+            CaseClassification.CONFIDENTIAL,
             CaseStatus.CLOSED,
             null,
             null,
@@ -114,6 +115,7 @@ class CaseRecordTest {
         "Gift disclosure case",
         "Initial case summary.",
         "JKT",
+        CaseClassification.CONFIDENTIAL,
         Instant.parse("2026-07-14T10:00:00Z"),
         "triage-jkt");
   }

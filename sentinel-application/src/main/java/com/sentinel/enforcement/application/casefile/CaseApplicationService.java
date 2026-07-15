@@ -8,6 +8,7 @@ import com.sentinel.enforcement.application.report.ReportRepository;
 import com.sentinel.enforcement.application.security.ApplicationActor;
 import com.sentinel.enforcement.application.security.AuthorizationContext;
 import com.sentinel.enforcement.application.security.AuthorizationService;
+import com.sentinel.enforcement.application.security.CaseAuthorizationScope;
 import com.sentinel.enforcement.application.security.Permission;
 import com.sentinel.enforcement.application.workflow.CaseWorkflowPort;
 import com.sentinel.enforcement.application.workflow.StartedWorkflowInstance;
@@ -71,7 +72,16 @@ public final class CaseApplicationService {
     authorizationService.requirePermission(
         actor,
         Permission.CREATE_CASE,
-        new AuthorizationContext(report.jurisdictionCode(), CASE_RESOURCE_TYPE, null, null));
+        new AuthorizationContext(
+            report.jurisdictionCode(),
+            CASE_RESOURCE_TYPE,
+            null,
+            null,
+            null,
+            null,
+            command.classification(),
+            null,
+            CaseAuthorizationScope.NONE));
     if (report.status() != ReportStatus.TRIAGED) {
       throw new CaseConflictException(
           "REPORT_NOT_TRIAGED",
@@ -91,6 +101,7 @@ public final class CaseApplicationService {
             command.title(),
             command.summary(),
             report.jurisdictionCode(),
+            command.classification(),
             now,
             actor.username());
     StartedWorkflowInstance startedWorkflow =
@@ -151,11 +162,8 @@ public final class CaseApplicationService {
     authorizationService.requirePermission(
         actor,
         Permission.READ_CASE,
-        new AuthorizationContext(
-            caseRecord.jurisdictionCode(),
-            CASE_RESOURCE_TYPE,
-            caseRecord.id().toString(),
-            caseRecord.assigneeUserId()));
+        authorizationContext(
+            caseRecord, CASE_RESOURCE_TYPE, caseRecord.id().toString(), caseRecord.createdBy()));
     return caseRecord;
   }
 
@@ -171,6 +179,10 @@ public final class CaseApplicationService {
             new CasePageRequest(
                 actor.jurisdictions(),
                 restrictedAssignee,
+                restrictedAssignedUnits(actor),
+                includeUnassignedWhenUnitRestricted(actor),
+                actor.caseClassifications(),
+                actor.conflictedActorIds(),
                 query.assigneeUserId(),
                 query.cursorValue(),
                 query.cursorId(),
@@ -178,6 +190,7 @@ public final class CaseApplicationService {
                 query.searchField(),
                 query.searchValue(),
                 query.status(),
+                query.classification(),
                 query.assignedUnitId(),
                 query.createdBy(),
                 query.reportId(),
@@ -204,7 +217,15 @@ public final class CaseApplicationService {
         actor,
         Permission.ASSIGN_CASE,
         new AuthorizationContext(
-            current.jurisdictionCode(), CASE_RESOURCE_TYPE, current.id().toString(), null));
+            current.jurisdictionCode(),
+            CASE_RESOURCE_TYPE,
+            current.id().toString(),
+            current.id(),
+            current.assigneeUserId(),
+            command.assignedUnitId(),
+            current.classification(),
+            current.createdBy(),
+            CaseAuthorizationScope.RESTRICTED_TO_ASSIGNED_UNITS_WHEN_PRESENT));
 
     Instant now = clock.instant();
     CaseActionContext context =
@@ -260,11 +281,8 @@ public final class CaseApplicationService {
     authorizationService.requirePermission(
         actor,
         Permission.TRANSITION_CASE,
-        new AuthorizationContext(
-            current.jurisdictionCode(),
-            CASE_RESOURCE_TYPE,
-            current.id().toString(),
-            current.assigneeUserId()));
+        authorizationContext(
+            current, CASE_RESOURCE_TYPE, current.id().toString(), current.createdBy()));
 
     Instant now = clock.instant();
     CaseActionContext context =
@@ -319,11 +337,8 @@ public final class CaseApplicationService {
     authorizationService.requirePermission(
         actor,
         Permission.READ_CASE_AUDIT,
-        new AuthorizationContext(
-            caseRecord.jurisdictionCode(),
-            CASE_RESOURCE_TYPE,
-            caseRecord.id().toString(),
-            caseRecord.assigneeUserId()));
+        authorizationContext(
+            caseRecord, CASE_RESOURCE_TYPE, caseRecord.id().toString(), caseRecord.createdBy()));
     List<AuditEvent> loaded =
         caseRepository.findAuditEventsPage(
             new AuditEventPageRequest(
@@ -377,6 +392,45 @@ public final class CaseApplicationService {
     return actor.username();
   }
 
+  private Set<String> restrictedAssignedUnits(ApplicationActor actor) {
+    if (actor.assignedUnits().isEmpty()) {
+      return Set.of();
+    }
+    if (hasAnyRole(actor.roles(), Set.of("AUDITOR", "SYSTEM_ADMIN"))) {
+      return Set.of();
+    }
+    if (hasAnyRole(
+        actor.roles(),
+        Set.of(
+            "TRIAGE_OFFICER",
+            "INVESTIGATOR",
+            "CASE_REVIEWER",
+            "DECISION_MAKER",
+            "APPEAL_OFFICER",
+            "SUPERVISOR"))) {
+      return actor.assignedUnits();
+    }
+    return Set.of();
+  }
+
+  private boolean includeUnassignedWhenUnitRestricted(ApplicationActor actor) {
+    return actor.hasRole("TRIAGE_OFFICER") || actor.hasRole("SUPERVISOR");
+  }
+
+  private AuthorizationContext authorizationContext(
+      CaseRecord caseRecord, String resourceType, String resourceId, String resourceOwnerId) {
+    return new AuthorizationContext(
+        caseRecord.jurisdictionCode(),
+        resourceType,
+        resourceId,
+        caseRecord.id(),
+        caseRecord.assigneeUserId(),
+        caseRecord.assignedUnitId(),
+        caseRecord.classification(),
+        resourceOwnerId,
+        CaseAuthorizationScope.RESTRICTED_TO_ASSIGNED_UNITS_WHEN_PRESENT);
+  }
+
   private AuditEvent newAuditEvent(
       ApplicationActor actor,
       UUID caseId,
@@ -425,6 +479,7 @@ public final class CaseApplicationService {
       case UPDATED_AT -> caseRecord.updatedAt().toString();
       case CASE_NUMBER -> normalizeTextSort(caseRecord.caseNumber());
       case TITLE -> normalizeTextSort(caseRecord.title());
+      case CLASSIFICATION -> normalizeTextSort(caseRecord.classification().name());
       case STATUS -> normalizeTextSort(caseRecord.status().name());
     };
   }

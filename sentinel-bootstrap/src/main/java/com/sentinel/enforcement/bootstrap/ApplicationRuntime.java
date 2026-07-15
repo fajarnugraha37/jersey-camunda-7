@@ -1,13 +1,12 @@
 package com.sentinel.enforcement.bootstrap;
 
+import com.sentinel.enforcement.api.appeal.AppealResource;
 import com.sentinel.enforcement.api.casefile.CaseResource;
 import com.sentinel.enforcement.api.decision.CaseDecisionResource;
-import com.sentinel.enforcement.api.recommendation.CaseRecommendationResource;
-import com.sentinel.enforcement.api.appeal.AppealResource;
 import com.sentinel.enforcement.api.decision.DecisionResource;
-import com.sentinel.enforcement.api.error.AuthorizationDeniedExceptionMapper;
 import com.sentinel.enforcement.api.error.AppealConflictExceptionMapper;
 import com.sentinel.enforcement.api.error.AppealNotFoundExceptionMapper;
+import com.sentinel.enforcement.api.error.AuthorizationDeniedExceptionMapper;
 import com.sentinel.enforcement.api.error.BadRequestExceptionMapper;
 import com.sentinel.enforcement.api.error.CaseConflictExceptionMapper;
 import com.sentinel.enforcement.api.error.CaseNotFoundExceptionMapper;
@@ -33,15 +32,16 @@ import com.sentinel.enforcement.api.evidence.CaseEvidenceResource;
 import com.sentinel.enforcement.api.evidence.EvidenceResource;
 import com.sentinel.enforcement.api.health.HealthResource;
 import com.sentinel.enforcement.api.json.ObjectMapperContextResolver;
+import com.sentinel.enforcement.api.recommendation.CaseRecommendationResource;
 import com.sentinel.enforcement.api.recommendation.RecommendationResource;
 import com.sentinel.enforcement.api.report.ReportResource;
 import com.sentinel.enforcement.api.security.BearerAuthenticationFilter;
 import com.sentinel.enforcement.api.workflow.TaskResource;
 import com.sentinel.enforcement.api.workflow.WorkflowReconciliationResource;
-import com.sentinel.enforcement.application.casefile.CaseApplicationService;
-import com.sentinel.enforcement.application.casefile.PhaseSevenCaseProgressionGuard;
 import com.sentinel.enforcement.application.appeal.AppealApplicationService;
 import com.sentinel.enforcement.application.appeal.AppealRepository;
+import com.sentinel.enforcement.application.casefile.CaseApplicationService;
+import com.sentinel.enforcement.application.casefile.PhaseSevenCaseProgressionGuard;
 import com.sentinel.enforcement.application.decision.DecisionApplicationService;
 import com.sentinel.enforcement.application.decision.DecisionRepository;
 import com.sentinel.enforcement.application.evidence.EvidenceApplicationService;
@@ -133,8 +133,10 @@ public final class ApplicationRuntime implements AutoCloseable {
           new ReportRepositoryMyBatisAdapter(sqlSessionFactory);
       RecommendationRepository recommendationRepository =
           new RecommendationRepositoryMyBatisAdapter(sqlSessionFactory);
-      DecisionRepository decisionRepository = new DecisionRepositoryMyBatisAdapter(sqlSessionFactory);
-      SanctionRepository sanctionRepository = new SanctionRepositoryMyBatisAdapter(sqlSessionFactory);
+      DecisionRepository decisionRepository =
+          new DecisionRepositoryMyBatisAdapter(sqlSessionFactory);
+      SanctionRepository sanctionRepository =
+          new SanctionRepositoryMyBatisAdapter(sqlSessionFactory);
       AppealRepository appealRepository = new AppealRepositoryMyBatisAdapter(sqlSessionFactory);
       OutboxRepository outboxRepository = new OutboxRepositoryMyBatisAdapter(sqlSessionFactory);
       InboxRepository inboxRepository = new InboxRepositoryMyBatisAdapter(sqlSessionFactory);
@@ -278,36 +280,36 @@ public final class ApplicationRuntime implements AutoCloseable {
               .register(ConstraintViolationExceptionMapper.class)
               .register(BadRequestExceptionMapper.class)
               .register(UnauthenticatedExceptionMapper.class)
-               .register(AuthorizationDeniedExceptionMapper.class)
-               .register(AppealConflictExceptionMapper.class)
-               .register(AppealNotFoundExceptionMapper.class)
-               .register(CaseConflictExceptionMapper.class)
-               .register(CaseNotFoundExceptionMapper.class)
-               .register(DecisionConflictExceptionMapper.class)
-               .register(DecisionNotFoundExceptionMapper.class)
-               .register(EvidenceConflictExceptionMapper.class)
-               .register(EvidenceNotFoundExceptionMapper.class)
+              .register(AuthorizationDeniedExceptionMapper.class)
+              .register(AppealConflictExceptionMapper.class)
+              .register(AppealNotFoundExceptionMapper.class)
+              .register(CaseConflictExceptionMapper.class)
+              .register(CaseNotFoundExceptionMapper.class)
+              .register(DecisionConflictExceptionMapper.class)
+              .register(DecisionNotFoundExceptionMapper.class)
+              .register(EvidenceConflictExceptionMapper.class)
+              .register(EvidenceNotFoundExceptionMapper.class)
               .register(EvidenceObjectMissingExceptionMapper.class)
               .register(EvidenceStorageUnavailableExceptionMapper.class)
-               .register(NotFoundExceptionMapper.class)
-               .register(RecommendationConflictExceptionMapper.class)
-               .register(RecommendationNotFoundExceptionMapper.class)
-               .register(ReportConflictExceptionMapper.class)
-               .register(ReportNotFoundExceptionMapper.class)
+              .register(NotFoundExceptionMapper.class)
+              .register(RecommendationConflictExceptionMapper.class)
+              .register(RecommendationNotFoundExceptionMapper.class)
+              .register(ReportConflictExceptionMapper.class)
+              .register(ReportNotFoundExceptionMapper.class)
               .register(WorkflowReconciliationConflictExceptionMapper.class)
               .register(WorkflowTaskConflictExceptionMapper.class)
               .register(WorkflowTaskNotFoundExceptionMapper.class)
               .register(GenericExceptionMapper.class)
-               .register(HealthResource.class)
-               .register(AppealResource.class)
-               .register(CaseResource.class)
-               .register(CaseDecisionResource.class)
-               .register(CaseEvidenceResource.class)
-               .register(CaseRecommendationResource.class)
-               .register(DecisionResource.class)
-               .register(EvidenceResource.class)
-               .register(RecommendationResource.class)
-               .register(ReportResource.class)
+              .register(HealthResource.class)
+              .register(AppealResource.class)
+              .register(CaseResource.class)
+              .register(CaseDecisionResource.class)
+              .register(CaseEvidenceResource.class)
+              .register(CaseRecommendationResource.class)
+              .register(DecisionResource.class)
+              .register(EvidenceResource.class)
+              .register(RecommendationResource.class)
+              .register(ReportResource.class)
               .register(TaskResource.class)
               .register(WorkflowReconciliationResource.class)
               .property(ServerProperties.WADL_FEATURE_DISABLE, true);

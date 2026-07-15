@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sentinel.enforcement.api.generated.model.AssignCaseRequest;
+import com.sentinel.enforcement.api.generated.model.CaseClassificationValue;
 import com.sentinel.enforcement.api.generated.model.CaseResponse;
 import com.sentinel.enforcement.api.generated.model.CreateCaseRequest;
 import com.sentinel.enforcement.api.generated.model.ReconcileWorkflowRequest;
@@ -273,7 +274,7 @@ class WorkflowReconciliationApiIT extends AbstractApiIT {
     assignCase(
         accessToken("triage-jkt"),
         caseId,
-        "JKT-WF-1",
+        "JKT-UNIT-1",
         "investigator-jkt",
         assignmentVersion,
         "Assign investigator.");
@@ -403,7 +404,11 @@ class WorkflowReconciliationApiIT extends AbstractApiIT {
         .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
         .post(
             Entity.entity(
-                new CreateCaseRequest().reportId(reportId).title(title).summary(summary),
+                new CreateCaseRequest()
+                    .reportId(reportId)
+                    .title(title)
+                    .summary(summary)
+                    .classification(CaseClassificationValue.CONFIDENTIAL),
                 MediaType.APPLICATION_JSON_TYPE),
             CaseResponse.class);
   }

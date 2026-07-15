@@ -12,6 +12,7 @@ public record CaseRecord(
     String title,
     String summary,
     String jurisdictionCode,
+    CaseClassification classification,
     CaseStatus status,
     String assignedUnitId,
     String assigneeUserId,
@@ -31,6 +32,7 @@ public record CaseRecord(
     title = requireNonBlank(title, "title");
     summary = requireNonBlank(summary, "summary");
     jurisdictionCode = requireNonBlank(jurisdictionCode, "jurisdictionCode");
+    Objects.requireNonNull(classification, "classification must not be null");
     Objects.requireNonNull(status, "status must not be null");
     Objects.requireNonNull(createdAt, "createdAt must not be null");
     createdBy = requireNonBlank(createdBy, "createdBy");
@@ -54,6 +56,7 @@ public record CaseRecord(
       String title,
       String summary,
       String jurisdictionCode,
+      CaseClassification classification,
       Instant now,
       String actorId) {
     return new CaseRecord(
@@ -63,6 +66,7 @@ public record CaseRecord(
         title,
         summary,
         jurisdictionCode,
+        classification,
         CaseStatus.CREATED,
         null,
         null,
@@ -93,6 +97,7 @@ public record CaseRecord(
         title,
         summary,
         jurisdictionCode,
+        classification,
         status,
         requireNonBlank(nextAssignedUnitId, "assignedUnitId"),
         requireNonBlank(nextAssigneeUserId, "assigneeUserId"),
@@ -134,6 +139,7 @@ public record CaseRecord(
         title,
         summary,
         jurisdictionCode,
+        classification,
         targetStatus,
         assignedUnitId,
         assigneeUserId,
@@ -149,6 +155,8 @@ public record CaseRecord(
         + status
         + ";assignedUnitId="
         + valueOrDash(assignedUnitId)
+        + ";classification="
+        + classification
         + ";assigneeUserId="
         + valueOrDash(assigneeUserId)
         + ";version="

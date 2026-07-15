@@ -60,14 +60,14 @@ services:
     volumes:
       - sentinel-minio-data:/data
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:9000/minio/health/ready >/dev/null 2>&1"]
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/ready >/dev/null"]
       interval: 10s
       timeout: 5s
       retries: 20
       start_period: 15s
 
   minio-init:
-    image: quay.io/minio/mc:RELEASE.2025-09-07T16-13-09Z
+    image: quay.io/minio/mc:latest
     container_name: sentinel-minio-init
     hostname: minio-init
     depends_on:

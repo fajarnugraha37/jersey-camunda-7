@@ -1,5 +1,6 @@
 package com.sentinel.enforcement.application.casefile;
 
+import com.sentinel.enforcement.domain.casefile.CaseClassification;
 import com.sentinel.enforcement.domain.casefile.CaseStatus;
 import java.util.Objects;
 import java.util.UUID;
@@ -12,6 +13,7 @@ public record ListCasesQuery(
     CaseListSearchField searchField,
     String searchValue,
     CaseStatus status,
+    CaseClassification classification,
     String assignedUnitId,
     String assigneeUserId,
     String createdBy,
@@ -48,6 +50,8 @@ public record ListCasesQuery(
         + valueOrEmpty(searchValue)
         + ";status="
         + enumOrEmpty(status)
+        + ";classification="
+        + enumOrEmpty(classification)
         + ";assignedUnitId="
         + valueOrEmpty(assignedUnitId)
         + ";assigneeUserId="

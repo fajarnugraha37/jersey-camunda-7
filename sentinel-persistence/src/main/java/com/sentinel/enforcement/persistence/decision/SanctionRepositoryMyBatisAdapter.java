@@ -22,7 +22,9 @@ public final class SanctionRepositoryMyBatisAdapter extends MyBatisRepositorySup
     return executeRead(
         session ->
             Optional.ofNullable(
-                    session.getMapper(DecisionMyBatisMapper.class).findSanctionByDecisionId(decisionId))
+                    session
+                        .getMapper(DecisionMyBatisMapper.class)
+                        .findSanctionByDecisionId(decisionId))
                 .map(this::toSanctionDomain));
   }
 

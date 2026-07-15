@@ -6,8 +6,10 @@ import com.sentinel.enforcement.application.casefile.SortDirection;
 import com.sentinel.enforcement.application.security.ApplicationActor;
 import com.sentinel.enforcement.application.security.AuthorizationContext;
 import com.sentinel.enforcement.application.security.AuthorizationService;
+import com.sentinel.enforcement.application.security.CaseAuthorizationScope;
 import com.sentinel.enforcement.application.security.Permission;
 import com.sentinel.enforcement.domain.casefile.AuditEvent;
+import com.sentinel.enforcement.domain.casefile.CaseRecord;
 import com.sentinel.enforcement.domain.casefile.CaseStatus;
 import java.time.Clock;
 import java.time.Instant;
@@ -58,7 +60,7 @@ public final class WorkflowReconciliationApplicationService {
     Map<UUID, WorkflowProcessSnapshot> runtimeByCaseId = activeRuntimeByCaseId();
     List<WorkflowReconciliationView> issues =
         reconciliationQueryPort.findCandidates().stream()
-            .filter(candidate -> actor.hasJurisdiction(candidate.jurisdictionCode()))
+            .filter(candidate -> isVisibleToActor(actor, candidate.caseId()))
             .map(candidate -> detectIssue(candidate, runtimeByCaseId.get(candidate.caseId())))
             .filter(Optional::isPresent)
             .map(Optional::get)
@@ -443,14 +445,48 @@ public final class WorkflowReconciliationApplicationService {
 
   private void authorizeCandidate(
       ApplicationActor actor, WorkflowReconciliationCandidate candidate) {
+    CaseRecord caseRecord =
+        caseRepository
+            .findById(candidate.caseId())
+            .orElseThrow(() -> new CaseNotFoundException(candidate.caseId()));
     authorizationService.requirePermission(
         actor,
         Permission.RECONCILE_WORKFLOW,
         new AuthorizationContext(
-            candidate.jurisdictionCode(),
+            caseRecord.jurisdictionCode(),
             CASE_RESOURCE_TYPE,
-            candidate.caseId().toString(),
-            candidate.assigneeUserId()));
+            caseRecord.id().toString(),
+            caseRecord.id(),
+            caseRecord.assigneeUserId(),
+            caseRecord.assignedUnitId(),
+            caseRecord.classification(),
+            caseRecord.createdBy(),
+            CaseAuthorizationScope.RESTRICTED_TO_ASSIGNED_UNITS_WHEN_PRESENT));
+  }
+
+  private boolean isVisibleToActor(ApplicationActor actor, UUID caseId) {
+    CaseRecord caseRecord = caseRepository.findById(caseId).orElse(null);
+    if (caseRecord == null) {
+      return false;
+    }
+    try {
+      authorizationService.requirePermission(
+          actor,
+          Permission.RECONCILE_WORKFLOW,
+          new AuthorizationContext(
+              caseRecord.jurisdictionCode(),
+              CASE_RESOURCE_TYPE,
+              caseRecord.id().toString(),
+              caseRecord.id(),
+              caseRecord.assigneeUserId(),
+              caseRecord.assignedUnitId(),
+              caseRecord.classification(),
+              caseRecord.createdBy(),
+              CaseAuthorizationScope.RESTRICTED_TO_ASSIGNED_UNITS_WHEN_PRESENT));
+      return true;
+    } catch (com.sentinel.enforcement.application.security.AuthorizationDeniedException exception) {
+      return false;
+    }
   }
 
   private boolean shouldWorkflowBeActive(CaseStatus caseStatus) {

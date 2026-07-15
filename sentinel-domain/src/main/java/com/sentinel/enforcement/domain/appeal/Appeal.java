@@ -27,7 +27,8 @@ public record Appeal(
     Objects.requireNonNull(decisionId, "decisionId must not be null");
     rationale = requireNonBlank(rationale, "rationale");
     if (supervisorOverride) {
-      supervisorOverrideReason = requireNonBlank(supervisorOverrideReason, "supervisorOverrideReason");
+      supervisorOverrideReason =
+          requireNonBlank(supervisorOverrideReason, "supervisorOverrideReason");
     } else if (supervisorOverrideReason != null && supervisorOverrideReason.isBlank()) {
       throw new IllegalArgumentException(
           "supervisorOverrideReason must not be blank when provided");
@@ -74,8 +75,7 @@ public record Appeal(
   public Appeal decide(UUID appealDecisionId, Instant now, String actorId) {
     if (status != AppealStatus.ACTIVE) {
       throw new AppealConflictException(
-          "APPEAL_DECISION_NOT_ALLOWED",
-          "Appeal " + id + " is already " + status + ".");
+          "APPEAL_DECISION_NOT_ALLOWED", "Appeal " + id + " is already " + status + ".");
     }
     return new Appeal(
         id,

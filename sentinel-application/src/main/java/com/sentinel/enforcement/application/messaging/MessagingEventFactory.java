@@ -26,6 +26,7 @@ public final class MessagingEventFactory {
     payload.put("reportId", caseRecord.reportId().toString());
     payload.put("title", caseRecord.title());
     payload.put("jurisdictionCode", caseRecord.jurisdictionCode());
+    payload.put("classification", caseRecord.classification().name());
     payload.put("status", caseRecord.status().name());
     return outboxEvent(
         actor,
@@ -48,6 +49,7 @@ public final class MessagingEventFactory {
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("caseId", caseRecord.id().toString());
     payload.put("caseNumber", caseRecord.caseNumber());
+    payload.put("classification", caseRecord.classification().name());
     payload.put("assignedUnitId", caseRecord.assignedUnitId());
     payload.put("assigneeUserId", caseRecord.assigneeUserId());
     payload.put("reason", reason);
@@ -73,6 +75,7 @@ public final class MessagingEventFactory {
     Map<String, Object> payload = new LinkedHashMap<>();
     payload.put("caseId", caseRecord.id().toString());
     payload.put("caseNumber", caseRecord.caseNumber());
+    payload.put("classification", caseRecord.classification().name());
     payload.put("fromStatus", fromStatus.name());
     payload.put("toStatus", caseRecord.status().name());
     payload.put("reason", reason);

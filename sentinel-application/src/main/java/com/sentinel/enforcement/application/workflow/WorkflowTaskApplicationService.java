@@ -1,15 +1,17 @@
 package com.sentinel.enforcement.application.workflow;
 
+import com.sentinel.enforcement.application.appeal.AppealApplicationService;
 import com.sentinel.enforcement.application.casefile.CaseApplicationService;
 import com.sentinel.enforcement.application.casefile.CaseRepository;
 import com.sentinel.enforcement.application.casefile.SortDirection;
 import com.sentinel.enforcement.application.casefile.TransitionCaseCommand;
-import com.sentinel.enforcement.application.appeal.AppealApplicationService;
 import com.sentinel.enforcement.application.decision.DecisionRepository;
 import com.sentinel.enforcement.application.recommendation.RecommendationRepository;
 import com.sentinel.enforcement.application.security.ApplicationActor;
 import com.sentinel.enforcement.application.security.AuthorizationContext;
+import com.sentinel.enforcement.application.security.AuthorizationDeniedException;
 import com.sentinel.enforcement.application.security.AuthorizationService;
+import com.sentinel.enforcement.application.security.CaseAuthorizationScope;
 import com.sentinel.enforcement.application.security.Permission;
 import com.sentinel.enforcement.domain.casefile.CaseRecord;
 import com.sentinel.enforcement.domain.casefile.CaseStatus;
@@ -60,7 +62,10 @@ public final class WorkflowTaskApplicationService {
 
     List<WorkflowTaskView> visibleTasks =
         workflowPort.listActiveTasks().stream()
-            .filter(task -> isVisibleToActor(actor, task))
+            .filter(
+                task ->
+                    isVisibleToActor(
+                        actor, task, caseRepository.findById(task.caseId()).orElse(null)))
             .filter(task -> matchesFilters(task, query))
             .sorted(buildComparator(query.sortBy(), query.sortDirection()))
             .toList();
@@ -91,7 +96,15 @@ public final class WorkflowTaskApplicationService {
         workflowPort
             .findActiveTask(taskId)
             .orElseThrow(() -> new WorkflowTaskNotFoundException(taskId));
-    if (!isVisibleToActor(actor, task)) {
+    CaseRecord caseRecord =
+        caseRepository
+            .findById(task.caseId())
+            .orElseThrow(
+                () ->
+                    new WorkflowTaskConflictException(
+                        "TASK_CASE_NOT_FOUND",
+                        "Workflow task " + taskId + " references a missing case."));
+    if (!isVisibleToActor(actor, task, caseRecord)) {
       throw new com.sentinel.enforcement.application.security.AuthorizationDeniedException(
           "Actor cannot claim workflow task " + taskId + ".");
     }
@@ -259,10 +272,35 @@ public final class WorkflowTaskApplicationService {
     }
   }
 
-  private boolean isVisibleToActor(ApplicationActor actor, WorkflowTaskView task) {
-    if (!actor.hasJurisdiction(task.jurisdictionCode())) {
+  private boolean isVisibleToActor(
+      ApplicationActor actor, WorkflowTaskView task, CaseRecord caseRecord) {
+    if (caseRecord == null || !actor.hasJurisdiction(task.jurisdictionCode())) {
       return false;
     }
+    if (!hasTaskRole(actor, task)) {
+      return false;
+    }
+    try {
+      authorizationService.requirePermission(
+          actor,
+          Permission.READ_CASE,
+          new AuthorizationContext(
+              caseRecord.jurisdictionCode(),
+              CASE_RESOURCE_TYPE,
+              caseRecord.id().toString(),
+              caseRecord.id(),
+              caseRecord.assigneeUserId(),
+              caseRecord.assignedUnitId(),
+              caseRecord.classification(),
+              caseRecord.createdBy(),
+              CaseAuthorizationScope.RESTRICTED_TO_ASSIGNED_UNITS_WHEN_PRESENT));
+      return true;
+    } catch (AuthorizationDeniedException exception) {
+      return false;
+    }
+  }
+
+  private boolean hasTaskRole(ApplicationActor actor, WorkflowTaskView task) {
     return switch (task.taskDefinitionKey()) {
       case TRIAGE_TASK_KEY -> actor.hasRole("TRIAGE_OFFICER") || actor.hasRole("SUPERVISOR");
       case INVESTIGATION_TASK_KEY ->

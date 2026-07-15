@@ -20,6 +20,7 @@ import com.sentinel.enforcement.application.workflow.StartedWorkflowInstance;
 import com.sentinel.enforcement.application.workflow.WorkflowTaskView;
 import com.sentinel.enforcement.domain.casefile.AuditEvent;
 import com.sentinel.enforcement.domain.casefile.CaseAssignment;
+import com.sentinel.enforcement.domain.casefile.CaseClassification;
 import com.sentinel.enforcement.domain.casefile.CaseConflictException;
 import com.sentinel.enforcement.domain.casefile.CaseRecord;
 import com.sentinel.enforcement.domain.casefile.CaseStatus;
@@ -80,10 +81,16 @@ class CaseApplicationServiceTest {
         service.createCase(
             actor,
             new CreateCaseCommand(
-                report.id(), "Gift disclosure case", "Triaged into case.", "corr-1", "127.0.0.1"));
+                report.id(),
+                "Gift disclosure case",
+                "Triaged into case.",
+                CaseClassification.CONFIDENTIAL,
+                "corr-1",
+                "127.0.0.1"));
 
     assertEquals("JKT-ENF-2026-00000001", caseRecord.caseNumber());
     assertEquals("JKT", caseRecord.jurisdictionCode());
+    assertEquals(CaseClassification.CONFIDENTIAL, caseRecord.classification());
     assertEquals(Permission.CREATE_CASE, authorizationService.permission());
     assertEquals("JKT", authorizationService.authorizationContext().jurisdictionCode());
     assertSame(caseRecord, caseRepository.savedCaseRecord);
@@ -140,6 +147,7 @@ class CaseApplicationServiceTest {
                         report.id(),
                         "Gift disclosure case",
                         "Triaged into case.",
+                        CaseClassification.CONFIDENTIAL,
                         "corr-1",
                         "127.0.0.1")));
 
@@ -167,7 +175,13 @@ class CaseApplicationServiceTest {
             clock);
     ApplicationActor actor =
         new ApplicationActor(
-            "subject-2", "investigator-jkt", Set.of("INVESTIGATOR"), Set.of("JKT"));
+            "subject-2",
+            "investigator-jkt",
+            Set.of("INVESTIGATOR"),
+            Set.of("JKT"),
+            Set.of("JKT-UNIT-1"),
+            Set.of(CaseClassification.CONFIDENTIAL),
+            Set.of());
 
     service.listCases(
         actor,
@@ -183,12 +197,17 @@ class CaseApplicationServiceTest {
             null,
             null,
             null,
+            null,
             CaseListSortBy.CREATED_AT,
             SortDirection.DESC));
 
     assertEquals(Permission.LIST_CASES, authorizationService.permission());
     assertEquals(Set.of("JKT"), caseRepository.lastPageRequest.jurisdictionCodes());
     assertEquals("investigator-jkt", caseRepository.lastPageRequest.restrictedAssigneeUserId());
+    assertEquals(Set.of("JKT-UNIT-1"), caseRepository.lastPageRequest.restrictedAssignedUnitIds());
+    assertEquals(
+        Set.of(CaseClassification.CONFIDENTIAL),
+        caseRepository.lastPageRequest.allowedClassifications());
     assertNull(caseRepository.lastPageRequest.requestedAssigneeUserId());
     assertNull(authorizationService.authorizationContext().jurisdictionCode());
   }
@@ -225,6 +244,7 @@ class CaseApplicationServiceTest {
             CaseListSearchField.TITLE,
             "disclosure",
             CaseStatus.UNDER_TRIAGE,
+            CaseClassification.CONFIDENTIAL,
             "JKT-UNIT-1",
             "investigator-jkt",
             "triage-jkt",
@@ -236,6 +256,7 @@ class CaseApplicationServiceTest {
     assertEquals(CaseListSearchField.TITLE, caseRepository.lastPageRequest.searchField());
     assertEquals("disclosure", caseRepository.lastPageRequest.searchValue());
     assertEquals(CaseStatus.UNDER_TRIAGE, caseRepository.lastPageRequest.status());
+    assertEquals(CaseClassification.CONFIDENTIAL, caseRepository.lastPageRequest.classification());
     assertEquals("JKT-UNIT-1", caseRepository.lastPageRequest.assignedUnitId());
     assertEquals("investigator-jkt", caseRepository.lastPageRequest.requestedAssigneeUserId());
     assertEquals("triage-jkt", caseRepository.lastPageRequest.createdBy());
@@ -274,6 +295,7 @@ class CaseApplicationServiceTest {
             "Gift disclosure case",
             "Triaged into case.",
             "JKT",
+            CaseClassification.CONFIDENTIAL,
             CaseStatus.CREATED,
             "JKT-UNIT-1",
             "investigator-jkt",
@@ -480,7 +502,11 @@ class CaseApplicationServiceTest {
         String caseTitle,
         String startedBy) {
       return new StartedWorkflowInstance(
-          caseId, "appeal-process-1", "decisionAppealReview:1:deployment", 1, caseId + ":appeal:" + appealId);
+          caseId,
+          "appeal-process-1",
+          "decisionAppealReview:1:deployment",
+          1,
+          caseId + ":appeal:" + appealId);
     }
 
     @Override
@@ -515,6 +541,55 @@ class CaseApplicationServiceTest {
     public <T> T required(java.util.function.Supplier<T> work) {
       return work.get();
     }
+  }
+
+  @Test
+  void createCaseAuthorizationContextCarriesRequestedClassification() {
+    InMemoryCaseRepository caseRepository = new InMemoryCaseRepository();
+    InMemoryReportRepository reportRepository = new InMemoryReportRepository();
+    InMemoryOutboxRepository outboxRepository = new InMemoryOutboxRepository();
+    CapturingAuthorizationService authorizationService = new CapturingAuthorizationService();
+    CaseApplicationService service =
+        new CaseApplicationService(
+            authorizationService,
+            new ImmediateTransactionManager(),
+            caseRepository,
+            reportRepository,
+            outboxRepository,
+            new NoOpCaseProgressionGuard(),
+            new StubWorkflowPort(),
+            Duration.ofHours(4),
+            Clock.fixed(Instant.parse("2026-07-14T10:15:30Z"), ZoneOffset.UTC));
+    ApplicationActor actor =
+        new ApplicationActor("subject-5", "triage-jkt", Set.of("TRIAGE_OFFICER"), Set.of("JKT"));
+    Report report =
+        new Report(
+            UUID.randomUUID(),
+            "Improper gift disclosure",
+            "Potential violation involving unreported gifts.",
+            "JKT",
+            "Analyst A",
+            ReportStatus.TRIAGED,
+            Instant.parse("2026-07-14T09:00:00Z"),
+            "intake-jkt",
+            Instant.parse("2026-07-14T09:00:00Z"),
+            "intake-jkt",
+            0L);
+    reportRepository.save(report);
+
+    service.createCase(
+        actor,
+        new CreateCaseCommand(
+            report.id(),
+            "Secret case",
+            "Sensitive material.",
+            CaseClassification.SECRET,
+            "corr-9",
+            "127.0.0.1"));
+
+    assertEquals(
+        CaseClassification.SECRET,
+        authorizationService.authorizationContext().caseClassification());
   }
 
   private static final class NoOpCaseProgressionGuard implements CaseProgressionGuard {

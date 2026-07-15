@@ -43,7 +43,8 @@ public final class ApiEvidenceMapper {
 
   public FinalizeEvidenceVersionCommand toFinalizeCommand(
       FinalizeEvidenceVersionRequest request, String correlationId, String sourceIp) {
-    return new FinalizeEvidenceVersionCommand(request.getUploadSessionId(), correlationId, sourceIp);
+    return new FinalizeEvidenceVersionCommand(
+        request.getUploadSessionId(), correlationId, sourceIp);
   }
 
   public CreateEvidenceDownloadSessionCommand toCreateDownloadSessionCommand(

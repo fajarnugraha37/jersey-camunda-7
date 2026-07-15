@@ -9,6 +9,7 @@ import com.sentinel.enforcement.application.recommendation.RecommendationReposit
 import com.sentinel.enforcement.application.security.ApplicationActor;
 import com.sentinel.enforcement.application.security.AuthorizationContext;
 import com.sentinel.enforcement.application.security.AuthorizationService;
+import com.sentinel.enforcement.application.security.CaseAuthorizationScope;
 import com.sentinel.enforcement.application.security.Permission;
 import com.sentinel.enforcement.domain.casefile.AuditEvent;
 import com.sentinel.enforcement.domain.casefile.CaseRecord;
@@ -52,21 +53,9 @@ public final class DecisionApplicationService {
     this.clock = clock;
   }
 
-  public Decision createDecision(ApplicationActor actor, UUID caseId, CreateDecisionCommand command) {
+  public Decision createDecision(
+      ApplicationActor actor, UUID caseId, CreateDecisionCommand command) {
     CaseRecord caseRecord = getRequiredCase(caseId);
-    authorizationService.requirePermission(
-        actor,
-        Permission.CREATE_DECISION,
-        new AuthorizationContext(
-            caseRecord.jurisdictionCode(),
-            CASE_RESOURCE_TYPE,
-            caseRecord.id().toString(),
-            caseRecord.assigneeUserId()));
-    if (caseRecord.status() != CaseStatus.PENDING_DECISION) {
-      throw new com.sentinel.enforcement.domain.decision.DecisionConflictException(
-          "DECISION_CREATE_NOT_ALLOWED",
-          "Decision can only be created while the case is pending decision.");
-    }
     Recommendation recommendation =
         recommendationRepository
             .findByCaseId(caseId)
@@ -76,6 +65,19 @@ public final class DecisionApplicationService {
                     new com.sentinel.enforcement.domain.decision.DecisionConflictException(
                         "DECISION_CREATE_NOT_ALLOWED",
                         "Approved recommendation is required before creating a decision."));
+    authorizationService.requirePermission(
+        actor,
+        Permission.CREATE_DECISION,
+        authorizationContext(
+            caseRecord,
+            CASE_RESOURCE_TYPE,
+            caseRecord.id().toString(),
+            recommendation.createdBy()));
+    if (caseRecord.status() != CaseStatus.PENDING_DECISION) {
+      throw new com.sentinel.enforcement.domain.decision.DecisionConflictException(
+          "DECISION_CREATE_NOT_ALLOWED",
+          "Decision can only be created while the case is pending decision.");
+    }
     if (decisionRepository.findByCaseId(caseId).isPresent()) {
       throw new com.sentinel.enforcement.domain.decision.DecisionConflictException(
           "DECISION_ALREADY_EXISTS", "Case already has a decision.");
@@ -127,11 +129,8 @@ public final class DecisionApplicationService {
     authorizationService.requirePermission(
         actor,
         Permission.APPROVE_DECISION,
-        new AuthorizationContext(
-            caseRecord.jurisdictionCode(),
-            DECISION_RESOURCE_TYPE,
-            decisionId.toString(),
-            caseRecord.assigneeUserId()));
+        authorizationContext(
+            caseRecord, DECISION_RESOURCE_TYPE, decisionId.toString(), current.createdBy()));
     Instant now = clock.instant();
     Decision updated = current.approve(now, actor.username());
     AuditEvent auditEvent =
@@ -165,11 +164,8 @@ public final class DecisionApplicationService {
     authorizationService.requirePermission(
         actor,
         Permission.PUBLISH_DECISION,
-        new AuthorizationContext(
-            caseRecord.jurisdictionCode(),
-            DECISION_RESOURCE_TYPE,
-            decisionId.toString(),
-            caseRecord.assigneeUserId()));
+        authorizationContext(
+            caseRecord, DECISION_RESOURCE_TYPE, decisionId.toString(), current.createdBy()));
     Instant now = clock.instant();
     Decision updated = current.publish(now, actor.username());
     DecisionVersion decisionVersion =
@@ -250,6 +246,20 @@ public final class DecisionApplicationService {
 
   private CaseRecord getRequiredCase(UUID caseId) {
     return caseRepository.findById(caseId).orElseThrow(() -> new CaseNotFoundException(caseId));
+  }
+
+  private AuthorizationContext authorizationContext(
+      CaseRecord caseRecord, String resourceType, String resourceId, String resourceOwnerId) {
+    return new AuthorizationContext(
+        caseRecord.jurisdictionCode(),
+        resourceType,
+        resourceId,
+        caseRecord.id(),
+        caseRecord.assigneeUserId(),
+        caseRecord.assignedUnitId(),
+        caseRecord.classification(),
+        resourceOwnerId,
+        CaseAuthorizationScope.RESTRICTED_TO_ASSIGNED_UNITS_WHEN_PRESENT);
   }
 
   private AuditEvent newAuditEvent(

@@ -1,0 +1,40 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0007-case-classification-column
+      author: codex
+      changes:
+        - addColumn:
+            tableName: case_record
+            columns:
+              - column:
+                  name: classification
+                  type: VARCHAR(32)
+                  defaultValue: CONFIDENTIAL
+                  constraints:
+                    nullable: false
+        - sql:
+            sql: |
+              ALTER TABLE case_record
+                ADD CONSTRAINT ck_case_record_classification
+                  CHECK (classification IN ('PUBLIC', 'CONFIDENTIAL', 'SECRET'));
+        - createIndex:
+            tableName: case_record
+            indexName: idx_case_record_jurisdiction_unit_classification_created_at
+            columns:
+              - column:
+                  name: jurisdiction_code
+              - column:
+                  name: assigned_unit_id
+              - column:
+                  name: classification
+              - column:
+                  name: created_at
+      rollback:
+        - dropIndex:
+            tableName: case_record
+            indexName: idx_case_record_jurisdiction_unit_classification_created_at
+        - sql:
+            sql: ALTER TABLE case_record DROP CONSTRAINT IF EXISTS ck_case_record_classification;
+        - dropColumn:
+            tableName: case_record
+            columnName: classification

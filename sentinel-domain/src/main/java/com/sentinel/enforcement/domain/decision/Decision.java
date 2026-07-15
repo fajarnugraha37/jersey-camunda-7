@@ -108,8 +108,7 @@ public record Decision(
     }
     if (createdBy.equals(actorId)) {
       throw new DecisionConflictException(
-          "MAKER_CHECKER_VIOLATION",
-          "Decision author cannot approve the same draft.");
+          "MAKER_CHECKER_VIOLATION", "Decision author cannot approve the same draft.");
     }
     return new Decision(
         id,
@@ -138,8 +137,7 @@ public record Decision(
   public Decision publish(Instant now, String actorId) {
     if (status == DecisionStatus.PUBLISHED) {
       throw new DecisionConflictException(
-          "DECISION_PUBLICATION_NOT_ALLOWED",
-          "Published decision is immutable.");
+          "DECISION_PUBLICATION_NOT_ALLOWED", "Published decision is immutable.");
     }
     if (status != DecisionStatus.APPROVED) {
       throw new DecisionConflictException(

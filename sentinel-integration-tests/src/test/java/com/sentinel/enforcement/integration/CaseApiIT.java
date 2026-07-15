@@ -4,19 +4,21 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.sentinel.enforcement.api.generated.model.AssignCaseRequest;
 import com.sentinel.enforcement.api.generated.model.AppealDecisionOutcomeValue;
 import com.sentinel.enforcement.api.generated.model.AppealResponse;
+import com.sentinel.enforcement.api.generated.model.AssignCaseRequest;
 import com.sentinel.enforcement.api.generated.model.CaseAuditEventListResponse;
+import com.sentinel.enforcement.api.generated.model.CaseClassificationValue;
 import com.sentinel.enforcement.api.generated.model.CaseListResponse;
 import com.sentinel.enforcement.api.generated.model.CaseResponse;
 import com.sentinel.enforcement.api.generated.model.CaseStatusValue;
-import com.sentinel.enforcement.api.generated.model.CreateCaseRequest;
 import com.sentinel.enforcement.api.generated.model.CreateAppealRequest;
+import com.sentinel.enforcement.api.generated.model.CreateCaseRequest;
 import com.sentinel.enforcement.api.generated.model.DecisionResponse;
 import com.sentinel.enforcement.api.generated.model.ErrorResponse;
 import com.sentinel.enforcement.api.generated.model.RecommendationResponse;
 import com.sentinel.enforcement.api.generated.model.ReportResponse;
+import com.sentinel.enforcement.api.generated.model.ReviewRecommendationRequest;
 import com.sentinel.enforcement.api.generated.model.TransitionCaseRequest;
 import com.sentinel.enforcement.api.generated.model.WorkflowTaskListResponse;
 import com.sentinel.enforcement.api.generated.model.WorkflowTaskResponse;
@@ -37,10 +39,7 @@ class CaseApiIT extends AbstractApiIT {
   void fullCaseLifecyclePersistsHistoryAndAuditTrail() {
     DecisionFlowContext context =
         createPublishedDecisionContext(
-            "Gift disclosure case",
-            "Triaged into case.",
-            false,
-            LocalDate.parse("2026-08-01"));
+            "Gift disclosure case", "Triaged into case.", false, LocalDate.parse("2026-08-01"));
     CaseResponse decided = context.caseResponse();
 
     assertNotNull(decided.getCaseNumber());
@@ -77,8 +76,10 @@ class CaseApiIT extends AbstractApiIT {
     assertEquals(8L, countByCaseId("case_status_history", closed.getId()));
     assertEquals(15L, countByCaseId("audit_event", closed.getId()));
     assertEquals(1L, countByCaseId("case_assignment", closed.getId()));
-    assertEquals(1L, queryForLong("SELECT COUNT(*) FROM recommendation WHERE case_id = ?", closed.getId()));
-    assertEquals(1L, queryForLong("SELECT COUNT(*) FROM decision WHERE case_id = ?", closed.getId()));
+    assertEquals(
+        1L, queryForLong("SELECT COUNT(*) FROM recommendation WHERE case_id = ?", closed.getId()));
+    assertEquals(
+        1L, queryForLong("SELECT COUNT(*) FROM decision WHERE case_id = ?", closed.getId()));
   }
 
   @Test
@@ -92,7 +93,8 @@ class CaseApiIT extends AbstractApiIT {
 
     assertEquals(
         1L,
-        queryForLong("SELECT COUNT(*) FROM sanction WHERE decision_id = ?", context.decision().getId()));
+        queryForLong(
+            "SELECT COUNT(*) FROM sanction WHERE decision_id = ?", context.decision().getId()));
     assertEquals(
         1L,
         queryForLong(
@@ -135,7 +137,8 @@ class CaseApiIT extends AbstractApiIT {
     assertEquals(CaseStatusValue.CLOSED, closedCase.getStatus());
     assertEquals(
         "CANCELLED",
-        queryForString("SELECT status FROM sanction WHERE decision_id = ?", context.decision().getId()));
+        queryForString(
+            "SELECT status FROM sanction WHERE decision_id = ?", context.decision().getId()));
     assertEquals(
         "CANCELLED",
         queryForString(
@@ -146,7 +149,8 @@ class CaseApiIT extends AbstractApiIT {
             WHERE sanction.decision_id = ?
             """,
             context.decision().getId()));
-    assertEquals("DECIDED", queryForString("SELECT status FROM appeal WHERE id = ?", appeal.getId()));
+    assertEquals(
+        "DECIDED", queryForString("SELECT status FROM appeal WHERE id = ?", appeal.getId()));
   }
 
   @Test
@@ -221,7 +225,9 @@ class CaseApiIT extends AbstractApiIT {
             "Exceptional circumstances documented.");
 
     assertEquals(context.caseResponse().getId(), appeal.getCaseId());
-    assertEquals(CaseStatusValue.UNDER_APPEAL, getCase(accessToken("supervisor-jkt"), appeal.getCaseId()).getStatus());
+    assertEquals(
+        CaseStatusValue.UNDER_APPEAL,
+        getCase(accessToken("supervisor-jkt"), appeal.getCaseId()).getStatus());
   }
 
   @Test
@@ -428,7 +434,7 @@ class CaseApiIT extends AbstractApiIT {
         assignCase(
             accessToken("triage-jkt"),
             createdCase.getId(),
-            "JKT-AUDIT-1",
+            "JKT-UNIT-1",
             "investigator-jkt",
             createdCase.getVersion(),
             "Assigned for audit list query coverage.");
@@ -553,8 +559,145 @@ class CaseApiIT extends AbstractApiIT {
     assertEquals("MALFORMED_REQUEST", auditError.getCode());
   }
 
+  @Test
+  void assignedUnitAndClassificationRestrictionsAreEnforcedEndToEnd() {
+    ReportResponse report =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
+    CaseResponse secretCase =
+        createCase(
+            accessToken("triage-jkt"),
+            report.getId(),
+            "Secret case",
+            "Restricted by classification and unit.",
+            CaseClassificationValue.SECRET);
+    CaseResponse assigned =
+        assignCase(
+            accessToken("triage-jkt"),
+            secretCase.getId(),
+            "JKT-UNIT-1",
+            "investigator-jkt",
+            secretCase.getVersion(),
+            "Assign to unit one.");
+
+    CaseListResponse filteredList =
+        listCases(
+            accessToken("triage-jkt"),
+            Map.of("classification", "SECRET", "assignedUnitId", "JKT-UNIT-1", "limit", "10"));
+    assertEquals(
+        1L,
+        filteredList.getItems().stream()
+            .filter(item -> item.getId().equals(assigned.getId()))
+            .count());
+
+    Response wrongUnitResponse =
+        client
+            .target(applicationRuntime.baseUri())
+            .path("/api/v1/cases/" + assigned.getId())
+            .request(MediaType.APPLICATION_JSON_TYPE)
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken("supervisor-jkt-unit-2"))
+            .get();
+    assertEquals(403, wrongUnitResponse.getStatus());
+
+    Response lowClearanceResponse =
+        client
+            .target(applicationRuntime.baseUri())
+            .path("/api/v1/cases/" + assigned.getId())
+            .request(MediaType.APPLICATION_JSON_TYPE)
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken("reviewer-jkt-public"))
+            .get();
+    assertEquals(403, lowClearanceResponse.getStatus());
+
+    CaseListResponse lowClearanceList =
+        listCases(
+            accessToken("reviewer-jkt-public"), Map.of("classification", "SECRET", "limit", "10"));
+    assertEquals(
+        0L,
+        lowClearanceList.getItems().stream()
+            .filter(item -> item.getId().equals(assigned.getId()))
+            .count());
+  }
+
+  @Test
+  void conflictedReviewerCannotApproveRecommendation() {
+    ReportResponse report =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
+    CaseResponse createdCase =
+        createCase(
+            accessToken("triage-jkt"),
+            report.getId(),
+            "Conflict approval case",
+            "Reviewer has declared conflict.");
+    CaseResponse assigned =
+        assignCase(
+            accessToken("triage-jkt"),
+            createdCase.getId(),
+            "JKT-UNIT-1",
+            "investigator-jkt",
+            createdCase.getVersion(),
+            "Assign to investigator.");
+    CaseResponse underTriage =
+        transitionCase(
+            accessToken("triage-jkt"),
+            assigned.getId(),
+            CaseStatusValue.UNDER_TRIAGE,
+            assigned.getVersion(),
+            "Move into triage.");
+    CaseResponse underInvestigation =
+        transitionCase(
+            accessToken("triage-jkt"),
+            underTriage.getId(),
+            CaseStatusValue.UNDER_INVESTIGATION,
+            underTriage.getVersion(),
+            "Open investigation.");
+
+    RecommendationResponse recommendation =
+        createRecommendation(
+            accessToken("investigator-jkt"),
+            underInvestigation.getId(),
+            "Recommendation with conflict",
+            "Conflict should block reviewer approval.",
+            "Proceed with review.",
+            null);
+    submitRecommendation(accessToken("investigator-jkt"), recommendation.getId());
+    CaseResponse pendingReview =
+        transitionCase(
+            accessToken("investigator-jkt"),
+            underInvestigation.getId(),
+            CaseStatusValue.PENDING_REVIEW,
+            underInvestigation.getVersion(),
+            "Recommendation submitted.");
+
+    Response approvalResponse =
+        client
+            .target(applicationRuntime.baseUri())
+            .path("/api/v1/recommendations/" + recommendation.getId() + "/reviews")
+            .request(MediaType.APPLICATION_JSON_TYPE)
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken("reviewer-jkt-conflicted"))
+            .post(
+                Entity.entity(
+                    new ReviewRecommendationRequest()
+                        .reviewSummary("Attempting conflicted approval."),
+                    MediaType.APPLICATION_JSON_TYPE));
+
+    ErrorResponse error = approvalResponse.readEntity(ErrorResponse.class);
+    assertEquals(403, approvalResponse.getStatus());
+    assertEquals("FORBIDDEN", error.getCode());
+    assertEquals(
+        CaseStatusValue.PENDING_REVIEW,
+        getCase(accessToken("triage-jkt"), pendingReview.getId()).getStatus());
+  }
+
   private static CaseResponse createCase(
       String accessToken, UUID reportId, String title, String summary) {
+    return createCase(accessToken, reportId, title, summary, CaseClassificationValue.CONFIDENTIAL);
+  }
+
+  private static CaseResponse createCase(
+      String accessToken,
+      UUID reportId,
+      String title,
+      String summary,
+      CaseClassificationValue classification) {
     return client
         .target(applicationRuntime.baseUri())
         .path("/api/v1/cases")
@@ -562,7 +705,11 @@ class CaseApiIT extends AbstractApiIT {
         .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
         .post(
             Entity.entity(
-                new CreateCaseRequest().reportId(reportId).title(title).summary(summary),
+                new CreateCaseRequest()
+                    .reportId(reportId)
+                    .title(title)
+                    .summary(summary)
+                    .classification(classification),
                 MediaType.APPLICATION_JSON_TYPE),
             CaseResponse.class);
   }
@@ -694,10 +841,7 @@ class CaseApiIT extends AbstractApiIT {
   }
 
   private static DecisionFlowContext createPublishedDecisionContext(
-      String caseTitle,
-      String caseSummary,
-      boolean violationProven,
-      LocalDate appealDeadline) {
+      String caseTitle, String caseSummary, boolean violationProven, LocalDate appealDeadline) {
     ReportResponse report =
         createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
     CaseResponse createdCase =
@@ -743,7 +887,9 @@ class CaseApiIT extends AbstractApiIT {
             underInvestigation.getVersion(),
             "Investigation complete and recommendation submitted.");
     approveRecommendation(
-        accessToken("reviewer-jkt"), recommendation.getId(), "Recommendation approved for decision.");
+        accessToken("reviewer-jkt"),
+        recommendation.getId(),
+        "Recommendation approved for decision.");
 
     CaseResponse pendingDecision =
         transitionCase(

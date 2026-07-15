@@ -11,11 +11,13 @@ import com.nimbusds.jwt.proc.JWTProcessor;
 import com.sentinel.enforcement.application.security.ApplicationActor;
 import com.sentinel.enforcement.application.security.TokenVerifier;
 import com.sentinel.enforcement.application.security.UnauthenticatedException;
+import com.sentinel.enforcement.domain.casefile.CaseClassification;
 import java.net.URL;
 import java.text.ParseException;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -26,6 +28,9 @@ public final class KeycloakTokenVerifier implements TokenVerifier {
   private static final String CLAIM_REALM_ACCESS = "realm_access";
   private static final String CLAIM_ROLES = "roles";
   private static final String CLAIM_JURISDICTIONS = "jurisdictions";
+  private static final String CLAIM_ASSIGNED_UNITS = "assigned_units";
+  private static final String CLAIM_CASE_CLASSIFICATIONS = "case_classifications";
+  private static final String CLAIM_CONFLICTED_ACTOR_IDS = "conflicted_actor_ids";
 
   private final KeycloakSecurityConfiguration configuration;
   private final Clock clock;
@@ -56,7 +61,10 @@ public final class KeycloakTokenVerifier implements TokenVerifier {
           requiredClaim(claims.getSubject(), "sub"),
           requiredClaim(claims.getStringClaim(CLAIM_PREFERRED_USERNAME), CLAIM_PREFERRED_USERNAME),
           extractRoles(claims),
-          extractJurisdictions(claims));
+          extractStringSet(claims, CLAIM_JURISDICTIONS),
+          extractStringSet(claims, CLAIM_ASSIGNED_UNITS),
+          extractCaseClassifications(claims),
+          extractStringSet(claims, CLAIM_CONFLICTED_ACTOR_IDS));
     } catch (UnauthenticatedException exception) {
       throw exception;
     } catch (Exception exception) {
@@ -101,21 +109,40 @@ public final class KeycloakTokenVerifier implements TokenVerifier {
     return Set.copyOf(roles);
   }
 
-  private Set<String> extractJurisdictions(JWTClaimsSet claims) throws ParseException {
-    Object jurisdictionsClaim = claims.getClaim(CLAIM_JURISDICTIONS);
-    if (jurisdictionsClaim instanceof String singleJurisdiction && !singleJurisdiction.isBlank()) {
-      return Set.of(singleJurisdiction);
+  private Set<String> extractStringSet(JWTClaimsSet claims, String claimName)
+      throws ParseException {
+    Object claimValue = claims.getClaim(claimName);
+    if (claimValue instanceof String singleValue && !singleValue.isBlank()) {
+      return Set.of(singleValue);
     }
-    if (!(jurisdictionsClaim instanceof Collection<?> jurisdictionsCollection)) {
+    if (!(claimValue instanceof Collection<?> values)) {
       return Set.of();
     }
-    LinkedHashSet<String> jurisdictions = new LinkedHashSet<>();
-    for (Object jurisdiction : jurisdictionsCollection) {
-      if (jurisdiction instanceof String jurisdictionValue && !jurisdictionValue.isBlank()) {
-        jurisdictions.add(jurisdictionValue);
+    LinkedHashSet<String> parsed = new LinkedHashSet<>();
+    for (Object value : values) {
+      if (value instanceof String stringValue && !stringValue.isBlank()) {
+        parsed.add(stringValue);
       }
     }
-    return Set.copyOf(jurisdictions);
+    return Set.copyOf(parsed);
+  }
+
+  private Set<CaseClassification> extractCaseClassifications(JWTClaimsSet claims)
+      throws ParseException {
+    Set<String> rawValues = extractStringSet(claims, CLAIM_CASE_CLASSIFICATIONS);
+    if (rawValues.isEmpty()) {
+      return EnumSet.allOf(CaseClassification.class);
+    }
+    EnumSet<CaseClassification> parsed = EnumSet.noneOf(CaseClassification.class);
+    for (String rawValue : rawValues) {
+      try {
+        parsed.add(CaseClassification.valueOf(rawValue));
+      } catch (IllegalArgumentException exception) {
+        throw new UnauthenticatedException(
+            "Access token contains unsupported case classification claim.", exception);
+      }
+    }
+    return Set.copyOf(parsed);
   }
 
   private String requiredClaim(String value, String claimName) {

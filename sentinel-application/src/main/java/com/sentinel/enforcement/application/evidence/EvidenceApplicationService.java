@@ -9,6 +9,7 @@ import com.sentinel.enforcement.application.security.ApplicationActor;
 import com.sentinel.enforcement.application.security.AuthorizationContext;
 import com.sentinel.enforcement.application.security.AuthorizationDeniedException;
 import com.sentinel.enforcement.application.security.AuthorizationService;
+import com.sentinel.enforcement.application.security.CaseAuthorizationScope;
 import com.sentinel.enforcement.application.security.Permission;
 import com.sentinel.enforcement.domain.casefile.AuditEvent;
 import com.sentinel.enforcement.domain.casefile.CaseRecord;
@@ -339,7 +340,12 @@ public final class EvidenceApplicationService {
         caseRecord.jurisdictionCode(),
         CASE_RESOURCE_TYPE,
         caseRecord.id().toString(),
-        caseRecord.assigneeUserId());
+        caseRecord.id(),
+        caseRecord.assigneeUserId(),
+        caseRecord.assignedUnitId(),
+        caseRecord.classification(),
+        caseRecord.createdBy(),
+        CaseAuthorizationScope.RESTRICTED_TO_ASSIGNED_UNITS_WHEN_PRESENT);
   }
 
   private AuditEvent auditEvent(

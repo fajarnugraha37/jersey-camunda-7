@@ -4,6 +4,7 @@ import com.sentinel.enforcement.application.security.ApplicationActor;
 import com.sentinel.enforcement.application.security.AuthorizationContext;
 import com.sentinel.enforcement.application.security.AuthorizationDeniedException;
 import com.sentinel.enforcement.application.security.AuthorizationService;
+import com.sentinel.enforcement.application.security.CaseAuthorizationScope;
 import com.sentinel.enforcement.application.security.Permission;
 import java.util.Objects;
 import java.util.Set;
@@ -31,6 +32,26 @@ public final class RoleBasedAuthorizationService implements AuthorizationService
       throw new AuthorizationDeniedException(
           "Actor does not have jurisdiction access for " + jurisdictionCode + ".");
     }
+
+    if (authorizationContext.caseClassification() != null
+        && !actor.hasCaseClassification(authorizationContext.caseClassification())) {
+      throw new AuthorizationDeniedException(
+          "Actor does not have case classification clearance for "
+              + authorizationContext.caseClassification()
+              + ".");
+    }
+
+    if (authorizationContext.resourceOwnerId() != null
+        && actor.isConflictedWith(authorizationContext.resourceOwnerId())) {
+      throw new AuthorizationDeniedException(
+          "Actor is conflicted from accessing "
+              + authorizationContext.resourceType()
+              + " "
+              + authorizationContext.resourceId()
+              + ".");
+    }
+
+    enforceAssignedUnitScope(actor, authorizationContext);
 
     if (requiresDirectAssignment(actor, permission)
         && !Objects.equals(actor.username(), authorizationContext.assigneeUserId())) {
@@ -68,10 +89,9 @@ public final class RoleBasedAuthorizationService implements AuthorizationService
               "CASE_REVIEWER",
               "DECISION_MAKER",
               "APPEAL_OFFICER",
-               "SUPERVISOR",
-               "AUDITOR");
-      case CREATE_RECOMMENDATION, SUBMIT_RECOMMENDATION ->
-          Set.of("INVESTIGATOR", "SUPERVISOR");
+              "SUPERVISOR",
+              "AUDITOR");
+      case CREATE_RECOMMENDATION, SUBMIT_RECOMMENDATION -> Set.of("INVESTIGATOR", "SUPERVISOR");
       case REVIEW_RECOMMENDATION -> Set.of("CASE_REVIEWER", "SUPERVISOR");
       case CREATE_DECISION, APPROVE_DECISION, PUBLISH_DECISION ->
           Set.of("DECISION_MAKER", "SUPERVISOR");
@@ -119,5 +139,38 @@ public final class RoleBasedAuthorizationService implements AuthorizationService
         && !actor.hasRole("APPEAL_OFFICER")
         && !actor.hasRole("AUDITOR")
         && !actor.hasRole(SYSTEM_ADMIN_ROLE);
+  }
+
+  private void enforceAssignedUnitScope(
+      ApplicationActor actor, AuthorizationContext authorizationContext) {
+    String assignedUnitId = authorizationContext.assignedUnitId();
+    if (assignedUnitId == null
+        || authorizationContext.authorizationScope() == CaseAuthorizationScope.NONE) {
+      return;
+    }
+    if (!isUnitScopedActor(actor)) {
+      return;
+    }
+    if (actor.hasAssignedUnit(assignedUnitId)) {
+      return;
+    }
+    throw new AuthorizationDeniedException(
+        "Actor does not have assigned unit access for "
+            + authorizationContext.resourceType()
+            + " "
+            + authorizationContext.resourceId()
+            + ".");
+  }
+
+  private boolean isUnitScopedActor(ApplicationActor actor) {
+    if (actor.hasRole("AUDITOR") || actor.hasRole(SYSTEM_ADMIN_ROLE)) {
+      return false;
+    }
+    return actor.hasRole("TRIAGE_OFFICER")
+        || actor.hasRole("INVESTIGATOR")
+        || actor.hasRole("CASE_REVIEWER")
+        || actor.hasRole("DECISION_MAKER")
+        || actor.hasRole("APPEAL_OFFICER")
+        || actor.hasRole("SUPERVISOR");
   }
 }

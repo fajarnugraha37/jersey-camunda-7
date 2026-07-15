@@ -54,6 +54,54 @@
             "multivalued": "true",
             "aggregate.attrs": "true"
           }
+        },
+        {
+          "name": "assigned_units",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "assigned_units",
+            "claim.name": "assigned_units",
+            "jsonType.label": "String",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "true",
+            "aggregate.attrs": "true"
+          }
+        },
+        {
+          "name": "case_classifications",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "case_classifications",
+            "claim.name": "case_classifications",
+            "jsonType.label": "String",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "true",
+            "aggregate.attrs": "true"
+          }
+        },
+        {
+          "name": "conflicted_actor_ids",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "conflicted_actor_ids",
+            "claim.name": "conflicted_actor_ids",
+            "jsonType.label": "String",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "true",
+            "aggregate.attrs": "true"
+          }
         }
       ]
     }
@@ -68,7 +116,8 @@
       "email": "intake-jkt@sentinel.local",
       "requiredActions": [],
       "attributes": {
-        "jurisdictions": ["JKT"]
+        "jurisdictions": ["JKT"],
+        "case_classifications": ["PUBLIC", "CONFIDENTIAL", "SECRET"]
       },
       "credentials": [
         {
@@ -88,7 +137,8 @@
       "email": "intake-bdg@sentinel.local",
       "requiredActions": [],
       "attributes": {
-        "jurisdictions": ["BDG"]
+        "jurisdictions": ["BDG"],
+        "case_classifications": ["PUBLIC", "CONFIDENTIAL", "SECRET"]
       },
       "credentials": [
         {
@@ -108,7 +158,9 @@
       "email": "triage-jkt@sentinel.local",
       "requiredActions": [],
       "attributes": {
-        "jurisdictions": ["JKT"]
+        "jurisdictions": ["JKT"],
+        "assigned_units": ["JKT-UNIT-1"],
+        "case_classifications": ["PUBLIC", "CONFIDENTIAL", "SECRET"]
       },
       "credentials": [
         {
@@ -128,7 +180,9 @@
       "email": "triage-bdg@sentinel.local",
       "requiredActions": [],
       "attributes": {
-        "jurisdictions": ["BDG"]
+        "jurisdictions": ["BDG"],
+        "assigned_units": ["BDG-UNIT-1"],
+        "case_classifications": ["PUBLIC", "CONFIDENTIAL", "SECRET"]
       },
       "credentials": [
         {
@@ -148,7 +202,9 @@
       "email": "investigator-jkt@sentinel.local",
       "requiredActions": [],
       "attributes": {
-        "jurisdictions": ["JKT"]
+        "jurisdictions": ["JKT"],
+        "assigned_units": ["JKT-UNIT-1"],
+        "case_classifications": ["PUBLIC", "CONFIDENTIAL"]
       },
       "credentials": [
         {
@@ -168,7 +224,9 @@
       "email": "reviewer-jkt@sentinel.local",
       "requiredActions": [],
       "attributes": {
-        "jurisdictions": ["JKT"]
+        "jurisdictions": ["JKT"],
+        "assigned_units": ["JKT-UNIT-1"],
+        "case_classifications": ["PUBLIC", "CONFIDENTIAL", "SECRET"]
       },
       "credentials": [
         {
@@ -188,7 +246,9 @@
       "email": "decision-jkt@sentinel.local",
       "requiredActions": [],
       "attributes": {
-        "jurisdictions": ["JKT"]
+        "jurisdictions": ["JKT"],
+        "assigned_units": ["JKT-UNIT-1"],
+        "case_classifications": ["PUBLIC", "CONFIDENTIAL", "SECRET"]
       },
       "credentials": [
         {
@@ -208,7 +268,9 @@
       "email": "appeal-jkt@sentinel.local",
       "requiredActions": [],
       "attributes": {
-        "jurisdictions": ["JKT"]
+        "jurisdictions": ["JKT"],
+        "assigned_units": ["JKT-UNIT-1"],
+        "case_classifications": ["PUBLIC", "CONFIDENTIAL", "SECRET"]
       },
       "credentials": [
         {
@@ -228,7 +290,9 @@
       "email": "supervisor-jkt@sentinel.local",
       "requiredActions": [],
       "attributes": {
-        "jurisdictions": ["JKT"]
+        "jurisdictions": ["JKT"],
+        "assigned_units": ["JKT-UNIT-1"],
+        "case_classifications": ["PUBLIC", "CONFIDENTIAL", "SECRET"]
       },
       "credentials": [
         {
@@ -248,7 +312,8 @@
       "email": "auditor-jkt@sentinel.local",
       "requiredActions": [],
       "attributes": {
-        "jurisdictions": ["JKT"]
+        "jurisdictions": ["JKT"],
+        "case_classifications": ["PUBLIC", "CONFIDENTIAL", "SECRET"]
       },
       "credentials": [
         {
@@ -268,7 +333,8 @@
       "email": "system-admin@sentinel.local",
       "requiredActions": [],
       "attributes": {
-        "jurisdictions": ["JKT", "BDG"]
+        "jurisdictions": ["JKT", "BDG"],
+        "case_classifications": ["PUBLIC", "CONFIDENTIAL", "SECRET"]
       },
       "credentials": [
         {
@@ -278,6 +344,73 @@
         }
       ],
       "realmRoles": ["SYSTEM_ADMIN"]
+    },
+    {
+      "username": "supervisor-jkt-unit-2",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Supervisor",
+      "lastName": "Jakarta Unit Two",
+      "email": "supervisor-jkt-unit-2@sentinel.local",
+      "requiredActions": [],
+      "attributes": {
+        "jurisdictions": ["JKT"],
+        "assigned_units": ["JKT-UNIT-2"],
+        "case_classifications": ["PUBLIC", "CONFIDENTIAL", "SECRET"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "sentinel",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["SUPERVISOR"]
+    },
+    {
+      "username": "reviewer-jkt-public",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Reviewer",
+      "lastName": "Jakarta Public",
+      "email": "reviewer-jkt-public@sentinel.local",
+      "requiredActions": [],
+      "attributes": {
+        "jurisdictions": ["JKT"],
+        "assigned_units": ["JKT-UNIT-1"],
+        "case_classifications": ["PUBLIC"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "sentinel",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["CASE_REVIEWER"]
+    },
+    {
+      "username": "reviewer-jkt-conflicted",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Reviewer",
+      "lastName": "Jakarta Conflicted",
+      "email": "reviewer-jkt-conflicted@sentinel.local",
+      "requiredActions": [],
+      "attributes": {
+        "jurisdictions": ["JKT"],
+        "assigned_units": ["JKT-UNIT-1"],
+        "case_classifications": ["PUBLIC", "CONFIDENTIAL", "SECRET"],
+        "conflicted_actor_ids": ["investigator-jkt"]
+      },
+      "credentials": [
+        {
+          "type": "password",
+          "value": "sentinel",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["CASE_REVIEWER"]
     }
   ]
 }

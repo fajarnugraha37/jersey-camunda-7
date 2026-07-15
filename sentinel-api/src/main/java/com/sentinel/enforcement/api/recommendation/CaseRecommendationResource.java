@@ -50,10 +50,7 @@ public final class CaseRecommendationResource {
                     RequestMetadataResolver.correlationId(requestContext),
                     RequestMetadataResolver.sourceIp(requestContext))));
     return Response.created(
-            uriInfo
-                .getBaseUriBuilder()
-                .path("/api/v1/recommendations/" + response.getId())
-                .build())
+            uriInfo.getBaseUriBuilder().path("/api/v1/recommendations/" + response.getId()).build())
         .entity(response)
         .build();
   }

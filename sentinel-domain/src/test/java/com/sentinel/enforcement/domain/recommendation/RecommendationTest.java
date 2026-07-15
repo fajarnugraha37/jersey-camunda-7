@@ -28,9 +28,7 @@ class RecommendationTest {
             RecommendationConflictException.class,
             () ->
                 submitted.approve(
-                    UUID.randomUUID(),
-                    Instant.parse("2026-07-14T10:30:00Z"),
-                    "investigator-jkt"));
+                    UUID.randomUUID(), Instant.parse("2026-07-14T10:30:00Z"), "investigator-jkt"));
 
     assertEquals("MAKER_CHECKER_VIOLATION", exception.code());
   }

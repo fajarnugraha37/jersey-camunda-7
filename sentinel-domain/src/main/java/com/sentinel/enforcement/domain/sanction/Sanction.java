@@ -39,7 +39,16 @@ public record Sanction(
 
   public Sanction cancel(Instant now, String actorId) {
     return new Sanction(
-        id, caseId, decisionId, summary, SanctionStatus.CANCELLED, createdAt, createdBy, now, actorId, version + 1);
+        id,
+        caseId,
+        decisionId,
+        summary,
+        SanctionStatus.CANCELLED,
+        createdAt,
+        createdBy,
+        now,
+        actorId,
+        version + 1);
   }
 
   private static String requireNonBlank(String value, String fieldName) {

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sentinel.enforcement.api.generated.model.AppealDecisionOutcomeValue;
 import com.sentinel.enforcement.api.generated.model.AssignCaseRequest;
+import com.sentinel.enforcement.api.generated.model.CaseClassificationValue;
 import com.sentinel.enforcement.api.generated.model.CaseResponse;
 import com.sentinel.enforcement.api.generated.model.CaseStatusValue;
 import com.sentinel.enforcement.api.generated.model.CreateCaseRequest;
@@ -137,10 +138,7 @@ class MessagingReliabilityIT extends AbstractApiIT {
 
     DecisionFlowContext context =
         createPublishedDecisionContext(
-            "Phase seven notifications",
-            "Flow test.",
-            true,
-            LocalDate.parse("2026-08-15"));
+            "Phase seven notifications", "Flow test.", true, LocalDate.parse("2026-08-15"));
 
     awaitCondition(
         () ->
@@ -172,10 +170,7 @@ class MessagingReliabilityIT extends AbstractApiIT {
         "Granted");
 
     WorkflowTaskResponse appealReviewTask =
-        singleTask(
-            accessToken("appeal-jkt"),
-            context.caseResponse().getId(),
-            "appealReviewTask");
+        singleTask(accessToken("appeal-jkt"), context.caseResponse().getId(), "appealReviewTask");
     claimTask(accessToken("appeal-jkt"), appealReviewTask.getTaskId());
     completeTask(accessToken("appeal-jkt"), appealReviewTask.getTaskId());
 
@@ -293,7 +288,11 @@ class MessagingReliabilityIT extends AbstractApiIT {
         .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
         .post(
             Entity.entity(
-                new CreateCaseRequest().reportId(reportId).title(title).summary(summary),
+                new CreateCaseRequest()
+                    .reportId(reportId)
+                    .title(title)
+                    .summary(summary)
+                    .classification(CaseClassificationValue.CONFIDENTIAL),
                 MediaType.APPLICATION_JSON_TYPE),
             CaseResponse.class);
   }
