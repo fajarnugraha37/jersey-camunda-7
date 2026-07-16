@@ -1,4 +1,5 @@
 @regression
+@full
 @maintenance
 Feature: Maintenance operations work against the running application
 

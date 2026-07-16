@@ -1,4 +1,6 @@
 @smoke
+@regression
+@full
 Feature: Sentinel running-app smoke flow
 
   Background:

@@ -1,4 +1,5 @@
 @regression
+@full
 @workflow
 Feature: Workflow task APIs can drive a case from creation to a decided state
 

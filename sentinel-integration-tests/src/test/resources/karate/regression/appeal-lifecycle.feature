@@ -1,4 +1,5 @@
 @regression
+@full
 @appeal
 Feature: Appeal APIs work against the running application
 

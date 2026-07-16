@@ -84,6 +84,161 @@ public final class LiveDbSupport {
         "SELECT COUNT(*) FROM maintenance_operation_run WHERE id = ?", UUID.fromString(runId));
   }
 
+  public static long countCaseStatusHistory(String caseId) {
+    return queryForLong(
+        "SELECT COUNT(*) FROM case_status_history WHERE case_id = ?", UUID.fromString(caseId));
+  }
+
+  public static long countAuditEvents(String caseId) {
+    return queryForLong(
+        "SELECT COUNT(*) FROM audit_event WHERE case_id = ?", UUID.fromString(caseId));
+  }
+
+  public static long countCaseAssignments(String caseId) {
+    return queryForLong(
+        "SELECT COUNT(*) FROM case_assignment WHERE case_id = ?", UUID.fromString(caseId));
+  }
+
+  public static long countRecommendations(String caseId) {
+    return queryForLong(
+        "SELECT COUNT(*) FROM recommendation WHERE case_id = ?", UUID.fromString(caseId));
+  }
+
+  public static long countDecisions(String caseId) {
+    return queryForLong(
+        "SELECT COUNT(*) FROM decision WHERE case_id = ?", UUID.fromString(caseId));
+  }
+
+  public static long activeAssignmentCount(String caseId) {
+    return queryForLong(
+        "SELECT COUNT(*) FROM case_assignment WHERE case_id = ? AND is_active = TRUE",
+        UUID.fromString(caseId));
+  }
+
+  public static long inactiveReleasedAssignmentCount(String caseId, String releasedBy) {
+    return queryForLong(
+        """
+        SELECT COUNT(*)
+        FROM case_assignment
+        WHERE case_id = ?
+          AND is_active = FALSE
+          AND released_at IS NOT NULL
+          AND released_by = ?
+          AND superseded_by_assignment_id IS NOT NULL
+        """,
+        UUID.fromString(caseId),
+        releasedBy);
+  }
+
+  public static String activeAssignee(String caseId) {
+    return queryForString(
+        """
+        SELECT assignee_user_id
+        FROM case_assignment
+        WHERE case_id = ?
+          AND is_active = TRUE
+        """,
+        UUID.fromString(caseId));
+  }
+
+  public static long caseRelationshipCount() {
+    return queryForLong("SELECT COUNT(*) FROM case_relationship");
+  }
+
+  public static long notificationCountByCaseAndType(String caseId, String notificationType) {
+    return queryForLong(
+        "SELECT COUNT(*) FROM notification WHERE case_id = ? AND notification_type = ?",
+        UUID.fromString(caseId),
+        notificationType);
+  }
+
+  public static long notificationCountByEventId(String eventId) {
+    return queryForLong(
+        "SELECT COUNT(*) FROM notification WHERE event_id = ?", UUID.fromString(eventId));
+  }
+
+  public static long notificationCountByCaseTypeAndStatus(
+      String caseId, String notificationType, String status) {
+    return queryForLong(
+        """
+        SELECT COUNT(*)
+        FROM notification
+        WHERE case_id = ?
+          AND notification_type = ?
+          AND status = ?
+        """,
+        UUID.fromString(caseId),
+        notificationType,
+        status);
+  }
+
+  public static long publishedOutboxCountByTopicAndCaseId(String topic, String caseId) {
+    return queryForLong(
+        """
+        SELECT COUNT(*)
+        FROM outbox_event
+        WHERE topic = ?
+          AND status = 'PUBLISHED'
+          AND payload_json ->> 'caseId' = ?
+        """,
+        topic,
+        caseId);
+  }
+
+  public static long publishedAuditOutboxCount(String caseId, String auditEventType) {
+    return queryForLong(
+        """
+        SELECT COUNT(*)
+        FROM outbox_event
+        WHERE topic = 'audit.integration.v1'
+          AND status = 'PUBLISHED'
+          AND payload_json ->> 'caseId' = ?
+          AND payload_json ->> 'auditEventType' = ?
+        """,
+        caseId,
+        auditEventType);
+  }
+
+  public static String outboxEventIdForAggregateAndType(String aggregateId, String eventType) {
+    return queryForString(
+        """
+        SELECT event_id::text
+        FROM outbox_event
+        WHERE aggregate_id = ?
+          AND event_type = ?
+        """,
+        UUID.fromString(aggregateId),
+        eventType);
+  }
+
+  public static String outboxEnvelopeJson(String eventId) {
+    return queryForString(
+        """
+        SELECT jsonb_build_object(
+                 'eventId', event_id,
+                 'eventType', event_type,
+                 'eventVersion', event_version,
+                 'aggregateType', aggregate_type,
+                 'aggregateId', aggregate_id,
+                 'occurredAt', occurred_at,
+                 'correlationId', correlation_id,
+                 'causationId', causation_id,
+                 'actor', jsonb_build_object('type', actor_type, 'id', actor_id),
+                 'payload', payload_json
+               )::text
+        FROM outbox_event
+        WHERE event_id = ?
+        """,
+        UUID.fromString(eventId));
+  }
+
+  public static long inboxEventCount(String consumerName, String eventId) {
+    return queryForLong(
+        "SELECT COUNT(*) FROM inbox_event WHERE consumer_name = ? AND event_id = ?",
+        consumerName,
+        UUID.fromString(eventId));
+  }
+
   public static String acquireDecisionLock(String decisionId) {
     try {
       Connection connection = openConnection();

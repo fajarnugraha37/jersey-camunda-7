@@ -20,6 +20,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 import org.camunda.bpm.engine.MismatchingMessageCorrelationException;
 import org.camunda.bpm.engine.ProcessEngineException;
 import org.camunda.bpm.engine.repository.ProcessDefinition;
@@ -198,9 +199,17 @@ final class CamundaCaseWorkflowAdapter implements CaseWorkflowPort {
   @Override
   public List<WorkflowTaskView> listActiveTasks() {
     List<Task> tasks = camundaServices.taskService().createTaskQuery().active().list();
-    Map<UUID, CaseRecord> casesById = loadCases(tasks);
+    Map<String, UUID> caseIdsByTaskId = resolveCaseIds(tasks);
+    Map<UUID, CaseRecord> casesById = loadCases(caseIdsByTaskId.values());
     return tasks.stream()
-        .map(task -> toWorkflowTaskView(task, casesById.get(resolveCaseId(task))))
+        .map(
+            task -> {
+              UUID caseId = caseIdsByTaskId.get(task.getId());
+              if (caseId == null) {
+                return Optional.<WorkflowTaskView>empty();
+              }
+              return toWorkflowTaskView(task, casesById.get(caseId));
+            })
         .filter(Optional::isPresent)
         .map(Optional::get)
         .toList();
@@ -293,9 +302,20 @@ final class CamundaCaseWorkflowAdapter implements CaseWorkflowPort {
         Map.of("enforcementMonitoringRequired", enforcementMonitoringRequired));
   }
 
-  private Map<UUID, CaseRecord> loadCases(List<Task> tasks) {
-    Set<UUID> caseIds = tasks.stream().map(this::resolveCaseId).collect(Collectors.toSet());
-    return caseRepository.findByIds(caseIds).stream()
+  private Map<String, UUID> resolveCaseIds(List<Task> tasks) {
+    return tasks.stream()
+        .map(task -> Map.entry(task.getId(), tryResolveCaseId(task)))
+        .filter(entry -> entry.getValue().isPresent())
+        .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().get()));
+  }
+
+  private Map<UUID, CaseRecord> loadCases(Iterable<UUID> caseIds) {
+    Set<UUID> requestedCaseIds =
+        StreamSupport.stream(caseIds.spliterator(), false).collect(Collectors.toSet());
+    if (requestedCaseIds.isEmpty()) {
+      return Map.of();
+    }
+    return caseRepository.findByIds(requestedCaseIds).stream()
         .collect(Collectors.toMap(CaseRecord::id, Function.identity()));
   }
 
@@ -326,6 +346,14 @@ final class CamundaCaseWorkflowAdapter implements CaseWorkflowPort {
       throw new IllegalStateException("Workflow task " + task.getId() + " is missing caseId.");
     }
     return UUID.fromString(caseIdValue);
+  }
+
+  private Optional<UUID> tryResolveCaseId(Task task) {
+    try {
+      return Optional.of(resolveCaseId(task));
+    } catch (ProcessEngineException exception) {
+      return Optional.empty();
+    }
   }
 
   private boolean correlateCaseMessage(

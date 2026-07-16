@@ -1,4 +1,5 @@
 @regression
+@full
 @evidence
 Feature: Evidence upload and download flows work against the running app
 

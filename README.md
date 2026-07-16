@@ -74,6 +74,9 @@ Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory
 - `make workflow-test`
 - `make messaging-test`
 - `make e2e-test`
+- `make karate-smoke`
+- `make karate-regression`
+- `make karate-full`
 - `make verify`
 - `make openapi-generate`
 - `make openapi-validate`
@@ -184,6 +187,10 @@ Untuk local Compose:
 
 - Unit test untuk application service, domain transition policy, optimistic locking guards, authorization policy, report triage, dan evidence lifecycle.
 - Workflow unit test untuk validasi model BPMN dan wiring stage utama.
+- Karate suite terhadap aplikasi yang running dibagi menjadi:
+  - `make karate-smoke` untuk health, login, report intake, triage, create/get case, dan baseline API readiness.
+  - `make karate-regression` untuk seluruh smoke ditambah workflow task happy path, evidence, appeal, maintenance, dan workflow reconciliation yang sudah dianggap regresi utama.
+  - `make karate-full` untuk seluruh regression ditambah search/cursor matrix, authorization denial matrix, relationship recursion, locking, duplicate-delivery observability, dan negative paths penting lain terhadap aplikasi yang sedang berjalan.
 - Integration test dengan Testcontainers PostgreSQL + Kafka + Keycloak + MinIO untuk:
   - happy path authorized create/get/triage report
   - happy path case lifecycle from create through close
@@ -200,6 +207,7 @@ Untuk local Compose:
   - `403` jurisdiction salah
   - public health endpoint
 - Integration test juga menyalakan Redis dan Mailpit agar dependency health, notification dispatch, dan outbox result flow tervalidasi pada runtime nyata.
+- Untuk sequence manual menjalankan app lalu Karate, jalankan `make up`, `make migrate`, tunggu `GET /health` menjadi `UP`, lalu pilih suite `make karate-smoke`, `make karate-regression`, atau `make karate-full`.
 
 ## Troubleshooting
 

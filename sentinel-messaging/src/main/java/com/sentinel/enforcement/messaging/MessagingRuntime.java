@@ -22,9 +22,12 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class MessagingRuntime implements AutoCloseable {
   private static final Duration ADMIN_TIMEOUT = Duration.ofSeconds(15);
+  private static final Logger LOGGER = LoggerFactory.getLogger(MessagingRuntime.class);
   private final AtomicBoolean running;
   private final KafkaProducer<String, String> producer;
   private final KafkaConsumer<String, String> consumer;
@@ -102,7 +105,14 @@ public final class MessagingRuntime implements AutoCloseable {
             .start(
                 () -> {
                   while (running.get()) {
-                    outboxPublisher.publishPendingBatch();
+                    try {
+                      outboxPublisher.publishPendingBatch();
+                    } catch (Exception exception) {
+                      LOGGER.warn(
+                          "Outbox publisher loop failed. Poll will retry after {}.",
+                          configuration.outboxPollInterval(),
+                          exception);
+                    }
                     sleep(configuration.outboxPollInterval());
                   }
                 });

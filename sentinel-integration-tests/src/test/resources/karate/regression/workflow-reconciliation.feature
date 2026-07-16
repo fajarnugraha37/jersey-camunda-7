@@ -1,4 +1,5 @@
 @regression
+@full
 @workflow-reconciliation
 Feature: Workflow reconciliation APIs repair live domain-workflow mismatches
 

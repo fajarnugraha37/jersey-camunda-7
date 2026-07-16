@@ -3,9 +3,9 @@ package com.sentinel.enforcement.integration.karate;
 import io.karatelabs.junit6.Karate;
 import org.junit.jupiter.api.DynamicNode;
 
-class KarateRegressionIT {
+class KarateFullIT {
   @Karate.Test
-  Iterable<DynamicNode> regression() {
-    return Karate.run("classpath:karate").tags("@regression").relativeTo(getClass());
+  Iterable<DynamicNode> full() {
+    return Karate.run("classpath:karate/full/full-suite.feature").relativeTo(getClass());
   }
 }
