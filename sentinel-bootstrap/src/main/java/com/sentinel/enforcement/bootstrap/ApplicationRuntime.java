@@ -159,6 +159,7 @@ public final class ApplicationRuntime implements AutoCloseable {
       MinioEvidenceStorageAdapter evidenceStorage =
           new MinioEvidenceStorageAdapter(
               configuration.minioEndpoint(),
+              configuration.minioPublicEndpoint(),
               configuration.minioAccessKey(),
               configuration.minioSecretKey());
       evidenceStorage.ensureBucketExists(configuration.minioEvidenceBucket());

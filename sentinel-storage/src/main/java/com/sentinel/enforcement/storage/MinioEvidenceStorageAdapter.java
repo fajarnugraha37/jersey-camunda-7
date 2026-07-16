@@ -17,19 +17,36 @@ import java.time.Duration;
 import java.util.Objects;
 
 public final class MinioEvidenceStorageAdapter implements EvidenceStoragePort {
-  private final MinioClient minioClient;
+  private static final String DEFAULT_MINIO_REGION = "us-east-1";
 
-  public MinioEvidenceStorageAdapter(String endpoint, String accessKey, String secretKey) {
+  private final MinioClient minioClient;
+  private final MinioClient presigningMinioClient;
+
+  public MinioEvidenceStorageAdapter(
+      String endpoint, String publicEndpoint, String accessKey, String secretKey) {
     this(
         MinioClient.builder()
             .endpoint(requireNonBlank(endpoint, "endpoint"))
             .credentials(
                 requireNonBlank(accessKey, "accessKey"), requireNonBlank(secretKey, "secretKey"))
+            .build(),
+        MinioClient.builder()
+            .endpoint(requireNonBlank(publicEndpoint, "publicEndpoint"))
+            .region(DEFAULT_MINIO_REGION)
+            .credentials(
+                requireNonBlank(accessKey, "accessKey"), requireNonBlank(secretKey, "secretKey"))
             .build());
   }
 
-  MinioEvidenceStorageAdapter(MinioClient minioClient) {
+  public MinioEvidenceStorageAdapter(String endpoint, String accessKey, String secretKey) {
+    this(endpoint, endpoint, accessKey, secretKey);
+  }
+
+  MinioEvidenceStorageAdapter(MinioClient minioClient, MinioClient presigningMinioClient) {
     this.minioClient = Objects.requireNonNull(minioClient, "minioClient must not be null");
+    this.presigningMinioClient =
+        Objects.requireNonNull(
+            presigningMinioClient, "presigningMinioClient must not be null");
   }
 
   public void ensureBucketExists(String bucket) {
@@ -47,7 +64,7 @@ public final class MinioEvidenceStorageAdapter implements EvidenceStoragePort {
   @Override
   public String createPresignedUploadUrl(String bucket, String objectKey, Duration ttl) {
     try {
-      return minioClient.getPresignedObjectUrl(
+      return presigningMinioClient.getPresignedObjectUrl(
           GetPresignedObjectUrlArgs.builder()
               .method(Method.PUT)
               .bucket(validBucket(bucket))
@@ -62,7 +79,7 @@ public final class MinioEvidenceStorageAdapter implements EvidenceStoragePort {
   @Override
   public String createPresignedDownloadUrl(String bucket, String objectKey, Duration ttl) {
     try {
-      return minioClient.getPresignedObjectUrl(
+      return presigningMinioClient.getPresignedObjectUrl(
           GetPresignedObjectUrlArgs.builder()
               .method(Method.GET)
               .bucket(validBucket(bucket))
