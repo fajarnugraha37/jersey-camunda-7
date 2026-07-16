@@ -155,6 +155,7 @@ public final class AppealApplicationService {
           () -> {
             appealRepository.save(appeal);
             caseRepository.transition(updatedCase, historyEntry, auditEvent);
+            outboxRepository.enqueue(MessagingEventFactory.auditIntegrated(auditEvent, now));
             outboxRepository.enqueue(
                 MessagingEventFactory.appealFiled(actor, appeal, command.correlationId(), now));
             return null;
@@ -211,6 +212,7 @@ public final class AppealApplicationService {
         () -> {
           appealRepository.decide(updated, appealDecision);
           caseRepository.appendAuditEvent(auditEvent);
+          outboxRepository.enqueue(MessagingEventFactory.auditIntegrated(auditEvent, now));
           outboxRepository.enqueue(
               MessagingEventFactory.appealDecided(
                   actor, updated, appealDecision, command.correlationId(), now));
@@ -303,6 +305,7 @@ public final class AppealApplicationService {
                     actor, cancelledSanction, cancelledObligation, correlationId, now));
           }
           caseRepository.transition(updatedCase, historyEntry, auditEvent);
+          outboxRepository.enqueue(MessagingEventFactory.auditIntegrated(auditEvent, now));
           return null;
         });
     return updatedCase;

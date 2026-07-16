@@ -46,6 +46,19 @@ services:
       retries: 20
       start_period: 20s
 
+  redis:
+    image: redis:7.2.7-alpine
+    container_name: sentinel-redis
+    hostname: redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
   minio:
     image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: sentinel-minio
@@ -107,6 +120,20 @@ services:
       retries: 20
       start_period: 90s
 
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: sentinel-mailpit
+    hostname: mailpit
+    ports:
+      - "${MAILPIT_SMTP_PORT:-1025}:1025"
+      - "${MAILPIT_WEB_PORT:-8025}:8025"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8025/ >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
   app:
     build:
       context: .
@@ -118,9 +145,13 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       minio:
         condition: service_healthy
       keycloak:
+        condition: service_healthy
+      mailpit:
         condition: service_healthy
     environment:
       HTTP_PORT: ${HTTP_PORT:-8080}
@@ -128,6 +159,12 @@ services:
       DB_USERNAME: ${POSTGRES_USER:-sentinel}
       DB_PASSWORD: ${POSTGRES_PASSWORD:-sentinel}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      MAILPIT_SMTP_HOST: mailpit
+      MAILPIT_SMTP_PORT: 1025
+      NOTIFICATION_FROM_EMAIL: ${NOTIFICATION_FROM_EMAIL:-sentinel@local.test}
+      NOTIFICATION_TO_EMAIL: ${NOTIFICATION_TO_EMAIL:-ops@local.test}
       APP_INSTANCE_ID: ${APP_INSTANCE_ID:-app-1}
       OUTBOX_POLL_INTERVAL: ${OUTBOX_POLL_INTERVAL:-PT2S}
       OUTBOX_LEASE_DURATION: ${OUTBOX_LEASE_DURATION:-PT30S}

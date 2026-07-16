@@ -76,6 +76,14 @@ abstract class AbstractApiIT {
                   .forPort(9000)
                   .forStatusCode(200)
                   .withStartupTimeout(Duration.ofMinutes(2)));
+  protected static final GenericContainer<?> REDIS =
+      new GenericContainer<>("redis:7.2.7-alpine")
+          .withExposedPorts(6379)
+          .waitingFor(Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(2)));
+  protected static final GenericContainer<?> MAILPIT =
+      new GenericContainer<>("axllent/mailpit:latest")
+          .withExposedPorts(1025, 8025)
+          .waitingFor(Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(2)));
   protected static final FixedPortKafkaContainer KAFKA = new FixedPortKafkaContainer();
 
   protected static ApplicationRuntime applicationRuntime;
@@ -92,6 +100,12 @@ abstract class AbstractApiIT {
     }
     if (!MINIO.isRunning()) {
       MINIO.start();
+    }
+    if (!REDIS.isRunning()) {
+      REDIS.start();
+    }
+    if (!MAILPIT.isRunning()) {
+      MAILPIT.start();
     }
     if (!KAFKA.isRunning()) {
       KAFKA.start();
@@ -111,6 +125,12 @@ abstract class AbstractApiIT {
                   Map.entry("OUTBOX_BATCH_SIZE", "10"),
                   Map.entry("NOTIFICATION_CONSUMER_GROUP_ID", "sentinel-it"),
                   Map.entry("NOTIFICATION_MAX_RETRIES", "2"),
+                  Map.entry("REDIS_HOST", REDIS.getHost()),
+                  Map.entry("REDIS_PORT", Integer.toString(REDIS.getMappedPort(6379))),
+                  Map.entry("MAILPIT_SMTP_HOST", MAILPIT.getHost()),
+                  Map.entry("MAILPIT_SMTP_PORT", Integer.toString(MAILPIT.getMappedPort(1025))),
+                  Map.entry("NOTIFICATION_FROM_EMAIL", "sentinel-it@local.test"),
+                  Map.entry("NOTIFICATION_TO_EMAIL", "ops-it@local.test"),
                   Map.entry("MINIO_ENDPOINT", minioEndpoint()),
                   Map.entry("MINIO_ACCESS_KEY", "sentinel"),
                   Map.entry("MINIO_SECRET_KEY", "sentinel-secret"),
@@ -147,6 +167,8 @@ abstract class AbstractApiIT {
     }
     testConfiguration = null;
     KAFKA.stop();
+    MAILPIT.stop();
+    REDIS.stop();
     MINIO.stop();
     KEYCLOAK.stop();
     POSTGRES.stop();
@@ -499,6 +521,10 @@ abstract class AbstractApiIT {
 
   protected static String kafkaBootstrapServers() {
     return "127.0.0.1:29092";
+  }
+
+  protected static String mailpitApiBaseUrl() {
+    return "http://" + MAILPIT.getHost() + ":" + MAILPIT.getMappedPort(8025);
   }
 
   private static Map<String, Object> kafkaProducerProperties() {

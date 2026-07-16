@@ -117,6 +117,7 @@ public final class DecisionApplicationService {
         () -> {
           decisionRepository.save(decision);
           caseRepository.appendAuditEvent(auditEvent);
+          outboxRepository.enqueue(MessagingEventFactory.auditIntegrated(auditEvent, now));
           return null;
         });
     return decision;
@@ -152,6 +153,7 @@ public final class DecisionApplicationService {
         () -> {
           decisionRepository.approve(updated);
           caseRepository.appendAuditEvent(auditEvent);
+          outboxRepository.enqueue(MessagingEventFactory.auditIntegrated(auditEvent, now));
           return null;
         });
     return updated;
@@ -225,6 +227,7 @@ public final class DecisionApplicationService {
         () -> {
           decisionRepository.publish(updated, decisionVersion, sanction, obligation);
           caseRepository.appendAuditEvent(auditEvent);
+          outboxRepository.enqueue(MessagingEventFactory.auditIntegrated(auditEvent, now));
           outboxRepository.enqueue(
               MessagingEventFactory.decisionPublished(
                   actor, updated, command.correlationId(), now));

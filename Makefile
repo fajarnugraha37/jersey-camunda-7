@@ -1,7 +1,7 @@
 SHELL := pwsh.exe
 .SHELLFLAGS := -NoLogo -Command
 ROLLBACK_COUNT ?= 1
-LOCAL_RUNTIME_ENV := $$env:HTTP_PORT = if ($$env:HTTP_PORT) { $$env:HTTP_PORT } else { '8080' }; $$env:DB_URL = if ($$env:DB_URL) { $$env:DB_URL } else { 'jdbc:postgresql://localhost:5432/sentinel' }; $$env:DB_USERNAME = if ($$env:DB_USERNAME) { $$env:DB_USERNAME } else { 'sentinel' }; $$env:DB_PASSWORD = if ($$env:DB_PASSWORD) { $$env:DB_PASSWORD } else { 'sentinel' }; $$env:KAFKA_BOOTSTRAP_SERVERS = if ($$env:KAFKA_BOOTSTRAP_SERVERS) { $$env:KAFKA_BOOTSTRAP_SERVERS } else { 'localhost:29092' }; $$env:MINIO_ENDPOINT = if ($$env:MINIO_ENDPOINT) { $$env:MINIO_ENDPOINT } else { 'http://localhost:9000' }; $$env:MINIO_ACCESS_KEY = if ($$env:MINIO_ACCESS_KEY) { $$env:MINIO_ACCESS_KEY } else { 'sentinel' }; $$env:MINIO_SECRET_KEY = if ($$env:MINIO_SECRET_KEY) { $$env:MINIO_SECRET_KEY } else { 'sentinel-secret' }; $$env:MINIO_EVIDENCE_BUCKET = if ($$env:MINIO_EVIDENCE_BUCKET) { $$env:MINIO_EVIDENCE_BUCKET } else { 'sentinel-evidence' }; $$env:EVIDENCE_UPLOAD_URL_TTL = if ($$env:EVIDENCE_UPLOAD_URL_TTL) { $$env:EVIDENCE_UPLOAD_URL_TTL } else { 'PT15M' }; $$env:EVIDENCE_DOWNLOAD_URL_TTL = if ($$env:EVIDENCE_DOWNLOAD_URL_TTL) { $$env:EVIDENCE_DOWNLOAD_URL_TTL } else { 'PT10M' }; $$env:KEYCLOAK_ISSUER = if ($$env:KEYCLOAK_ISSUER) { $$env:KEYCLOAK_ISSUER } else { 'http://localhost:8081/realms/sentinel' }; $$env:KEYCLOAK_AUDIENCE = if ($$env:KEYCLOAK_AUDIENCE) { $$env:KEYCLOAK_AUDIENCE } else { 'sentinel-api' }; $$env:KEYCLOAK_JWKS_URL = if ($$env:KEYCLOAK_JWKS_URL) { $$env:KEYCLOAK_JWKS_URL } else { 'http://localhost:8081/realms/sentinel/protocol/openid-connect/certs' }; $$env:WORKFLOW_INVESTIGATION_ESCALATION_DURATION = if ($$env:WORKFLOW_INVESTIGATION_ESCALATION_DURATION) { $$env:WORKFLOW_INVESTIGATION_ESCALATION_DURATION } else { 'PT30M' };
+LOCAL_RUNTIME_ENV := $$env:HTTP_PORT = if ($$env:HTTP_PORT) { $$env:HTTP_PORT } else { '8080' }; $$env:DB_URL = if ($$env:DB_URL) { $$env:DB_URL } else { 'jdbc:postgresql://localhost:5432/sentinel' }; $$env:DB_USERNAME = if ($$env:DB_USERNAME) { $$env:DB_USERNAME } else { 'sentinel' }; $$env:DB_PASSWORD = if ($$env:DB_PASSWORD) { $$env:DB_PASSWORD } else { 'sentinel' }; $$env:KAFKA_BOOTSTRAP_SERVERS = if ($$env:KAFKA_BOOTSTRAP_SERVERS) { $$env:KAFKA_BOOTSTRAP_SERVERS } else { 'localhost:29092' }; $$env:REDIS_HOST = if ($$env:REDIS_HOST) { $$env:REDIS_HOST } else { 'localhost' }; $$env:REDIS_PORT = if ($$env:REDIS_PORT) { $$env:REDIS_PORT } else { '6379' }; $$env:MAILPIT_SMTP_HOST = if ($$env:MAILPIT_SMTP_HOST) { $$env:MAILPIT_SMTP_HOST } else { 'localhost' }; $$env:MAILPIT_SMTP_PORT = if ($$env:MAILPIT_SMTP_PORT) { $$env:MAILPIT_SMTP_PORT } else { '1025' }; $$env:NOTIFICATION_FROM_EMAIL = if ($$env:NOTIFICATION_FROM_EMAIL) { $$env:NOTIFICATION_FROM_EMAIL } else { 'sentinel@local.test' }; $$env:NOTIFICATION_TO_EMAIL = if ($$env:NOTIFICATION_TO_EMAIL) { $$env:NOTIFICATION_TO_EMAIL } else { 'ops@local.test' }; $$env:MINIO_ENDPOINT = if ($$env:MINIO_ENDPOINT) { $$env:MINIO_ENDPOINT } else { 'http://localhost:9000' }; $$env:MINIO_ACCESS_KEY = if ($$env:MINIO_ACCESS_KEY) { $$env:MINIO_ACCESS_KEY } else { 'sentinel' }; $$env:MINIO_SECRET_KEY = if ($$env:MINIO_SECRET_KEY) { $$env:MINIO_SECRET_KEY } else { 'sentinel-secret' }; $$env:MINIO_EVIDENCE_BUCKET = if ($$env:MINIO_EVIDENCE_BUCKET) { $$env:MINIO_EVIDENCE_BUCKET } else { 'sentinel-evidence' }; $$env:EVIDENCE_UPLOAD_URL_TTL = if ($$env:EVIDENCE_UPLOAD_URL_TTL) { $$env:EVIDENCE_UPLOAD_URL_TTL } else { 'PT15M' }; $$env:EVIDENCE_DOWNLOAD_URL_TTL = if ($$env:EVIDENCE_DOWNLOAD_URL_TTL) { $$env:EVIDENCE_DOWNLOAD_URL_TTL } else { 'PT10M' }; $$env:KEYCLOAK_ISSUER = if ($$env:KEYCLOAK_ISSUER) { $$env:KEYCLOAK_ISSUER } else { 'http://localhost:8081/realms/sentinel' }; $$env:KEYCLOAK_AUDIENCE = if ($$env:KEYCLOAK_AUDIENCE) { $$env:KEYCLOAK_AUDIENCE } else { 'sentinel-api' }; $$env:KEYCLOAK_JWKS_URL = if ($$env:KEYCLOAK_JWKS_URL) { $$env:KEYCLOAK_JWKS_URL } else { 'http://localhost:8081/realms/sentinel/protocol/openid-connect/certs' }; $$env:WORKFLOW_INVESTIGATION_ESCALATION_DURATION = if ($$env:WORKFLOW_INVESTIGATION_ESCALATION_DURATION) { $$env:WORKFLOW_INVESTIGATION_ESCALATION_DURATION } else { 'PT30M' };
 
 .PHONY: help bootstrap clean compile test unit-test integration-test workflow-test messaging-test e2e-test verify package \
 	openapi-generate openapi-validate up down restart reset ps logs app-logs docker-build docker-push-local \
@@ -23,7 +23,7 @@ help:
 	Write-Host "  package            Build distributable artifacts"
 	Write-Host "  format             Apply Java and pom formatting"
 	Write-Host "  openapi-validate   Validate docs/api/openapi.yaml"
-	Write-Host "  up                 Start postgres, kafka, keycloak, and minio containers for schema migration"
+	Write-Host "  up                 Start postgres, kafka, redis, keycloak, mailpit, and minio containers for schema migration"
 	Write-Host "  down               Stop compose services"
 	Write-Host "  restart            Restart compose services"
 	Write-Host "  ps                 Show compose service status"
@@ -85,7 +85,7 @@ openapi-validate:
 	mvn -q -pl sentinel-api -am generate-sources
 
 up:
-	docker compose up -d --build postgres kafka minio keycloak
+	docker compose up -d --build postgres kafka redis minio keycloak mailpit
 	docker compose up minio-init
 
 down:
@@ -144,7 +144,7 @@ kafka-consume:
 	docker compose exec kafka bash -lc "kafka-console-consumer --bootstrap-server kafka:9092 --topic case.lifecycle.v1 --from-beginning"
 
 kafka-produce:
-	docker compose exec kafka bash -lc "printf '{\"message\":\"sample\"}\n' | kafka-console-producer --bootstrap-server kafka:9092 --topic notification.command.v1"
+	docker compose exec kafka bash -lc "printf '{\"eventId\":\"00000000-0000-0000-0000-000000000001\",\"eventType\":\"NotificationDispatchRequested\",\"eventVersion\":1,\"aggregateType\":\"Notification\",\"aggregateId\":\"00000000-0000-0000-0000-000000000002\",\"occurredAt\":\"2026-07-16T00:00:00Z\",\"correlationId\":\"sample-correlation-id\",\"causationId\":null,\"actor\":{\"type\":\"SYSTEM\",\"id\":\"make-kafka-produce\"},\"payload\":{\"notificationId\":\"00000000-0000-0000-0000-000000000002\",\"caseId\":\"00000000-0000-0000-0000-000000000003\",\"notificationType\":\"ManualSmoke\",\"title\":\"Sample notification\",\"body\":\"Generated by make kafka-produce\",\"toEmail\":\"ops@local.test\",\"fromEmail\":\"sentinel@local.test\",\"channel\":\"EMAIL\"}}\n' | kafka-console-producer --bootstrap-server kafka:9092 --topic notification.command.v1"
 
 minio-init:
 	docker compose up minio-init

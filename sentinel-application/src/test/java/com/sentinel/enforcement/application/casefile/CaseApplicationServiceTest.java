@@ -97,8 +97,9 @@ class CaseApplicationServiceTest {
     assertNotNull(caseRepository.savedHistoryEntry);
     assertNotNull(caseRepository.savedAuditEvent);
     assertEquals(caseRecord.id(), workflowPort.startedWorkflow.caseId());
-    assertEquals(1, outboxRepository.events.size());
-    assertEquals("CaseCreated", outboxRepository.events.get(0).envelope().eventType());
+    assertEquals(2, outboxRepository.events.size());
+    assertEquals("AuditIntegrated", outboxRepository.events.get(0).envelope().eventType());
+    assertEquals("CaseCreated", outboxRepository.events.get(1).envelope().eventType());
   }
 
   @Test

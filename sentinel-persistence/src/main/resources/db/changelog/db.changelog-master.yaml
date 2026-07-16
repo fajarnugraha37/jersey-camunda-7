@@ -13,3 +13,5 @@ databaseChangeLog:
       file: db/changelog/releases/0006-phase7-decision-appeal.yaml
   - include:
       file: db/changelog/releases/0007-phase8-case-authorization.yaml
+  - include:
+      file: db/changelog/releases/0008-phase8-observability-notification.yaml

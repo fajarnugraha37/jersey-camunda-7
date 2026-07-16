@@ -2,7 +2,7 @@
 
 ## Current phase
 
-Phase 8 is fully implemented and reverified in this run, including assigned-unit authorization, case classification clearance, conflict-of-interest checks, and the supporting OpenAPI, Keycloak claim, persistence, and integration-test updates.
+Phase 8 is fully implemented and reverified in this run, including assigned-unit authorization, case classification clearance, conflict-of-interest checks, observability/runtime hardening, notification command/result flow, and the supporting OpenAPI, Keycloak claim, persistence, and integration-test updates.
 
 ## Completed capabilities
 
@@ -16,8 +16,10 @@ Phase 8 is fully implemented and reverified in this run, including assigned-unit
 - Recommendation, review, decision, sanction, and appeal aggregates are implemented for the current workflow path.
 - Case and workflow read/write authorization now considers role, jurisdiction, direct assignment, assigned unit, case classification, and conflict-of-interest claims from Keycloak.
 - `GET /api/v1/cases` now supports classification-aware filtering while still using cursor pagination, quick search, targeted search, and whitelisted sort semantics.
+- `GET /health` now returns dependency-level readiness for database, Kafka, Redis, Mailpit, and workflow engine.
+- Notification projection now emits `notification.command.v1`, persists notification delivery status transitions, and publishes `notification.result.v1` plus `audit.integration.v1` for verified runtime side effects.
 - OpenAPI contract now includes report triage and evidence endpoints, and generated API models remain the source for request/response DTOs.
-- Local runtime wiring now includes Kafka + MinIO configuration and bucket/bootstrap helpers.
+- Local runtime wiring now includes Kafka, Redis, Mailpit, and MinIO configuration plus bucket/bootstrap helpers.
 
 ## Remaining gaps beyond phase 8
 
@@ -29,14 +31,13 @@ Phase 8 is fully implemented and reverified in this run, including assigned-unit
 
 - `mvn -q spotless:apply` passed.
 - `mvn -q test` passed.
-- `mvn -q -pl sentinel-integration-tests -am "-Dit.test=CaseApiIT,EvidenceApiIT,WorkflowTaskApiIT,WorkflowReconciliationApiIT" verify` passed after the phase 8 MyBatis and unit-scope fixes.
 - `mvn -q -pl sentinel-integration-tests -am verify` passed.
 - `mvn -q verify` passed for the full reactor.
 
 ## Infrastructure status
 
-- Compose definition now includes PostgreSQL, Kafka, MinIO, Keycloak, MinIO bucket bootstrap, and the application container.
-- `.env.example` now includes Kafka bootstrap, outbox cadence, consumer retry, MinIO endpoint, credential, bucket, and presigned URL TTL configuration.
+- Compose definition now includes PostgreSQL, Kafka, Redis, Mailpit, MinIO, Keycloak, MinIO bucket bootstrap, and the application container.
+- `.env.example` now includes Kafka bootstrap, Redis host/port, Mailpit SMTP host/port, notification sender/recipient, outbox cadence, consumer retry, MinIO endpoint, credential, bucket, and presigned URL TTL configuration.
 
 ## Next recommended task
 

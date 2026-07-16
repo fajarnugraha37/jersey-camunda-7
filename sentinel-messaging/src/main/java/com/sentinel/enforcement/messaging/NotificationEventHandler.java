@@ -4,7 +4,10 @@ import com.sentinel.enforcement.application.messaging.ApplicationTransactionMana
 import com.sentinel.enforcement.application.messaging.EventEnvelope;
 import com.sentinel.enforcement.application.messaging.InboxEvent;
 import com.sentinel.enforcement.application.messaging.InboxRepository;
+import com.sentinel.enforcement.application.messaging.MessagingEventFactory;
 import com.sentinel.enforcement.application.messaging.NotificationRecord;
+import com.sentinel.enforcement.application.messaging.NotificationRepository;
+import com.sentinel.enforcement.application.messaging.OutboxRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Map;
@@ -16,18 +19,26 @@ final class NotificationEventHandler {
 
   private final ApplicationTransactionManager transactionManager;
   private final InboxRepository inboxRepository;
-  private final com.sentinel.enforcement.application.messaging.NotificationRepository
-      notificationRepository;
+  private final NotificationRepository notificationRepository;
+  private final OutboxRepository outboxRepository;
+  private final String notificationToEmail;
+  private final String notificationFromEmail;
   private final Clock clock;
 
   NotificationEventHandler(
       ApplicationTransactionManager transactionManager,
       InboxRepository inboxRepository,
-      com.sentinel.enforcement.application.messaging.NotificationRepository notificationRepository,
+      NotificationRepository notificationRepository,
+      OutboxRepository outboxRepository,
+      String notificationToEmail,
+      String notificationFromEmail,
       Clock clock) {
     this.transactionManager = transactionManager;
     this.inboxRepository = inboxRepository;
     this.notificationRepository = notificationRepository;
+    this.outboxRepository = outboxRepository;
+    this.notificationToEmail = notificationToEmail;
+    this.notificationFromEmail = notificationFromEmail;
     this.clock = clock;
   }
 
@@ -52,6 +63,17 @@ final class NotificationEventHandler {
 
           NotificationRecord notification = toNotificationRecord(eventEnvelope, now);
           notificationRepository.save(notification);
+          outboxRepository.enqueue(
+              MessagingEventFactory.notificationCommand(
+                  notification.id(),
+                  notification.caseId(),
+                  notification.notificationType(),
+                  notification.title(),
+                  notification.body(),
+                  notificationToEmail,
+                  notificationFromEmail,
+                  eventEnvelope.correlationId(),
+                  now));
           inboxRepository.completeProcessing(
               CONSUMER_NAME,
               eventEnvelope.eventId(),
@@ -151,6 +173,11 @@ final class NotificationEventHandler {
   }
 
   private String required(Map<String, Object> payload, String key) {
-    return Objects.toString(payload.get(key), null);
+    String value = Objects.toString(payload.get(key), null);
+    if (value == null || value.isBlank()) {
+      throw new IllegalArgumentException(
+          "Notification projection payload is missing required field: " + key);
+    }
+    return value;
   }
 }

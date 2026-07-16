@@ -2544,12 +2544,17 @@ components:
       required:
         - status
         - database
+        - dependencies
         - timestamp
       properties:
         status:
           type: string
         database:
           type: string
+        dependencies:
+          type: object
+          additionalProperties:
+            type: string
         timestamp:
           type: string
           format: date-time

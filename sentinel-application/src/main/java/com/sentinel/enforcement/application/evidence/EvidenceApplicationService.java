@@ -229,27 +229,29 @@ public final class EvidenceApplicationService {
             actor.username(),
             now,
             actor.username());
+    AuditEvent finalizedAuditEvent =
+        auditEvent(
+            actor,
+            caseRecord,
+            evidenceId,
+            "EvidenceVersionFinalized",
+            "EVIDENCE_FINALIZED",
+            "SUCCESS",
+            "Evidence upload finalized.",
+            "evidenceId="
+                + evidenceId
+                + ";version="
+                + evidenceVersion.versionNumber()
+                + ";checksum="
+                + evidenceVersion.sha256Checksum(),
+            command.correlationId(),
+            command.sourceIp(),
+            now);
     transactionManager.required(
         () -> {
           evidenceRepository.finalizeUpload(activatedEvidence, evidenceVersion, finalizedSession);
-          caseRepository.appendAuditEvent(
-              auditEvent(
-                  actor,
-                  caseRecord,
-                  evidenceId,
-                  "EvidenceVersionFinalized",
-                  "EVIDENCE_FINALIZED",
-                  "SUCCESS",
-                  "Evidence upload finalized.",
-                  "evidenceId="
-                      + evidenceId
-                      + ";version="
-                      + evidenceVersion.versionNumber()
-                      + ";checksum="
-                      + evidenceVersion.sha256Checksum(),
-                  command.correlationId(),
-                  command.sourceIp(),
-                  now));
+          caseRepository.appendAuditEvent(finalizedAuditEvent);
+          outboxRepository.enqueue(MessagingEventFactory.auditIntegrated(finalizedAuditEvent, now));
           outboxRepository.enqueue(
               MessagingEventFactory.evidenceVersionFinalized(
                   actor, activatedEvidence, evidenceVersion, command.correlationId(), now));
@@ -291,7 +293,7 @@ public final class EvidenceApplicationService {
       authorizationService.requirePermission(
           actor, Permission.CREATE_EVIDENCE_DOWNLOAD_SESSION, authorizationContext(caseRecord));
     } catch (AuthorizationDeniedException exception) {
-      caseRepository.appendAuditEvent(
+      AuditEvent deniedAuditEvent =
           auditEvent(
               actor,
               caseRecord,
@@ -303,10 +305,16 @@ public final class EvidenceApplicationService {
               "evidenceId=" + evidenceId,
               command.correlationId(),
               command.sourceIp(),
-              now));
+              now);
+      transactionManager.required(
+          () -> {
+            caseRepository.appendAuditEvent(deniedAuditEvent);
+            outboxRepository.enqueue(MessagingEventFactory.auditIntegrated(deniedAuditEvent, now));
+            return null;
+          });
       throw exception;
     }
-    caseRepository.appendAuditEvent(
+    AuditEvent createdAuditEvent =
         auditEvent(
             actor,
             caseRecord,
@@ -318,7 +326,13 @@ public final class EvidenceApplicationService {
             "evidenceId=" + evidenceId + ";version=" + latestVersion.versionNumber(),
             command.correlationId(),
             command.sourceIp(),
-            now));
+            now);
+    transactionManager.required(
+        () -> {
+          caseRepository.appendAuditEvent(createdAuditEvent);
+          outboxRepository.enqueue(MessagingEventFactory.auditIntegrated(createdAuditEvent, now));
+          return null;
+        });
     return new EvidenceDownloadSession(
         evidenceStoragePort.createPresignedDownloadUrl(
             latestVersion.bucket(), latestVersion.objectKey(), downloadUrlTtl),

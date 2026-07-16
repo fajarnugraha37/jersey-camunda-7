@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_1" targetNamespace="https://sentinel.local/workflow">
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_1" targetNamespace="https://sentinel.local/workflow" exporter="Camunda Modeler" exporterVersion="5.39.0">
   <bpmn:process id="regulatoryEnforcementCase" name="Regulatory Enforcement Case" isExecutable="true" camunda:historyTimeToLive="30">
     <bpmn:startEvent id="startEvent" name="Case Created">
       <bpmn:outgoing>Flow_1</bpmn:outgoing>
@@ -12,7 +12,7 @@
       <bpmn:incoming>Flow_2</bpmn:incoming>
       <bpmn:outgoing>Flow_3</bpmn:outgoing>
     </bpmn:userTask>
-    <bpmn:boundaryEvent id="investigationEscalationTimer" name="Investigation Escalation" attachedToRef="investigationTask" cancelActivity="false">
+    <bpmn:boundaryEvent id="investigationEscalationTimer" name="Investigation Escalation" cancelActivity="false" attachedToRef="investigationTask">
       <bpmn:outgoing>Flow_6</bpmn:outgoing>
       <bpmn:timerEventDefinition>
         <bpmn:timeDuration>${investigationEscalationDuration}</bpmn:timeDuration>
@@ -55,9 +55,6 @@
       <bpmndi:BPMNShape id="InvestigationTaskShape" bpmnElement="investigationTask">
         <dc:Bounds x="400" y="110" width="100" height="80" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="TimerShape" bpmnElement="investigationEscalationTimer">
-        <dc:Bounds x="432" y="192" width="36" height="36" />
-      </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="EscalationServiceTaskShape" bpmnElement="recordInvestigationEscalation">
         <dc:Bounds x="560" y="170" width="100" height="80" />
       </bpmndi:BPMNShape>
@@ -72,6 +69,9 @@
       </bpmndi:BPMNShape>
       <bpmndi:BPMNShape id="DecisionEndShape" bpmnElement="decisionCompleted">
         <dc:Bounds x="872" y="132" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="TimerShape" bpmnElement="investigationEscalationTimer">
+        <dc:Bounds x="432" y="192" width="36" height="36" />
       </bpmndi:BPMNShape>
       <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1">
         <di:waypoint x="188" y="150" />

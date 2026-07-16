@@ -3,6 +3,9 @@ package com.sentinel.enforcement.application.workflow;
 import com.sentinel.enforcement.application.casefile.CaseNotFoundException;
 import com.sentinel.enforcement.application.casefile.CaseRepository;
 import com.sentinel.enforcement.application.casefile.SortDirection;
+import com.sentinel.enforcement.application.messaging.ApplicationTransactionManager;
+import com.sentinel.enforcement.application.messaging.MessagingEventFactory;
+import com.sentinel.enforcement.application.messaging.OutboxRepository;
 import com.sentinel.enforcement.application.security.ApplicationActor;
 import com.sentinel.enforcement.application.security.AuthorizationContext;
 import com.sentinel.enforcement.application.security.AuthorizationService;
@@ -29,24 +32,30 @@ public final class WorkflowReconciliationApplicationService {
       Set.of(CaseStatus.DECIDED, CaseStatus.CLOSED, CaseStatus.CANCELLED);
 
   private final AuthorizationService authorizationService;
+  private final ApplicationTransactionManager transactionManager;
   private final WorkflowReconciliationQueryPort reconciliationQueryPort;
   private final WorkflowAdministrationPort workflowAdministrationPort;
   private final WorkflowInstanceStore workflowInstanceStore;
   private final CaseRepository caseRepository;
+  private final OutboxRepository outboxRepository;
   private final Clock clock;
 
   public WorkflowReconciliationApplicationService(
       AuthorizationService authorizationService,
+      ApplicationTransactionManager transactionManager,
       WorkflowReconciliationQueryPort reconciliationQueryPort,
       WorkflowAdministrationPort workflowAdministrationPort,
       WorkflowInstanceStore workflowInstanceStore,
       CaseRepository caseRepository,
+      OutboxRepository outboxRepository,
       Clock clock) {
     this.authorizationService = authorizationService;
+    this.transactionManager = transactionManager;
     this.reconciliationQueryPort = reconciliationQueryPort;
     this.workflowAdministrationPort = workflowAdministrationPort;
     this.workflowInstanceStore = workflowInstanceStore;
     this.caseRepository = caseRepository;
+    this.outboxRepository = outboxRepository;
     this.clock = clock;
   }
 
@@ -127,8 +136,7 @@ public final class WorkflowReconciliationApplicationService {
               runtimeSnapshot.processDefinitionVersion(),
               runtimeSnapshot.businessKey(),
               "ACTIVE");
-      workflowInstanceStore.upsert(activeCorrelation, now);
-      appendAuditEvent(actor, candidate, command, now, "AUTO_REPAIR", "ACTIVE");
+      persistRepair(actor, candidate, command, now, "AUTO_REPAIR", "ACTIVE", activeCorrelation);
       return new WorkflowReconciliationActionResult(
           candidate.caseId(),
           command.action(),
@@ -147,16 +155,20 @@ public final class WorkflowReconciliationApplicationService {
       if (historicSnapshot != null) {
         String repairedStatus =
             candidate.caseStatus() == CaseStatus.CANCELLED ? "CANCELLED" : "COMPLETED";
-        workflowInstanceStore.upsert(
+        persistRepair(
+            actor,
+            candidate,
+            command,
+            now,
+            "AUTO_REPAIR",
+            repairedStatus,
             new WorkflowInstanceCorrelation(
                 candidate.caseId(),
                 historicSnapshot.processInstanceId(),
                 historicSnapshot.processDefinitionId(),
                 historicSnapshot.processDefinitionVersion(),
                 historicSnapshot.businessKey(),
-                repairedStatus),
-            now);
-        appendAuditEvent(actor, candidate, command, now, "AUTO_REPAIR", repairedStatus);
+                repairedStatus));
         return new WorkflowReconciliationActionResult(
             candidate.caseId(),
             command.action(),
@@ -198,16 +210,20 @@ public final class WorkflowReconciliationApplicationService {
     workflowAdministrationPort.terminateActiveProcessInstance(candidate.caseId(), command.reason());
     String repairedStatus =
         candidate.caseStatus() == CaseStatus.CANCELLED ? "CANCELLED" : "COMPLETED";
-    workflowInstanceStore.upsert(
+    persistRepair(
+        actor,
+        candidate,
+        command,
+        now,
+        "TERMINATE_RUNTIME",
+        repairedStatus,
         new WorkflowInstanceCorrelation(
             candidate.caseId(),
             runtimeSnapshot.processInstanceId(),
             runtimeSnapshot.processDefinitionId(),
             runtimeSnapshot.processDefinitionVersion(),
             runtimeSnapshot.businessKey(),
-            repairedStatus),
-        now);
-    appendAuditEvent(actor, candidate, command, now, "TERMINATE_RUNTIME", repairedStatus);
+            repairedStatus));
     return new WorkflowReconciliationActionResult(
         candidate.caseId(),
         command.action(),
@@ -500,7 +516,7 @@ public final class WorkflowReconciliationApplicationService {
       Instant now,
       String action,
       String resultingStatus) {
-    caseRepository.appendAuditEvent(
+    AuditEvent auditEvent =
         new AuditEvent(
             UUID.randomUUID(),
             "WorkflowReconciliationPerformed",
@@ -523,7 +539,25 @@ public final class WorkflowReconciliationApplicationService {
                     + ":"
                     + candidate.workflowInstanceCorrelation().processInstanceId(),
             "workflowCorrelation=" + resultingStatus,
-            "issueType=" + candidate.caseStatus() + ";action=" + action));
+            "issueType=" + candidate.caseStatus() + ";action=" + action);
+    caseRepository.appendAuditEvent(auditEvent);
+    outboxRepository.enqueue(MessagingEventFactory.auditIntegrated(auditEvent, now));
+  }
+
+  private void persistRepair(
+      ApplicationActor actor,
+      WorkflowReconciliationCandidate candidate,
+      WorkflowReconciliationActionCommand command,
+      Instant now,
+      String action,
+      String resultingStatus,
+      WorkflowInstanceCorrelation correlation) {
+    transactionManager.required(
+        () -> {
+          workflowInstanceStore.upsert(correlation, now);
+          appendAuditEvent(actor, candidate, command, now, action, resultingStatus);
+          return null;
+        });
   }
 
   private static boolean contains(String value, String pattern) {

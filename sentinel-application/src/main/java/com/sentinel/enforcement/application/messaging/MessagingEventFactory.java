@@ -3,6 +3,7 @@ package com.sentinel.enforcement.application.messaging;
 import com.sentinel.enforcement.application.security.ApplicationActor;
 import com.sentinel.enforcement.domain.appeal.Appeal;
 import com.sentinel.enforcement.domain.appeal.AppealDecision;
+import com.sentinel.enforcement.domain.casefile.AuditEvent;
 import com.sentinel.enforcement.domain.casefile.CaseRecord;
 import com.sentinel.enforcement.domain.casefile.CaseStatus;
 import com.sentinel.enforcement.domain.decision.Decision;
@@ -223,6 +224,93 @@ public final class MessagingEventFactory {
         now);
   }
 
+  public static OutboxEvent notificationCommand(
+      UUID notificationId,
+      UUID caseId,
+      String notificationType,
+      String title,
+      String body,
+      String toEmail,
+      String fromEmail,
+      String correlationId,
+      Instant now) {
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("notificationId", notificationId.toString());
+    payload.put("caseId", caseId == null ? null : caseId.toString());
+    payload.put("notificationType", notificationType);
+    payload.put("title", title);
+    payload.put("body", body);
+    payload.put("toEmail", toEmail);
+    payload.put("fromEmail", fromEmail);
+    payload.put("channel", "EMAIL");
+    return systemOutboxEvent(
+        MessagingTopics.NOTIFICATION_COMMAND,
+        "NotificationDispatchRequested",
+        "Notification",
+        notificationId,
+        notificationId.toString(),
+        correlationId,
+        payload,
+        now,
+        "notification-projection-consumer");
+  }
+
+  public static OutboxEvent notificationResult(
+      UUID notificationId,
+      UUID caseId,
+      String notificationType,
+      String deliveryStatus,
+      String toEmail,
+      String correlationId,
+      String errorDetail,
+      Instant now) {
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("notificationId", notificationId.toString());
+    payload.put("caseId", caseId == null ? null : caseId.toString());
+    payload.put("notificationType", notificationType);
+    payload.put("deliveryStatus", deliveryStatus);
+    payload.put("toEmail", toEmail);
+    payload.put("errorDetail", errorDetail);
+    return systemOutboxEvent(
+        MessagingTopics.NOTIFICATION_RESULT,
+        "FAILED".equals(deliveryStatus) ? "NotificationDispatchFailed" : "NotificationDispatched",
+        "Notification",
+        notificationId,
+        notificationId.toString(),
+        correlationId,
+        payload,
+        now,
+        "notification-command-consumer");
+  }
+
+  public static OutboxEvent auditIntegrated(AuditEvent auditEvent, Instant now) {
+    Map<String, Object> payload = new LinkedHashMap<>();
+    payload.put("auditEventType", auditEvent.eventType());
+    payload.put("actorRoles", auditEvent.actorRoles());
+    payload.put("action", auditEvent.action());
+    payload.put("resourceType", auditEvent.resourceType());
+    payload.put("resourceId", auditEvent.resourceId());
+    payload.put("caseId", auditEvent.caseId().toString());
+    payload.put("timestamp", auditEvent.timestamp().toString());
+    payload.put("sourceIp", auditEvent.sourceIp());
+    payload.put("result", auditEvent.result());
+    payload.put("reason", auditEvent.reason());
+    payload.put("beforeSummary", auditEvent.beforeSummary());
+    payload.put("afterSummary", auditEvent.afterSummary());
+    payload.put("metadata", auditEvent.metadata());
+    return systemOutboxEvent(
+        MessagingTopics.AUDIT_INTEGRATION,
+        "AuditIntegrated",
+        "AuditEvent",
+        auditEvent.eventId(),
+        auditEvent.caseId().toString(),
+        auditEvent.correlationId(),
+        payload,
+        now,
+        auditEvent.actorId(),
+        auditEvent.actorType());
+  }
+
   private static OutboxEvent outboxEvent(
       ApplicationActor actor,
       String topic,
@@ -245,7 +333,7 @@ public final class MessagingEventFactory {
             correlationId,
             null,
             new EventActor("USER", actor.username()),
-            Map.copyOf(payload));
+            immutablePayload(payload));
     return new OutboxEvent(
         eventId,
         topic,
@@ -263,5 +351,81 @@ public final class MessagingEventFactory {
         now,
         actor.username(),
         0L);
+  }
+
+  private static OutboxEvent systemOutboxEvent(
+      String topic,
+      String eventType,
+      String aggregateType,
+      UUID aggregateId,
+      String messageKey,
+      String correlationId,
+      Map<String, Object> payload,
+      Instant now,
+      String actorId) {
+    return systemOutboxEvent(
+        topic,
+        eventType,
+        aggregateType,
+        aggregateId,
+        messageKey,
+        correlationId,
+        payload,
+        now,
+        actorId,
+        "SYSTEM");
+  }
+
+  private static OutboxEvent systemOutboxEvent(
+      String topic,
+      String eventType,
+      String aggregateType,
+      UUID aggregateId,
+      String messageKey,
+      String correlationId,
+      Map<String, Object> payload,
+      Instant now,
+      String actorId,
+      String actorType) {
+    UUID eventId = UUID.randomUUID();
+    EventEnvelope envelope =
+        new EventEnvelope(
+            eventId,
+            eventType,
+            1,
+            aggregateType,
+            aggregateId,
+            now,
+            correlationId,
+            null,
+            new EventActor(actorType, actorId),
+            immutablePayload(payload));
+    return new OutboxEvent(
+        eventId,
+        topic,
+        messageKey,
+        envelope,
+        "PENDING",
+        now,
+        null,
+        null,
+        0,
+        null,
+        null,
+        now,
+        actorId,
+        now,
+        actorId,
+        0L);
+  }
+
+  private static Map<String, Object> immutablePayload(Map<String, Object> payload) {
+    Map<String, Object> sanitized = new LinkedHashMap<>();
+    for (Map.Entry<String, Object> entry : payload.entrySet()) {
+      if (entry.getValue() != null) {
+        sanitized.put(entry.getKey(), entry.getValue());
+      }
+    }
+    return Map.copyOf(sanitized);
   }
 }

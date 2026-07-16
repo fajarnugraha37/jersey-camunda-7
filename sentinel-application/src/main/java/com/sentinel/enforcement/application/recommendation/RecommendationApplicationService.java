@@ -3,6 +3,8 @@ package com.sentinel.enforcement.application.recommendation;
 import com.sentinel.enforcement.application.casefile.CaseNotFoundException;
 import com.sentinel.enforcement.application.casefile.CaseRepository;
 import com.sentinel.enforcement.application.messaging.ApplicationTransactionManager;
+import com.sentinel.enforcement.application.messaging.MessagingEventFactory;
+import com.sentinel.enforcement.application.messaging.OutboxRepository;
 import com.sentinel.enforcement.application.security.ApplicationActor;
 import com.sentinel.enforcement.application.security.AuthorizationContext;
 import com.sentinel.enforcement.application.security.AuthorizationDeniedException;
@@ -28,6 +30,7 @@ public final class RecommendationApplicationService {
   private final ApplicationTransactionManager transactionManager;
   private final CaseRepository caseRepository;
   private final RecommendationRepository recommendationRepository;
+  private final OutboxRepository outboxRepository;
   private final Clock clock;
 
   public RecommendationApplicationService(
@@ -35,11 +38,13 @@ public final class RecommendationApplicationService {
       ApplicationTransactionManager transactionManager,
       CaseRepository caseRepository,
       RecommendationRepository recommendationRepository,
+      OutboxRepository outboxRepository,
       Clock clock) {
     this.authorizationService = authorizationService;
     this.transactionManager = transactionManager;
     this.caseRepository = caseRepository;
     this.recommendationRepository = recommendationRepository;
+    this.outboxRepository = outboxRepository;
     this.clock = clock;
   }
 
@@ -92,6 +97,7 @@ public final class RecommendationApplicationService {
         () -> {
           recommendationRepository.save(recommendation);
           caseRepository.appendAuditEvent(auditEvent);
+          outboxRepository.enqueue(MessagingEventFactory.auditIntegrated(auditEvent, now));
           return null;
         });
     return recommendation;
@@ -133,6 +139,8 @@ public final class RecommendationApplicationService {
         () -> {
           recommendationRepository.submit(updated);
           caseRepository.appendAuditEvent(auditEvent);
+          outboxRepository.enqueue(
+              MessagingEventFactory.auditIntegrated(auditEvent, auditEvent.timestamp()));
           return null;
         });
     return updated;
@@ -188,6 +196,7 @@ public final class RecommendationApplicationService {
         () -> {
           recommendationRepository.approve(updated, review);
           caseRepository.appendAuditEvent(auditEvent);
+          outboxRepository.enqueue(MessagingEventFactory.auditIntegrated(auditEvent, now));
           return null;
         });
     return updated;

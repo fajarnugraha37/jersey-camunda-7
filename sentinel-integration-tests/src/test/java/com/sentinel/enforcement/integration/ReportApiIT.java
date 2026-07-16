@@ -2,6 +2,7 @@ package com.sentinel.enforcement.integration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.sentinel.enforcement.api.generated.model.CreateReportRequest;
 import com.sentinel.enforcement.api.generated.model.ErrorResponse;
@@ -154,6 +155,12 @@ class ReportApiIT extends AbstractApiIT {
 
     assertEquals("UP", response.getStatus());
     assertEquals("UP", response.getDatabase());
+    assertEquals("UP", response.getDependencies().get("database"));
+    assertEquals("UP", response.getDependencies().get("kafka"));
+    assertEquals("UP", response.getDependencies().get("redis"));
+    assertEquals("UP", response.getDependencies().get("mailpit"));
+    assertEquals("UP", response.getDependencies().get("workflow"));
+    assertTrue(response.getDependencies().size() >= 5);
     assertNotNull(response.getTimestamp());
   }
 }

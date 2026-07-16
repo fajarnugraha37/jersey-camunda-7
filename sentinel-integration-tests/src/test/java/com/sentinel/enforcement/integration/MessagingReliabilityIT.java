@@ -64,6 +64,54 @@ class MessagingReliabilityIT extends AbstractApiIT {
                     createdCase.getId())
                 == 1L,
         Duration.ofSeconds(45));
+    awaitCondition(
+        () ->
+            queryForLong(
+                    "SELECT COUNT(*) FROM notification WHERE case_id = ? AND notification_type = 'CaseCreated' AND status = 'SENT'",
+                    createdCase.getId())
+                == 1L,
+        Duration.ofSeconds(45));
+    awaitCondition(
+        () ->
+            queryForLong(
+                    """
+                    SELECT COUNT(*)
+                    FROM outbox_event
+                    WHERE topic = 'notification.command.v1'
+                      AND status = 'PUBLISHED'
+                      AND payload_json ->> 'caseId' = ?
+                    """,
+                    createdCase.getId().toString())
+                == 1L,
+        Duration.ofSeconds(45));
+    awaitCondition(
+        () ->
+            queryForLong(
+                    """
+                    SELECT COUNT(*)
+                    FROM outbox_event
+                    WHERE topic = 'notification.result.v1'
+                      AND status = 'PUBLISHED'
+                      AND payload_json ->> 'caseId' = ?
+                      AND payload_json ->> 'deliveryStatus' = 'SENT'
+                    """,
+                    createdCase.getId().toString())
+                == 1L,
+        Duration.ofSeconds(45));
+    awaitCondition(
+        () ->
+            queryForLong(
+                    """
+                    SELECT COUNT(*)
+                    FROM outbox_event
+                    WHERE topic = 'audit.integration.v1'
+                      AND status = 'PUBLISHED'
+                      AND payload_json ->> 'caseId' = ?
+                      AND payload_json ->> 'auditEventType' = 'CaseCreated'
+                    """,
+                    createdCase.getId().toString())
+                == 1L,
+        Duration.ofSeconds(45));
   }
 
   @Test

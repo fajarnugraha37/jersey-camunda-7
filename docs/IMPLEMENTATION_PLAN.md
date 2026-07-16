@@ -11,6 +11,7 @@
 - `make compile` succeeds.
 - `make unit-test` succeeds.
 - `make integration-test` succeeds with PostgreSQL + Keycloak + MinIO Testcontainers.
+- `GET /health` returns `UP` plus dependency statuses for database, Kafka, Redis, Mailpit, and workflow.
 - `POST /api/v1/reports` persists a report and returns `201` for an authorized intake officer.
 - `GET /api/v1/reports/{reportId}` returns the persisted report for an authorized actor.
 - `POST /api/v1/reports/{reportId}/triage` transitions the report to `TRIAGED` with optimistic locking.
@@ -30,6 +31,8 @@
 - Domain writes that emit messaging side effects persist `outbox_event` rows in the same transaction as the business change.
 - Kafka outage does not roll back successful business commits for case/evidence writes; pending outbox rows remain retryable.
 - Duplicate event delivery results in at most one notification side effect because `inbox_event` enforces consumer idempotency.
+- Notification command dispatch records `SENT` or `FAILED` status and publishes a corresponding `notification.result.v1` event.
+- Audit-producing domain writes publish `audit.integration.v1` without weakening append-only database audit behavior.
 - Case and workflow authorization enforce jurisdiction, direct assignment, assigned unit, classification clearance, and conflict-of-interest checks consistently.
 - `GET /api/v1/cases` accepts classification-aware list filtering without breaking cursor scope validation.
 - Missing token returns `401`.
@@ -40,4 +43,4 @@
 
 ## Current status
 
-All phase 0-8 acceptance criteria remain implemented, and the post-change verification loop is complete in this run. The phase 8 regression loop uncovered and fixed two real defects before the final green run: a malformed MyBatis dynamic SQL branch in case listing and stale integration-test unit identifiers that no longer matched the new assigned-unit authorization model.
+All phase 0-8 acceptance criteria remain implemented, and the post-change verification loop is complete in this run. The latest hardening loop uncovered and fixed three real defects before the final green run: a malformed MyBatis dynamic SQL branch in case listing, stale integration-test unit identifiers that no longer matched the new assigned-unit authorization model, and an invalid sample `notification.command.v1` Makefile payload that did not match the runtime contract.

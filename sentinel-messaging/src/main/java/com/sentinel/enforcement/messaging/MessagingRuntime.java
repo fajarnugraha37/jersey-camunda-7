@@ -68,13 +68,29 @@ public final class MessagingRuntime implements AutoCloseable {
             configuration.outboxBatchSize());
     NotificationEventHandler notificationEventHandler =
         new NotificationEventHandler(
-            transactionManager, inboxRepository, notificationRepository, clock);
+            transactionManager,
+            inboxRepository,
+            notificationRepository,
+            outboxRepository,
+            configuration.notificationToEmail(),
+            configuration.notificationFromEmail(),
+            clock);
+    NotificationCommandHandler notificationCommandHandler =
+        new NotificationCommandHandler(
+            transactionManager,
+            inboxRepository,
+            notificationRepository,
+            outboxRepository,
+            new NotificationEmailSender(
+                configuration.mailpitSmtpHost(), configuration.mailpitSmtpPort()),
+            clock);
     KafkaNotificationConsumer notificationConsumer =
         new KafkaNotificationConsumer(
             consumer,
             producer,
             codec,
             notificationEventHandler,
+            notificationCommandHandler,
             configuration.notificationMaxRetries());
 
     Thread outboxThread =
@@ -168,12 +184,11 @@ public final class MessagingRuntime implements AutoCloseable {
       topics.add(topic + ".retry");
       topics.add(topic + ".dlq");
     }
-    topics.add(MessagingTopics.NOTIFICATION_COMMAND);
-    topics.add(MessagingTopics.NOTIFICATION_COMMAND + ".retry");
-    topics.add(MessagingTopics.NOTIFICATION_COMMAND + ".dlq");
-    topics.add(MessagingTopics.NOTIFICATION_RESULT);
-    topics.add(MessagingTopics.NOTIFICATION_RESULT + ".retry");
-    topics.add(MessagingTopics.NOTIFICATION_RESULT + ".dlq");
+    for (String topic : MessagingTopics.integrationTopics()) {
+      topics.add(topic);
+      topics.add(topic + ".retry");
+      topics.add(topic + ".dlq");
+    }
     return List.copyOf(topics);
   }
 

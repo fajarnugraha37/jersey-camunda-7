@@ -60,6 +60,12 @@ import com.sentinel.enforcement.application.workflow.WorkflowReconciliationAppli
 import com.sentinel.enforcement.application.workflow.WorkflowTaskApplicationService;
 import com.sentinel.enforcement.messaging.MessagingRuntime;
 import com.sentinel.enforcement.messaging.MessagingRuntimeConfiguration;
+import com.sentinel.enforcement.observability.CompositeHealthStatusService;
+import com.sentinel.enforcement.observability.DatabaseDependencyHealthCheck;
+import com.sentinel.enforcement.observability.InMemoryMetricsRecorder;
+import com.sentinel.enforcement.observability.RequestMetricsFilter;
+import com.sentinel.enforcement.observability.SocketDependencyHealthCheck;
+import com.sentinel.enforcement.observability.WorkflowDependencyHealthCheck;
 import com.sentinel.enforcement.persistence.MyBatisTransactionManager;
 import com.sentinel.enforcement.persistence.PersistenceModule;
 import com.sentinel.enforcement.persistence.appeal.AppealRepositoryMyBatisAdapter;
@@ -84,6 +90,8 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import java.net.URI;
 import java.time.Clock;
+import java.time.Duration;
+import java.util.List;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.glassfish.grizzly.http.server.HttpServer;
 import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpServerFactory;
@@ -201,6 +209,7 @@ public final class ApplicationRuntime implements AutoCloseable {
               transactionManager,
               caseRepository,
               recommendationRepository,
+              outboxRepository,
               clock);
       DecisionApplicationService decisionApplicationService =
           new DecisionApplicationService(
@@ -234,18 +243,43 @@ public final class ApplicationRuntime implements AutoCloseable {
       WorkflowReconciliationApplicationService workflowReconciliationApplicationService =
           new WorkflowReconciliationApplicationService(
               authorizationService,
+              transactionManager,
               workflowReconciliationQueryPort,
               workflowRuntime.workflowAdministrationPort(),
               workflowInstanceStore,
               caseRepository,
+              outboxRepository,
               clock);
       HealthStatusService healthStatusService =
-          new WorkflowAwareHealthStatusService(
-              new DatabaseHealthService(dataSource, clock), workflowRuntime, clock);
+          new CompositeHealthStatusService(
+              List.of(
+                  new DatabaseDependencyHealthCheck(dataSource),
+                  new SocketDependencyHealthCheck(
+                      "kafka",
+                      bootstrapHost(configuration.kafkaBootstrapServers()),
+                      bootstrapPort(configuration.kafkaBootstrapServers()),
+                      Duration.ofSeconds(2)),
+                  new SocketDependencyHealthCheck(
+                      "redis",
+                      configuration.redisHost(),
+                      configuration.redisPort(),
+                      Duration.ofSeconds(2)),
+                  new SocketDependencyHealthCheck(
+                      "mailpit",
+                      configuration.mailpitSmtpHost(),
+                      configuration.mailpitSmtpPort(),
+                      Duration.ofSeconds(2)),
+                  new WorkflowDependencyHealthCheck(workflowRuntime::isReady)),
+              clock);
+      InMemoryMetricsRecorder metricsRecorder = new InMemoryMetricsRecorder();
       messagingRuntime =
           MessagingRuntime.start(
               new MessagingRuntimeConfiguration(
                   configuration.kafkaBootstrapServers(),
+                  configuration.mailpitSmtpHost(),
+                  configuration.mailpitSmtpPort(),
+                  configuration.notificationFromEmail(),
+                  configuration.notificationToEmail(),
                   configuration.appInstanceId(),
                   configuration.outboxPollInterval(),
                   configuration.outboxLeaseDuration(),
@@ -273,6 +307,7 @@ public final class ApplicationRuntime implements AutoCloseable {
                       reportApplicationService,
                       authorizationService,
                       tokenVerifier))
+              .register(new RequestMetricsFilter(metricsRecorder))
               .register(JacksonFeature.class)
               .register(ObjectMapperContextResolver.class)
               .register(CorrelationIdFilter.class)
@@ -391,5 +426,27 @@ public final class ApplicationRuntime implements AutoCloseable {
     hikariConfig.addDataSourceProperty("socketTimeout", "30");
     hikariConfig.setPoolName("sentinel-hikari");
     return new HikariDataSource(hikariConfig);
+  }
+
+  private static String bootstrapHost(String bootstrapServers) {
+    String firstServer = bootstrapServers.split(",", 2)[0].trim();
+    int separatorIndex = firstServer.lastIndexOf(':');
+    if (separatorIndex <= 0 || separatorIndex == firstServer.length() - 1) {
+      throw new IllegalArgumentException(
+          "KAFKA_BOOTSTRAP_SERVERS must contain host:port entries. Actual value: "
+              + bootstrapServers);
+    }
+    return firstServer.substring(0, separatorIndex);
+  }
+
+  private static int bootstrapPort(String bootstrapServers) {
+    String firstServer = bootstrapServers.split(",", 2)[0].trim();
+    int separatorIndex = firstServer.lastIndexOf(':');
+    if (separatorIndex <= 0 || separatorIndex == firstServer.length() - 1) {
+      throw new IllegalArgumentException(
+          "KAFKA_BOOTSTRAP_SERVERS must contain host:port entries. Actual value: "
+              + bootstrapServers);
+    }
+    return Integer.parseInt(firstServer.substring(separatorIndex + 1));
   }
 }

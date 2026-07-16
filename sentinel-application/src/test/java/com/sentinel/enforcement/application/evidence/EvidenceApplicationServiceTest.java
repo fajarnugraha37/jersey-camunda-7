@@ -311,8 +311,9 @@ class EvidenceApplicationServiceTest {
 
     assertEquals(1, finalized.latestVersion().versionNumber());
     assertEquals(1, caseRepository.auditEvents.size());
-    assertEquals(1, outboxRepository.events.size());
-    assertEquals("EvidenceVersionFinalized", outboxRepository.events.get(0).envelope().eventType());
+    assertEquals(2, outboxRepository.events.size());
+    assertEquals("AuditIntegrated", outboxRepository.events.get(0).envelope().eventType());
+    assertEquals("EvidenceVersionFinalized", outboxRepository.events.get(1).envelope().eventType());
   }
 
   private static CaseRecord sampleCase(String assigneeUserId) {

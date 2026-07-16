@@ -18,6 +18,7 @@
     <module>sentinel-storage</module>
     <module>sentinel-workflow</module>
     <module>sentinel-security</module>
+    <module>sentinel-observability</module>
     <module>sentinel-bootstrap</module>
     <module>sentinel-integration-tests</module>
   </modules>

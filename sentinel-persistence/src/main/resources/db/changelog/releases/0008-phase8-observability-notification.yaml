@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0008-notification-status-expansion
+      author: codex
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE notification DROP CONSTRAINT IF EXISTS ck_notification_status;
+              ALTER TABLE notification
+                ADD CONSTRAINT ck_notification_status
+                  CHECK (status IN ('GENERATED', 'SENT', 'FAILED'));
+      rollback:
+        - sql:
+            sql: |
+              ALTER TABLE notification DROP CONSTRAINT IF EXISTS ck_notification_status;
+              ALTER TABLE notification
+                ADD CONSTRAINT ck_notification_status
+                  CHECK (status IN ('GENERATED'));

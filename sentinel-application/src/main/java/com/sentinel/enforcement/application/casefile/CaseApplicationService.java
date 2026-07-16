@@ -141,6 +141,7 @@ public final class CaseApplicationService {
       transactionManager.required(
           () -> {
             caseRepository.save(caseRecord, historyEntry, auditEvent);
+            outboxRepository.enqueue(MessagingEventFactory.auditIntegrated(auditEvent, now));
             outboxRepository.enqueue(
                 MessagingEventFactory.caseCreated(actor, caseRecord, command.correlationId(), now));
             return null;
@@ -267,6 +268,7 @@ public final class CaseApplicationService {
     transactionManager.required(
         () -> {
           caseRepository.assign(updated, assignment, auditEvent);
+          outboxRepository.enqueue(MessagingEventFactory.auditIntegrated(auditEvent, now));
           outboxRepository.enqueue(
               MessagingEventFactory.caseAssigned(
                   actor, updated, command.reason(), command.correlationId(), now));
@@ -318,6 +320,7 @@ public final class CaseApplicationService {
     transactionManager.required(
         () -> {
           caseRepository.transition(updated, historyEntry, auditEvent);
+          outboxRepository.enqueue(MessagingEventFactory.auditIntegrated(auditEvent, now));
           outboxRepository.enqueue(
               MessagingEventFactory.caseTransitioned(
                   actor,

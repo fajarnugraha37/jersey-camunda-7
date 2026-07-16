@@ -20,6 +20,14 @@ class ApplicationRuntimeSchemaLifecycleIT {
   void applicationStartupRequiresMigrationToRunFirst() {
     try (PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:18.3-alpine");
         AbstractApiIT.FixedPortKafkaContainer kafka = new AbstractApiIT.FixedPortKafkaContainer();
+        GenericContainer<?> redis =
+            new GenericContainer<>("redis:7.2.7-alpine")
+                .withExposedPorts(6379)
+                .waitingFor(Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(2)));
+        GenericContainer<?> mailpit =
+            new GenericContainer<>("axllent/mailpit:latest")
+                .withExposedPorts(1025, 8025)
+                .waitingFor(Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(2)));
         GenericContainer<?> keycloak =
             new GenericContainer<>("quay.io/keycloak/keycloak:26.6")
                 .withExposedPorts(8080, 9000)
@@ -49,6 +57,8 @@ class ApplicationRuntimeSchemaLifecycleIT {
                         .withStartupTimeout(Duration.ofMinutes(2)))) {
       postgres.start();
       kafka.start();
+      redis.start();
+      mailpit.start();
       keycloak.start();
       minio.start();
 
@@ -61,6 +71,17 @@ class ApplicationRuntimeSchemaLifecycleIT {
                   Map.entry("DB_PASSWORD", postgres.getPassword()),
                   Map.entry("KAFKA_BOOTSTRAP_SERVERS", AbstractApiIT.kafkaBootstrapServers()),
                   Map.entry("APP_INSTANCE_ID", "schema-lifecycle-it"),
+                  Map.entry("OUTBOX_POLL_INTERVAL", "PT1S"),
+                  Map.entry("OUTBOX_LEASE_DURATION", "PT10S"),
+                  Map.entry("OUTBOX_BATCH_SIZE", "10"),
+                  Map.entry("NOTIFICATION_CONSUMER_GROUP_ID", "schema-lifecycle-it"),
+                  Map.entry("NOTIFICATION_MAX_RETRIES", "2"),
+                  Map.entry("REDIS_HOST", redis.getHost()),
+                  Map.entry("REDIS_PORT", Integer.toString(redis.getMappedPort(6379))),
+                  Map.entry("MAILPIT_SMTP_HOST", mailpit.getHost()),
+                  Map.entry("MAILPIT_SMTP_PORT", Integer.toString(mailpit.getMappedPort(1025))),
+                  Map.entry("NOTIFICATION_FROM_EMAIL", "schema-it@local.test"),
+                  Map.entry("NOTIFICATION_TO_EMAIL", "ops-schema-it@local.test"),
                   Map.entry("MINIO_ENDPOINT", "http://127.0.0.1:" + minio.getMappedPort(9000)),
                   Map.entry("MINIO_ACCESS_KEY", "sentinel"),
                   Map.entry("MINIO_SECRET_KEY", "sentinel-secret"),

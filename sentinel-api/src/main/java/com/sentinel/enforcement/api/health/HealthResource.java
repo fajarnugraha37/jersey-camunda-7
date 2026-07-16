@@ -34,6 +34,7 @@ public final class HealthResource {
             new HealthResponse(
                 status.healthy() ? "UP" : "DOWN",
                 status.database(),
+                status.dependencies(),
                 OffsetDateTime.ofInstant(status.timestamp(), ZoneOffset.UTC)))
         .build();
   }

@@ -11,6 +11,7 @@ public final class MessagingTopics {
   public static final String APPEAL_LIFECYCLE = "appeal.lifecycle.v1";
   public static final String NOTIFICATION_COMMAND = "notification.command.v1";
   public static final String NOTIFICATION_RESULT = "notification.result.v1";
+  public static final String AUDIT_INTEGRATION = "audit.integration.v1";
 
   private MessagingTopics() {}
 
@@ -32,5 +33,9 @@ public final class MessagingTopics {
         DECISION_LIFECYCLE,
         SANCTION_LIFECYCLE,
         APPEAL_LIFECYCLE);
+  }
+
+  public static List<String> integrationTopics() {
+    return List.of(NOTIFICATION_COMMAND, NOTIFICATION_RESULT, AUDIT_INTEGRATION);
   }
 }

@@ -11,6 +11,7 @@ Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory
   - `sentinel-api`
   - `sentinel-persistence`
   - `sentinel-messaging`
+  - `sentinel-observability`
   - `sentinel-storage`
   - `sentinel-workflow`
   - `sentinel-security`
@@ -22,6 +23,7 @@ Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory
   - `sentinel-domain` memegang aggregate, transition rule, dan invariant.
   - `sentinel-persistence` memegang MyBatis adapter dan Liquibase changelog.
   - `sentinel-messaging` memegang Kafka publisher/consumer runtime, outbox polling, retry, dan dead-letter routing.
+  - `sentinel-observability` memegang correlation context, request metrics, dan dependency health composition.
   - `sentinel-storage` memegang adapter MinIO untuk evidence storage.
   - `sentinel-workflow` memegang embedded Camunda runtime, BPMN deployment, task query adapter, dan workflow correlation.
   - `sentinel-security` memegang JWT verification Keycloak dan authorization berbasis role, jurisdiction, assigned unit, classification clearance, direct assignment, dan conflict-of-interest.
@@ -57,7 +59,7 @@ Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory
 
 1. Copy `.env.example` menjadi `.env` bila ingin override default local config.
 2. Jalankan `make bootstrap`.
-3. Jalankan `make up` untuk menyalakan PostgreSQL, Kafka, MinIO, Keycloak, dan bootstrap bucket MinIO.
+3. Jalankan `make up` untuk menyalakan PostgreSQL, Kafka, Redis, Mailpit, MinIO, Keycloak, dan bootstrap bucket MinIO.
 4. Jalankan `make migrate` untuk menjalankan migration aplikasi + schema Camunda official, lalu start aplikasi.
 5. Jalankan `make seed` bila ingin mengulang bootstrap helper yang idempotent.
 6. Jalankan `make smoke-test`.
@@ -115,9 +117,16 @@ Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory
   - `case.lifecycle.v1`
   - `case.assignment.v1`
   - `evidence.lifecycle.v1`
+  - `decision.lifecycle.v1`
+  - `sanction.lifecycle.v1`
+  - `appeal.lifecycle.v1`
+  - `notification.command.v1`
+  - `notification.result.v1`
+  - `audit.integration.v1`
 - Setiap perubahan domain yang relevan menulis event ke `outbox_event` dalam transaksi yang sama dengan perubahan bisnis.
 - Background publisher akan lease row pending dengan `FOR UPDATE SKIP LOCKED`, publish ke Kafka, lalu menandai row sebagai `PUBLISHED`.
-- Notification consumer memproses event melalui `inbox_event` agar duplicate delivery tidak menghasilkan duplicate side effect pada tabel `notification`.
+- Notification projection dan notification command consumer memproses event melalui `inbox_event` agar duplicate delivery tidak menghasilkan duplicate side effect pada tabel `notification`.
+- Event audit domain yang relevan juga dipublikasikan ke `audit.integration.v1`, sehingga audit append-only database dan integration stream tetap sinkron.
 - Retry dikirim ke topic `.retry` dan kegagalan berulang dipindahkan ke topic `.dlq`.
 
 Spesifikasi kontrak ada di [docs/api/openapi.yaml](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/api/openapi.yaml). Generated request/response model untuk layer API dibangun dari spec tersebut pada phase `generate-sources`.
@@ -140,9 +149,12 @@ Untuk local Compose:
 - `KEYCLOAK_JWKS_URL` di container app diarahkan ke `host.docker.internal` agar aplikasi di Docker tetap bisa mengambil JWKS dari Keycloak host port.
 - `MINIO_ENDPOINT` untuk host default ke `http://localhost:9000`; di container app diarahkan ke `http://minio:9000`.
 - `KAFKA_BOOTSTRAP_SERVERS` untuk host default ke `localhost:29092`; di container app diarahkan ke `kafka:9092`.
+- `REDIS_HOST`/`REDIS_PORT` default ke `localhost:6379`; di container app diarahkan ke `redis:6379`.
+- `MAILPIT_SMTP_HOST`/`MAILPIT_SMTP_PORT` default ke `localhost:1025`; di container app diarahkan ke `mailpit:1025`.
 - `APP_INSTANCE_ID` dipakai sebagai lease owner outbox publisher.
 - `OUTBOX_POLL_INTERVAL`, `OUTBOX_LEASE_DURATION`, dan `OUTBOX_BATCH_SIZE` mengatur cadence publisher.
 - `NOTIFICATION_CONSUMER_GROUP_ID` dan `NOTIFICATION_MAX_RETRIES` mengatur inbox consumer lokal.
+- `NOTIFICATION_FROM_EMAIL` dan `NOTIFICATION_TO_EMAIL` mengatur envelope email lokal untuk dispatch notification.
 - `MINIO_EVIDENCE_BUCKET` default ke `sentinel-evidence`.
 - `EVIDENCE_UPLOAD_URL_TTL` dan `EVIDENCE_DOWNLOAD_URL_TTL` harus berupa ISO-8601 duration seperti `PT15M`.
 - `WORKFLOW_ENGINE_NAME` default ke `sentinel-workflow-engine`.
@@ -187,6 +199,7 @@ Untuk local Compose:
   - `403` role salah
   - `403` jurisdiction salah
   - public health endpoint
+- Integration test juga menyalakan Redis dan Mailpit agar dependency health, notification dispatch, dan outbox result flow tervalidasi pada runtime nyata.
 
 ## Troubleshooting
 
@@ -198,6 +211,7 @@ Untuk local Compose:
 - Jika bucket MinIO belum ada, jalankan `make minio-init`.
 - Jika integration test gagal karena Docker, pastikan Docker Desktop aktif.
 - Jika notification tidak muncul, cek `outbox_event` status, lalu lihat runbook [docs/runbooks/outbox-stuck.md](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/runbooks/outbox-stuck.md).
+- Jika `GET /health` menandai dependency selain `UP`, cek host/port untuk Kafka, Redis, Mailpit, dan workflow sebelum mengasumsikan bug bisnis.
 - Jika consumer memindahkan event ke DLQ, lihat runbook [docs/runbooks/dead-letter-events.md](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/runbooks/dead-letter-events.md).
 - Jika backlog Kafka meningkat, lihat runbook [docs/runbooks/kafka-backlog.md](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/runbooks/kafka-backlog.md).
 - Jika migration gagal, cek changelog di `sentinel-persistence/src/main/resources/db/changelog`.

@@ -32,6 +32,7 @@ final class KafkaNotificationConsumer {
   private final KafkaProducer<String, String> producer;
   private final EventEnvelopeJsonCodec codec;
   private final NotificationEventHandler notificationEventHandler;
+  private final NotificationCommandHandler notificationCommandHandler;
   private final int maxRetries;
 
   KafkaNotificationConsumer(
@@ -39,11 +40,13 @@ final class KafkaNotificationConsumer {
       KafkaProducer<String, String> producer,
       EventEnvelopeJsonCodec codec,
       NotificationEventHandler notificationEventHandler,
+      NotificationCommandHandler notificationCommandHandler,
       int maxRetries) {
     this.consumer = consumer;
     this.producer = producer;
     this.codec = codec;
     this.notificationEventHandler = notificationEventHandler;
+    this.notificationCommandHandler = notificationCommandHandler;
     this.maxRetries = maxRetries;
     this.consumer.subscribe(subscribedTopics());
   }
@@ -73,7 +76,12 @@ final class KafkaNotificationConsumer {
   private void processRecord(ConsumerRecord<String, String> record) {
     try {
       EventEnvelope eventEnvelope = codec.deserialize(record.value());
-      notificationEventHandler.handle(resolveOriginalTopic(record), eventEnvelope);
+      String originalTopic = resolveOriginalTopic(record);
+      if (MessagingTopics.NOTIFICATION_COMMAND.equals(originalTopic)) {
+        notificationCommandHandler.handle(originalTopic, eventEnvelope);
+      } else {
+        notificationEventHandler.handle(originalTopic, eventEnvelope);
+      }
       commit(record);
     } catch (Exception exception) {
       handleFailure(record, exception);
@@ -103,6 +111,11 @@ final class KafkaNotificationConsumer {
                           ERROR_HEADER,
                           exception.getClass().getSimpleName().getBytes(StandardCharsets.UTF_8)))))
           .get();
+      if (currentAttempt >= maxRetries
+          && MessagingTopics.NOTIFICATION_COMMAND.equals(originalTopic)) {
+        notificationCommandHandler.markPermanentFailure(
+            originalTopic, codec.deserialize(record.value()), abbreviatedMessage(exception));
+      }
       commit(record);
       LOGGER.warn(
           "Notification consumer moved event on topic {} to {} after failure.",
@@ -148,8 +161,18 @@ final class KafkaNotificationConsumer {
   }
 
   private List<String> subscribedTopics() {
-    return MessagingTopics.notificationProjectionTopics().stream()
+    return java.util.stream.Stream.concat(
+            MessagingTopics.notificationProjectionTopics().stream(),
+            java.util.stream.Stream.of(MessagingTopics.NOTIFICATION_COMMAND))
         .flatMap(topic -> java.util.stream.Stream.of(topic, topic + ".retry"))
         .toList();
+  }
+
+  private String abbreviatedMessage(Exception exception) {
+    String message = exception.getMessage();
+    if (message == null || message.isBlank()) {
+      return exception.getClass().getSimpleName();
+    }
+    return message.length() > 500 ? message.substring(0, 500) : message;
   }
 }

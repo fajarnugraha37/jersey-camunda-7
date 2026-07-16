@@ -33,7 +33,8 @@ class KeycloakTokenVerifierTest {
     JWTProcessor<com.nimbusds.jose.proc.SecurityContext> jwtProcessor =
         new JWTProcessor<>() {
           @Override
-          public JWTClaimsSet process(String token, com.nimbusds.jose.proc.SecurityContext context) {
+          public JWTClaimsSet process(
+              String token, com.nimbusds.jose.proc.SecurityContext context) {
             return claims(clock);
           }
 

@@ -244,6 +244,42 @@ public interface MessagingMyBatisMapper {
                 #{updatedBy},
                 #{version}
             )
-            """)
+             """)
   int insertNotification(NotificationData notificationData);
+
+  @Select(
+      """
+            SELECT
+              id,
+              consumer_name AS consumerName,
+              event_id AS eventId,
+              case_id AS caseId,
+              notification_type AS notificationType,
+              title,
+              body,
+              status,
+              created_at AS createdAt,
+              created_by AS createdBy,
+              updated_at AS updatedAt,
+              updated_by AS updatedBy,
+              version
+            FROM notification
+            WHERE id = #{notificationId}
+            """)
+  NotificationData findNotificationById(@Param("notificationId") UUID notificationId);
+
+  @Update(
+      """
+            UPDATE notification
+            SET
+              status = #{status},
+              updated_at = now(),
+              updated_by = #{updatedBy},
+              version = version + 1
+            WHERE id = #{notificationId}
+            """)
+  int updateNotificationStatus(
+      @Param("notificationId") UUID notificationId,
+      @Param("status") String status,
+      @Param("updatedBy") String updatedBy);
 }
