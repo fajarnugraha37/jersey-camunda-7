@@ -19,15 +19,36 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 public final class WorkflowTaskApplicationService {
   private static final String CASE_RESOURCE_TYPE = "CASE";
   private static final String TRIAGE_TASK_KEY = "triageTask";
+  private static final String OPTIONAL_LEGAL_ADVISORY_TASK_KEY = "optionalLegalAdvisoryTask";
+  private static final String FINANCIAL_REVIEW_TASK_KEY = "financialReviewTask";
   private static final String INVESTIGATION_TASK_KEY = "investigationTask";
+  private static final String LEGAL_ADVISORY_TASK_KEY = "legalAdvisoryTask";
   private static final String REVIEW_TASK_KEY = "reviewTask";
+  private static final String SUPERVISOR_REVIEW_TASK_KEY = "supervisorReviewTask";
+  private static final String RECOMMENDATION_REVISION_TASK_KEY = "recommendationRevisionTask";
   private static final String DECISION_TASK_KEY = "decisionTask";
+  private static final String REVIEW_REGISTRY_FAILURE_TASK_KEY = "reviewRegistryFailureTask";
+  private static final String REVIEW_NOTIFICATION_FAILURE_TASK_KEY = "reviewNotificationFailureTask";
+  private static final String SUPERVISOR_OVERRIDE_REVIEW_TASK_KEY = "supervisorOverrideReviewTask";
+  private static final String GLOBAL_HOLD_OVERRIDE_REVIEW_TASK_KEY =
+      "globalHoldOverrideReviewTask";
+  private static final String MONITOR_PAYMENT_OBLIGATION_TASK_KEY =
+      "monitorPaymentObligationTask";
+  private static final String MONITOR_CORRECTIVE_ACTION_TASK_KEY =
+      "monitorCorrectiveActionTask";
+  private static final String MONITOR_REPORTING_OBLIGATION_TASK_KEY =
+      "monitorReportingObligationTask";
+  private static final String ADDITIONAL_ENFORCEMENT_ACTION_TASK_KEY =
+      "additionalEnforcementActionTask";
   private static final String APPEAL_REVIEW_TASK_KEY = "appealReviewTask";
+  private static final String APPEAL_SUPERVISOR_OVERRIDE_REVIEW_TASK_KEY =
+      "appealSupervisorOverrideReviewTask";
 
   private final AuthorizationService authorizationService;
   private final CaseRepository caseRepository;
@@ -139,13 +160,19 @@ public final class WorkflowTaskApplicationService {
           "Workflow task " + taskId + " must be claimed by the completing actor.");
     }
 
-    advanceCaseForTask(actor, activeTask, correlationId, sourceIp);
-    workflowPort.completeTask(taskId);
+    CaseRecord currentCase = caseApplicationService.getCase(actor, activeTask.caseId());
+    Map<String, Object> completionVariables = completionVariablesForTask(activeTask, currentCase);
+    advanceCaseForTask(actor, activeTask, currentCase, correlationId, sourceIp);
+    workflowPort.completeTask(taskId, completionVariables);
+    finalizeCaseAfterTaskCompletion(actor, activeTask, correlationId, sourceIp);
   }
 
   private void advanceCaseForTask(
-      ApplicationActor actor, WorkflowTaskView task, String correlationId, String sourceIp) {
-    CaseRecord currentCase = caseApplicationService.getCase(actor, task.caseId());
+      ApplicationActor actor,
+      WorkflowTaskView task,
+      CaseRecord currentCase,
+      String correlationId,
+      String sourceIp) {
     switch (task.taskDefinitionKey()) {
       case TRIAGE_TASK_KEY -> advanceFromTriage(actor, currentCase, correlationId, sourceIp);
       case INVESTIGATION_TASK_KEY ->
@@ -175,6 +202,22 @@ public final class WorkflowTaskApplicationService {
               "Workflow decision task completed after published decision.",
               correlationId,
               sourceIp);
+      case OPTIONAL_LEGAL_ADVISORY_TASK_KEY,
+          FINANCIAL_REVIEW_TASK_KEY,
+          LEGAL_ADVISORY_TASK_KEY,
+          SUPERVISOR_REVIEW_TASK_KEY,
+          RECOMMENDATION_REVISION_TASK_KEY,
+          REVIEW_REGISTRY_FAILURE_TASK_KEY,
+          REVIEW_NOTIFICATION_FAILURE_TASK_KEY,
+          SUPERVISOR_OVERRIDE_REVIEW_TASK_KEY,
+          GLOBAL_HOLD_OVERRIDE_REVIEW_TASK_KEY,
+          MONITOR_PAYMENT_OBLIGATION_TASK_KEY,
+          MONITOR_CORRECTIVE_ACTION_TASK_KEY,
+          MONITOR_REPORTING_OBLIGATION_TASK_KEY,
+          ADDITIONAL_ENFORCEMENT_ACTION_TASK_KEY,
+          APPEAL_SUPERVISOR_OVERRIDE_REVIEW_TASK_KEY -> {
+        // These tasks only advance the workflow token; domain transitions are handled elsewhere.
+      }
       case APPEAL_REVIEW_TASK_KEY ->
           appealApplicationService.finalizeAppealWorkflowTask(
               actor, currentCase.id(), correlationId, sourceIp);
@@ -183,6 +226,68 @@ public final class WorkflowTaskApplicationService {
               "TASK_TRANSITION_NOT_SUPPORTED",
               "Workflow task " + task.taskDefinitionKey() + " is not mapped to a case transition.");
     }
+  }
+
+  private Map<String, Object> completionVariablesForTask(
+      WorkflowTaskView task, CaseRecord currentCase) {
+    return switch (task.taskDefinitionKey()) {
+      case INVESTIGATION_TASK_KEY -> Map.of("additionalEvidenceRequired", false);
+      case REVIEW_TASK_KEY, SUPERVISOR_REVIEW_TASK_KEY -> Map.of("reviewRequiresRevision", false);
+      case DECISION_TASK_KEY -> decisionCompletionVariables(currentCase);
+      case REVIEW_NOTIFICATION_FAILURE_TASK_KEY -> Map.of("abortPublicationFinalization", false);
+      case SUPERVISOR_OVERRIDE_REVIEW_TASK_KEY, GLOBAL_HOLD_OVERRIDE_REVIEW_TASK_KEY ->
+          Map.of("overrideCancel", false, "overrideSuspend", false);
+      case MONITOR_PAYMENT_OBLIGATION_TASK_KEY,
+          MONITOR_CORRECTIVE_ACTION_TASK_KEY,
+          MONITOR_REPORTING_OBLIGATION_TASK_KEY ->
+          Map.of("allObligationsComplete", true, "obligationBreachDetected", false);
+      case APPEAL_SUPERVISOR_OVERRIDE_REVIEW_TASK_KEY -> Map.of("appealOverrideTerminate", false);
+      default -> Map.of();
+    };
+  }
+
+  private Map<String, Object> decisionCompletionVariables(CaseRecord currentCase) {
+    ensureTaskPrerequisite(currentCase, CaseStatus.PENDING_DECISION);
+    var publishedDecision =
+        decisionRepository
+            .findByCaseId(currentCase.id())
+            .filter(decision -> decision.publishedAt() != null)
+            .orElseThrow(
+                () ->
+                    new WorkflowTaskConflictException(
+                        "TASK_PREREQUISITE_MISSING",
+                        "Decision task requires a published decision before completion."));
+    return Map.of(
+        "sanctionPublicationRequired", publishedDecision.violationProven(),
+        "enforcementMonitoringRequired", publishedDecision.violationProven(),
+        "registryAcknowledgmentFailed", false,
+        "notificationResultFailed", false,
+        "abortPublicationFinalization", false);
+  }
+
+  private void finalizeCaseAfterTaskCompletion(
+      ApplicationActor actor, WorkflowTaskView task, String correlationId, String sourceIp) {
+    if (!isEnforcementTerminalTask(task.taskDefinitionKey())) {
+      return;
+    }
+    boolean hasRemainingTasks =
+        workflowPort.listActiveTasks().stream().anyMatch(active -> active.caseId().equals(task.caseId()));
+    if (hasRemainingTasks) {
+      return;
+    }
+    CaseRecord currentCase = caseApplicationService.getCase(actor, task.caseId());
+    if (currentCase.status() != CaseStatus.ENFORCEMENT_IN_PROGRESS) {
+      return;
+    }
+    caseApplicationService.transitionCase(
+        actor,
+        currentCase.id(),
+        new TransitionCaseCommand(
+            CaseStatus.CLOSED,
+            currentCase.version(),
+            "Workflow enforcement monitoring completed.",
+            correlationId,
+            sourceIp));
   }
 
   private void advanceFromTriage(
@@ -303,15 +408,42 @@ public final class WorkflowTaskApplicationService {
   private boolean hasTaskRole(ApplicationActor actor, WorkflowTaskView task) {
     return switch (task.taskDefinitionKey()) {
       case TRIAGE_TASK_KEY -> actor.hasRole("TRIAGE_OFFICER") || actor.hasRole("SUPERVISOR");
+      case OPTIONAL_LEGAL_ADVISORY_TASK_KEY,
+          FINANCIAL_REVIEW_TASK_KEY,
+          LEGAL_ADVISORY_TASK_KEY,
+          REVIEW_TASK_KEY ->
+          actor.hasRole("CASE_REVIEWER") || actor.hasRole("SUPERVISOR");
       case INVESTIGATION_TASK_KEY ->
           actor.hasRole("SUPERVISOR")
               || (actor.hasRole("INVESTIGATOR")
                   && actor.username().equals(resolveAssignedUserId(task.caseId())));
-      case REVIEW_TASK_KEY -> actor.hasRole("CASE_REVIEWER") || actor.hasRole("SUPERVISOR");
+      case RECOMMENDATION_REVISION_TASK_KEY ->
+          actor.hasRole("SUPERVISOR")
+              || (actor.hasRole("INVESTIGATOR")
+                  && actor.username().equals(resolveAssignedUserId(task.caseId())));
+      case SUPERVISOR_REVIEW_TASK_KEY,
+          REVIEW_REGISTRY_FAILURE_TASK_KEY,
+          REVIEW_NOTIFICATION_FAILURE_TASK_KEY,
+          SUPERVISOR_OVERRIDE_REVIEW_TASK_KEY,
+          GLOBAL_HOLD_OVERRIDE_REVIEW_TASK_KEY,
+          ADDITIONAL_ENFORCEMENT_ACTION_TASK_KEY,
+          APPEAL_SUPERVISOR_OVERRIDE_REVIEW_TASK_KEY ->
+          actor.hasRole("SUPERVISOR") || actor.hasRole("SYSTEM_ADMIN");
       case DECISION_TASK_KEY -> actor.hasRole("DECISION_MAKER") || actor.hasRole("SUPERVISOR");
+      case MONITOR_PAYMENT_OBLIGATION_TASK_KEY,
+          MONITOR_CORRECTIVE_ACTION_TASK_KEY,
+          MONITOR_REPORTING_OBLIGATION_TASK_KEY ->
+          actor.hasRole("CASE_REVIEWER") || actor.hasRole("SUPERVISOR");
       case APPEAL_REVIEW_TASK_KEY -> actor.hasRole("APPEAL_OFFICER") || actor.hasRole("SUPERVISOR");
       default -> false;
     };
+  }
+
+  private static boolean isEnforcementTerminalTask(String taskDefinitionKey) {
+    return MONITOR_PAYMENT_OBLIGATION_TASK_KEY.equals(taskDefinitionKey)
+        || MONITOR_CORRECTIVE_ACTION_TASK_KEY.equals(taskDefinitionKey)
+        || MONITOR_REPORTING_OBLIGATION_TASK_KEY.equals(taskDefinitionKey)
+        || ADDITIONAL_ENFORCEMENT_ACTION_TASK_KEY.equals(taskDefinitionKey);
   }
 
   private boolean matchesFilters(WorkflowTaskView task, ListWorkflowTasksQuery query) {

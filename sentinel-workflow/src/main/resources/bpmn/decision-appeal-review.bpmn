@@ -1,37 +1,125 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_Appeal" targetNamespace="https://sentinel.local/workflow">
+﻿<?xml version="1.0" encoding="utf-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_DecisionAppealReview" targetNamespace="https://sentinel.local/workflow" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI">
+  <bpmn:message id="Message_AppealWorkflowStarted" name="AppealWorkflowStarted" />
+  <bpmn:signal id="Signal_GlobalHold" name="GlobalHoldSignal" />
   <bpmn:process id="decisionAppealReview" name="Decision Appeal Review" isExecutable="true" camunda:historyTimeToLive="30">
     <bpmn:startEvent id="appealStartEvent" name="Appeal Filed">
-      <bpmn:outgoing>AppealFlow_1</bpmn:outgoing>
+      <bpmn:outgoing>AppealFlow_Start_To_AppealReviewTask</bpmn:outgoing>
+      <bpmn:messageEventDefinition messageRef="Message_AppealWorkflowStarted" />
     </bpmn:startEvent>
     <bpmn:userTask id="appealReviewTask" name="Review Appeal" camunda:candidateGroups="APPEAL_OFFICER,SUPERVISOR">
-      <bpmn:incoming>AppealFlow_1</bpmn:incoming>
-      <bpmn:outgoing>AppealFlow_2</bpmn:outgoing>
+      <bpmn:incoming>AppealFlow_Start_To_AppealReviewTask</bpmn:incoming>
+      <bpmn:outgoing>AppealFlow_AppealReviewTask_To_AppealDecisionOutcomeGateway</bpmn:outgoing>
     </bpmn:userTask>
-    <bpmn:endEvent id="appealReviewCompleted" name="Appeal Review Completed">
-      <bpmn:incoming>AppealFlow_2</bpmn:incoming>
+    <bpmn:boundaryEvent id="appealReviewReminderTimer" name="Appeal Review Reminder" attachedToRef="appealReviewTask" cancelActivity="false">
+      <bpmn:outgoing>AppealFlow_AppealReminder_To_AppealReminderRaisedEnd</bpmn:outgoing>
+      <bpmn:timerEventDefinition>
+        <bpmn:timeDuration>P1D</bpmn:timeDuration>
+      </bpmn:timerEventDefinition>
+    </bpmn:boundaryEvent>
+    <bpmn:endEvent id="appealReminderRaisedEndEvent" name="Appeal Reminder Raised">
+      <bpmn:incoming>AppealFlow_AppealReminder_To_AppealReminderRaisedEnd</bpmn:incoming>
     </bpmn:endEvent>
-    <bpmn:sequenceFlow id="AppealFlow_1" sourceRef="appealStartEvent" targetRef="appealReviewTask" />
-    <bpmn:sequenceFlow id="AppealFlow_2" sourceRef="appealReviewTask" targetRef="appealReviewCompleted" />
+    <bpmn:exclusiveGateway id="appealDecisionOutcomeGateway" name="Appeal Decision Recorded?" default="AppealFlow_AppealDecisionRecorded_Default">
+      <bpmn:incoming>AppealFlow_AppealReviewTask_To_AppealDecisionOutcomeGateway</bpmn:incoming>
+      <bpmn:outgoing>AppealFlow_AppealGlobalHoldRequested</bpmn:outgoing>
+      <bpmn:outgoing>AppealFlow_AppealDecisionRecorded_Default</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:intermediateThrowEvent id="appealGlobalHoldThrowEvent" name="Appeal Global Hold">
+      <bpmn:incoming>AppealFlow_AppealGlobalHoldRequested</bpmn:incoming>
+      <bpmn:outgoing>AppealFlow_AppealGlobalHoldThrow_To_AppealReviewCompleted</bpmn:outgoing>
+      <bpmn:signalEventDefinition signalRef="Signal_GlobalHold" />
+    </bpmn:intermediateThrowEvent>
+    <bpmn:endEvent id="appealReviewCompleted" name="Appeal Review Completed">
+      <bpmn:incoming>AppealFlow_AppealDecisionRecorded_Default</bpmn:incoming>
+      <bpmn:incoming>AppealFlow_AppealGlobalHoldThrow_To_AppealReviewCompleted</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:subProcess id="appealSupervisorOverrideEventSubProcess" name="Appeal Supervisor Override" triggeredByEvent="true">
+      <bpmn:startEvent id="appealGlobalHoldEventSubProcessStart" isInterrupting="true">
+        <bpmn:outgoing>AppealFlow_AppealGlobalHoldStart_To_AppealSupervisorReview</bpmn:outgoing>
+        <bpmn:signalEventDefinition signalRef="Signal_GlobalHold" />
+      </bpmn:startEvent>
+      <bpmn:userTask id="appealSupervisorOverrideReviewTask" name="Appeal Supervisor Override Review" camunda:candidateGroups="SUPERVISOR,SYSTEM_ADMIN">
+        <bpmn:incoming>AppealFlow_AppealGlobalHoldStart_To_AppealSupervisorReview</bpmn:incoming>
+        <bpmn:outgoing>AppealFlow_AppealSupervisorReview_To_AppealOverrideOutcome</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:exclusiveGateway id="appealOverrideOutcomeGateway" name="Appeal Override Outcome" default="AppealFlow_AppealOverrideContinue_Default">
+        <bpmn:incoming>AppealFlow_AppealSupervisorReview_To_AppealOverrideOutcome</bpmn:incoming>
+        <bpmn:outgoing>AppealFlow_AppealOverrideTerminate</bpmn:outgoing>
+        <bpmn:outgoing>AppealFlow_AppealOverrideContinue_Default</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:endEvent id="appealOverrideContinueEndEvent">
+        <bpmn:incoming>AppealFlow_AppealOverrideContinue_Default</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:endEvent id="appealOverrideTerminateEndEvent" name="Terminate Appeal">
+        <bpmn:incoming>AppealFlow_AppealOverrideTerminate</bpmn:incoming>
+        <bpmn:terminateEventDefinition />
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="AppealFlow_AppealGlobalHoldStart_To_AppealSupervisorReview" sourceRef="appealGlobalHoldEventSubProcessStart" targetRef="appealSupervisorOverrideReviewTask" />
+      <bpmn:sequenceFlow id="AppealFlow_AppealSupervisorReview_To_AppealOverrideOutcome" sourceRef="appealSupervisorOverrideReviewTask" targetRef="appealOverrideOutcomeGateway" />
+      <bpmn:sequenceFlow id="AppealFlow_AppealOverrideTerminate" sourceRef="appealOverrideOutcomeGateway" targetRef="appealOverrideTerminateEndEvent">
+        <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${appealOverrideTerminate == true}</bpmn:conditionExpression>
+      </bpmn:sequenceFlow>
+      <bpmn:sequenceFlow id="AppealFlow_AppealOverrideContinue_Default" sourceRef="appealOverrideOutcomeGateway" targetRef="appealOverrideContinueEndEvent" />
+    </bpmn:subProcess>
+    <bpmn:sequenceFlow id="AppealFlow_Start_To_AppealReviewTask" sourceRef="appealStartEvent" targetRef="appealReviewTask" />
+    <bpmn:sequenceFlow id="AppealFlow_AppealReminder_To_AppealReminderRaisedEnd" sourceRef="appealReviewReminderTimer" targetRef="appealReminderRaisedEndEvent" />
+    <bpmn:sequenceFlow id="AppealFlow_AppealReviewTask_To_AppealDecisionOutcomeGateway" sourceRef="appealReviewTask" targetRef="appealDecisionOutcomeGateway" />
+    <bpmn:sequenceFlow id="AppealFlow_AppealGlobalHoldRequested" sourceRef="appealDecisionOutcomeGateway" targetRef="appealGlobalHoldThrowEvent">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${appealGlobalHoldRequested == true}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="AppealFlow_AppealDecisionRecorded_Default" sourceRef="appealDecisionOutcomeGateway" targetRef="appealReviewCompleted" />
+    <bpmn:sequenceFlow id="AppealFlow_AppealGlobalHoldThrow_To_AppealReviewCompleted" sourceRef="appealGlobalHoldThrowEvent" targetRef="appealReviewCompleted" />
   </bpmn:process>
-  <bpmndi:BPMNDiagram id="AppealDiagram">
-    <bpmndi:BPMNPlane id="AppealPlane" bpmnElement="decisionAppealReview">
-      <bpmndi:BPMNShape id="AppealStartShape" bpmnElement="appealStartEvent">
-        <dc:Bounds x="152" y="132" width="36" height="36" />
+  <bpmndi:BPMNDiagram id="BPMNDiagram_DecisionAppealReview">
+    <bpmndi:BPMNPlane id="BPMNPlane_DecisionAppealReview" bpmnElement="decisionAppealReview">
+      <bpmndi:BPMNShape id="DI_appealStartEvent" bpmnElement="appealStartEvent">
+        <dc:Bounds x="160" y="140" width="36" height="36" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="AppealTaskShape" bpmnElement="appealReviewTask">
-        <dc:Bounds x="240" y="110" width="100" height="80" />
+      <bpmndi:BPMNShape id="DI_appealReviewTask" bpmnElement="appealReviewTask">
+        <dc:Bounds x="380" y="140" width="140" height="80" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="AppealEndShape" bpmnElement="appealReviewCompleted">
-        <dc:Bounds x="392" y="132" width="36" height="36" />
+      <bpmndi:BPMNShape id="DI_appealReviewReminderTimer" bpmnElement="appealReviewReminderTimer">
+        <dc:Bounds x="394" y="202" width="36" height="36" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="AppealFlow_1_di" bpmnElement="AppealFlow_1">
-        <di:waypoint x="188" y="150" />
-        <di:waypoint x="240" y="150" />
+      <bpmndi:BPMNShape id="DI_appealReminderRaisedEndEvent" bpmnElement="appealReminderRaisedEndEvent">
+        <dc:Bounds x="600" y="140" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DI_appealDecisionOutcomeGateway" bpmnElement="appealDecisionOutcomeGateway">
+        <dc:Bounds x="820" y="140" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DI_appealGlobalHoldThrowEvent" bpmnElement="appealGlobalHoldThrowEvent">
+        <dc:Bounds x="1040" y="140" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DI_appealReviewCompleted" bpmnElement="appealReviewCompleted">
+        <dc:Bounds x="160" y="340" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DI_appealSupervisorOverrideEventSubProcess" bpmnElement="appealSupervisorOverrideEventSubProcess" isExpanded="false">
+        <dc:Bounds x="380" y="340" width="180" height="110" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="DI_AppealFlow_Start_To_AppealReviewTask" bpmnElement="AppealFlow_Start_To_AppealReviewTask">
+        <di:waypoint x="178" y="158" />
+        <di:waypoint x="450" y="180" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="AppealFlow_2_di" bpmnElement="AppealFlow_2">
-        <di:waypoint x="340" y="150" />
-        <di:waypoint x="392" y="150" />
+      <bpmndi:BPMNEdge id="DI_AppealFlow_AppealReminder_To_AppealReminderRaisedEnd" bpmnElement="AppealFlow_AppealReminder_To_AppealReminderRaisedEnd">
+        <di:waypoint x="412" y="220" />
+        <di:waypoint x="618" y="158" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DI_AppealFlow_AppealReviewTask_To_AppealDecisionOutcomeGateway" bpmnElement="AppealFlow_AppealReviewTask_To_AppealDecisionOutcomeGateway">
+        <di:waypoint x="450" y="180" />
+        <di:waypoint x="845" y="165" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DI_AppealFlow_AppealGlobalHoldRequested" bpmnElement="AppealFlow_AppealGlobalHoldRequested">
+        <di:waypoint x="845" y="165" />
+        <di:waypoint x="1058" y="158" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DI_AppealFlow_AppealDecisionRecorded_Default" bpmnElement="AppealFlow_AppealDecisionRecorded_Default">
+        <di:waypoint x="845" y="165" />
+        <di:waypoint x="178" y="358" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DI_AppealFlow_AppealGlobalHoldThrow_To_AppealReviewCompleted" bpmnElement="AppealFlow_AppealGlobalHoldThrow_To_AppealReviewCompleted">
+        <di:waypoint x="1058" y="158" />
+        <di:waypoint x="178" y="358" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>

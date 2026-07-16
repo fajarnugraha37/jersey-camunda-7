@@ -1,0 +1,1105 @@
+{
+  "info": {
+    "_postman_id": "8e6a2e7e-b0c8-4d1a-9a4d-b2e8c05f3d9c",
+    "name": "Sentinel Enforcement Platform",
+    "description": "Local Postman collection for the Sentinel Enforcement Platform API. Use localhost consistently for both the application and Keycloak because JWT issuer validation is exact-match. Login requests store accessToken/refreshToken into collection variables, and create/read requests store important ids and versions for the next steps.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "keycloakBaseUrl", "value": "http://localhost:8081" },
+    { "key": "realm", "value": "sentinel" },
+    { "key": "clientId", "value": "sentinel-api" },
+    { "key": "defaultPassword", "value": "sentinel" },
+    { "key": "activeUsername", "value": "intake-jkt" },
+    { "key": "activePassword", "value": "sentinel" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "jurisdictionCode", "value": "JKT" },
+    { "key": "assignedUnitId", "value": "JKT-UNIT-1" },
+    { "key": "assigneeUserId", "value": "investigator-jkt" },
+    { "key": "reportId", "value": "" },
+    { "key": "reportVersion", "value": "0" },
+    { "key": "caseId", "value": "" },
+    { "key": "caseVersion", "value": "0" },
+    { "key": "caseNumber", "value": "" },
+    { "key": "recommendationId", "value": "" },
+    { "key": "decisionId", "value": "" },
+    { "key": "appealId", "value": "" },
+    { "key": "evidenceId", "value": "" },
+    { "key": "uploadSessionId", "value": "" },
+    { "key": "uploadUrl", "value": "" },
+    { "key": "downloadUrl", "value": "" },
+    { "key": "taskId", "value": "" },
+    { "key": "workflowCaseId", "value": "" },
+    { "key": "cursor", "value": "" },
+    {
+      "key": "sampleEvidenceSha256",
+      "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login (activeUsername)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.access_token) {",
+                  "  pm.collectionVariables.set('accessToken', json.access_token);",
+                  "}",
+                  "if (json.refresh_token) {",
+                  "  pm.collectionVariables.set('refreshToken', json.refresh_token);",
+                  "}",
+                  "pm.collectionVariables.set('currentUser', pm.collectionVariables.get('activeUsername'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "client_id", "value": "{{clientId}}", "type": "text" },
+                { "key": "grant_type", "value": "password", "type": "text" },
+                { "key": "username", "value": "{{activeUsername}}", "type": "text" },
+                { "key": "password", "value": "{{activePassword}}", "type": "text" }
+              ]
+            },
+            "url": {
+              "raw": "{{keycloakBaseUrl}}/realms/{{realm}}/protocol/openid-connect/token",
+              "host": ["{{keycloakBaseUrl}}"],
+              "path": ["realms", "{{realm}}", "protocol", "openid-connect", "token"]
+            },
+            "description": "Generic password-grant login. Change activeUsername/activePassword at collection variable level or use one of the quick login requests below."
+          },
+          "response": []
+        },
+        {
+          "name": "Login as intake-jkt",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('activeUsername', 'intake-jkt');",
+                  "pm.collectionVariables.set('activePassword', pm.collectionVariables.get('defaultPassword'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "client_id", "value": "{{clientId}}", "type": "text" },
+                { "key": "grant_type", "value": "password", "type": "text" },
+                { "key": "username", "value": "{{activeUsername}}", "type": "text" },
+                { "key": "password", "value": "{{activePassword}}", "type": "text" }
+              ]
+            },
+            "url": {
+              "raw": "{{keycloakBaseUrl}}/realms/{{realm}}/protocol/openid-connect/token",
+              "host": ["{{keycloakBaseUrl}}"],
+              "path": ["realms", "{{realm}}", "protocol", "openid-connect", "token"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login as triage-jkt",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('activeUsername', 'triage-jkt');",
+                  "pm.collectionVariables.set('activePassword', pm.collectionVariables.get('defaultPassword'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "client_id", "value": "{{clientId}}", "type": "text" },
+                { "key": "grant_type", "value": "password", "type": "text" },
+                { "key": "username", "value": "{{activeUsername}}", "type": "text" },
+                { "key": "password", "value": "{{activePassword}}", "type": "text" }
+              ]
+            },
+            "url": {
+              "raw": "{{keycloakBaseUrl}}/realms/{{realm}}/protocol/openid-connect/token",
+              "host": ["{{keycloakBaseUrl}}"],
+              "path": ["realms", "{{realm}}", "protocol", "openid-connect", "token"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login as investigator-jkt",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('activeUsername', 'investigator-jkt');",
+                  "pm.collectionVariables.set('activePassword', pm.collectionVariables.get('defaultPassword'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "client_id", "value": "{{clientId}}", "type": "text" },
+                { "key": "grant_type", "value": "password", "type": "text" },
+                { "key": "username", "value": "{{activeUsername}}", "type": "text" },
+                { "key": "password", "value": "{{activePassword}}", "type": "text" }
+              ]
+            },
+            "url": {
+              "raw": "{{keycloakBaseUrl}}/realms/{{realm}}/protocol/openid-connect/token",
+              "host": ["{{keycloakBaseUrl}}"],
+              "path": ["realms", "{{realm}}", "protocol", "openid-connect", "token"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login as reviewer-jkt",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('activeUsername', 'reviewer-jkt');",
+                  "pm.collectionVariables.set('activePassword', pm.collectionVariables.get('defaultPassword'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "client_id", "value": "{{clientId}}", "type": "text" },
+                { "key": "grant_type", "value": "password", "type": "text" },
+                { "key": "username", "value": "{{activeUsername}}", "type": "text" },
+                { "key": "password", "value": "{{activePassword}}", "type": "text" }
+              ]
+            },
+            "url": {
+              "raw": "{{keycloakBaseUrl}}/realms/{{realm}}/protocol/openid-connect/token",
+              "host": ["{{keycloakBaseUrl}}"],
+              "path": ["realms", "{{realm}}", "protocol", "openid-connect", "token"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login as decision-jkt",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('activeUsername', 'decision-jkt');",
+                  "pm.collectionVariables.set('activePassword', pm.collectionVariables.get('defaultPassword'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "client_id", "value": "{{clientId}}", "type": "text" },
+                { "key": "grant_type", "value": "password", "type": "text" },
+                { "key": "username", "value": "{{activeUsername}}", "type": "text" },
+                { "key": "password", "value": "{{activePassword}}", "type": "text" }
+              ]
+            },
+            "url": {
+              "raw": "{{keycloakBaseUrl}}/realms/{{realm}}/protocol/openid-connect/token",
+              "host": ["{{keycloakBaseUrl}}"],
+              "path": ["realms", "{{realm}}", "protocol", "openid-connect", "token"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login as appeal-jkt",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('activeUsername', 'appeal-jkt');",
+                  "pm.collectionVariables.set('activePassword', pm.collectionVariables.get('defaultPassword'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "client_id", "value": "{{clientId}}", "type": "text" },
+                { "key": "grant_type", "value": "password", "type": "text" },
+                { "key": "username", "value": "{{activeUsername}}", "type": "text" },
+                { "key": "password", "value": "{{activePassword}}", "type": "text" }
+              ]
+            },
+            "url": {
+              "raw": "{{keycloakBaseUrl}}/realms/{{realm}}/protocol/openid-connect/token",
+              "host": ["{{keycloakBaseUrl}}"],
+              "path": ["realms", "{{realm}}", "protocol", "openid-connect", "token"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login as supervisor-jkt",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('activeUsername', 'supervisor-jkt');",
+                  "pm.collectionVariables.set('activePassword', pm.collectionVariables.get('defaultPassword'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "client_id", "value": "{{clientId}}", "type": "text" },
+                { "key": "grant_type", "value": "password", "type": "text" },
+                { "key": "username", "value": "{{activeUsername}}", "type": "text" },
+                { "key": "password", "value": "{{activePassword}}", "type": "text" }
+              ]
+            },
+            "url": {
+              "raw": "{{keycloakBaseUrl}}/realms/{{realm}}/protocol/openid-connect/token",
+              "host": ["{{keycloakBaseUrl}}"],
+              "path": ["realms", "{{realm}}", "protocol", "openid-connect", "token"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "Create Report (CASE_INTAKE_OFFICER)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('reportId', json.id);",
+                  "pm.collectionVariables.set('reportVersion', String(json.version));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Potential gift disclosure violation\",\n  \"description\": \"Potential violation involving unreported gifts from a vendor.\",\n  \"jurisdictionCode\": \"{{jurisdictionCode}}\",\n  \"reporterName\": \"Analyst A\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reports",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "reports"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Report",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('reportId', json.id);",
+                  "pm.collectionVariables.set('reportVersion', String(json.version));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reports/{{reportId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "reports", "{{reportId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Triage Report (TRIAGE_OFFICER)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('reportId', json.id);",
+                  "pm.collectionVariables.set('reportVersion', String(json.version));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"expectedVersion\": {{reportVersion}},\n  \"reason\": \"Report accepted for case creation.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/reports/{{reportId}}/triage",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "reports", "{{reportId}}", "triage"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Cases",
+      "item": [
+        {
+          "name": "Create Case (TRIAGE_OFFICER)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('caseId', json.id);",
+                  "pm.collectionVariables.set('caseVersion', String(json.version));",
+                  "pm.collectionVariables.set('caseNumber', json.caseNumber);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reportId\": \"{{reportId}}\",\n  \"title\": \"Gift disclosure enforcement case\",\n  \"summary\": \"Open a case from the triaged report for investigation.\",\n  \"classification\": \"CONFIDENTIAL\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cases",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "cases"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Cases",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cases?reportId={{reportId}}&sortBy=CREATED_AT&sortDirection=DESC&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "cases"],
+              "query": [
+                { "key": "reportId", "value": "{{reportId}}" },
+                { "key": "sortBy", "value": "CREATED_AT" },
+                { "key": "sortDirection", "value": "DESC" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Case",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('caseId', json.id);",
+                  "pm.collectionVariables.set('caseVersion', String(json.version));",
+                  "pm.collectionVariables.set('caseNumber', json.caseNumber);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cases/{{caseId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "cases", "{{caseId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Assign Case (TRIAGE_OFFICER)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('caseVersion', String(json.version));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assignedUnitId\": \"{{assignedUnitId}}\",\n  \"assigneeUserId\": \"{{assigneeUserId}}\",\n  \"expectedVersion\": {{caseVersion}},\n  \"reason\": \"Assign investigator after triage.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cases/{{caseId}}/assignments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "cases", "{{caseId}}", "assignments"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Transition Case",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('caseVersion', String(json.version));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetStatus\": \"UNDER_TRIAGE\",\n  \"expectedVersion\": {{caseVersion}},\n  \"reason\": \"Manual transition example from Postman.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cases/{{caseId}}/transitions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "cases", "{{caseId}}", "transitions"]
+            },
+            "description": "Edit targetStatus before sending. Allowed values: CREATED, UNDER_TRIAGE, UNDER_INVESTIGATION, PENDING_REVIEW, PENDING_DECISION, DECIDED, UNDER_APPEAL, ENFORCEMENT_IN_PROGRESS, CLOSED, CANCELLED."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Case Audit Events",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cases/{{caseId}}/audit-events?limit=20&sortBy=TIMESTAMP&sortDirection=DESC",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "cases", "{{caseId}}", "audit-events"],
+              "query": [
+                { "key": "limit", "value": "20" },
+                { "key": "sortBy", "value": "TIMESTAMP" },
+                { "key": "sortDirection", "value": "DESC" }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Recommendations",
+      "item": [
+        {
+          "name": "Create Recommendation (INVESTIGATOR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('recommendationId', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Recommendation to proceed\",\n  \"summary\": \"Initial recommendation prepared during investigation.\",\n  \"proposedDecision\": \"Proceed to formal decision.\",\n  \"proposedSanction\": \"Administrative fine and reporting obligation.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cases/{{caseId}}/recommendations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "cases", "{{caseId}}", "recommendations"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Submit Recommendation (INVESTIGATOR)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/recommendations/{{recommendationId}}/submit",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "recommendations", "{{recommendationId}}", "submit"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Review Recommendation (CASE_REVIEWER)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reviewSummary\": \"Recommendation approved and ready for decision.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/recommendations/{{recommendationId}}/reviews",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "recommendations", "{{recommendationId}}", "reviews"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Decisions",
+      "item": [
+        {
+          "name": "Create Decision (DECISION_MAKER)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('decisionId', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Decision to sanction\",\n  \"summary\": \"Decision prepared for publication.\",\n  \"violationProven\": true,\n  \"sanctionSummary\": \"Administrative fine and reporting obligation.\",\n  \"obligationTitle\": \"Pay administrative fine\",\n  \"obligationDetails\": \"Transfer the assessed fine within the prescribed deadline.\",\n  \"obligationDueDate\": \"2026-08-20\",\n  \"appealDeadline\": \"2026-08-15\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cases/{{caseId}}/decisions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "cases", "{{caseId}}", "decisions"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Approve Decision (SUPERVISOR)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/decisions/{{decisionId}}/approve",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "decisions", "{{decisionId}}", "approve"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Publish Decision (DECISION_MAKER)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/decisions/{{decisionId}}/publish",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "decisions", "{{decisionId}}", "publish"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Appeals",
+      "item": [
+        {
+          "name": "Create Appeal (APPEAL_OFFICER)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('appealId', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rationale\": \"New mitigating evidence should be considered.\",\n  \"submittedAt\": \"2026-07-16T10:00:00Z\",\n  \"supervisorOverride\": false,\n  \"supervisorOverrideReason\": null\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/decisions/{{decisionId}}/appeals",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "decisions", "{{decisionId}}", "appeals"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Decide Appeal (SUPERVISOR)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"outcome\": \"DENIED\",\n  \"summary\": \"Appeal denied after review.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/appeals/{{appealId}}/decisions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "appeals", "{{appealId}}", "decisions"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Evidence",
+      "item": [
+        {
+          "name": "Create Evidence Upload Session",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('evidenceId', json.evidenceId);",
+                  "pm.collectionVariables.set('uploadSessionId', json.uploadSessionId);",
+                  "pm.collectionVariables.set('uploadUrl', json.uploadUrl);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Bank transfer receipt\",\n  \"classification\": \"CONFIDENTIAL\",\n  \"originalFilename\": \"receipt.pdf\",\n  \"mediaType\": \"application/pdf\",\n  \"sizeBytes\": 1024,\n  \"sha256Checksum\": \"{{sampleEvidenceSha256}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cases/{{caseId}}/evidence/upload-sessions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "cases", "{{caseId}}", "evidence", "upload-sessions"]
+            },
+            "description": "The sha256Checksum must match the binary you later upload to the returned uploadUrl."
+          },
+          "response": []
+        },
+        {
+          "name": "Finalize Evidence Version",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uploadSessionId\": \"{{uploadSessionId}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/evidence/{{evidenceId}}/versions/finalize",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "evidence", "{{evidenceId}}", "versions", "finalize"]
+            },
+            "description": "Before sending this request, upload the actual binary to the presigned uploadUrl using a separate PUT request in Postman or another HTTP client."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Evidence",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/evidence/{{evidenceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "evidence", "{{evidenceId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create Evidence Download Session",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('downloadUrl', json.downloadUrl);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Review evidence during investigation.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/evidence/{{evidenceId}}/download-sessions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "evidence", "{{evidenceId}}", "download-sessions"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Tasks",
+      "item": [
+        {
+          "name": "List Tasks",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.items && json.items.length > 0) {",
+                  "  pm.collectionVariables.set('taskId', json.items[0].taskId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks?caseId={{caseId}}&limit=10&sortBy=CREATED_AT&sortDirection=ASC",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks"],
+              "query": [
+                { "key": "caseId", "value": "{{caseId}}" },
+                { "key": "limit", "value": "10" },
+                { "key": "sortBy", "value": "CREATED_AT" },
+                { "key": "sortDirection", "value": "ASC" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Claim Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('taskId', json.taskId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{taskId}}/claim",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{taskId}}", "claim"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Complete Task",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tasks/{{taskId}}/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tasks", "{{taskId}}", "complete"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Workflow Reconciliation",
+      "item": [
+        {
+          "name": "List Workflow Reconciliation Issues (SUPERVISOR)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.items && json.items.length > 0) {",
+                  "  pm.collectionVariables.set('workflowCaseId', json.items[0].caseId);",
+                  "}",
+                  "if (pm.collectionVariables.get('caseId')) {",
+                  "  pm.collectionVariables.set('workflowCaseId', pm.collectionVariables.get('caseId'));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/workflow-reconciliation?q={{caseNumber}}&sortBy=CASE_NUMBER&sortDirection=ASC&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "workflow-reconciliation"],
+              "query": [
+                { "key": "q", "value": "{{caseNumber}}" },
+                { "key": "sortBy", "value": "CASE_NUMBER" },
+                { "key": "sortDirection", "value": "ASC" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reconcile Workflow Case (SUPERVISOR)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"AUTO_REPAIR\",\n  \"reason\": \"Repair workflow mismatch from Postman.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/workflow-reconciliation/{{workflowCaseId}}/actions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "workflow-reconciliation", "{{workflowCaseId}}", "actions"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

@@ -22,6 +22,8 @@ import jakarta.ws.rs.core.GenericType;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.io.IOException;
+import java.net.ServerSocket;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -84,7 +86,7 @@ abstract class AbstractApiIT {
       new GenericContainer<>("axllent/mailpit:latest")
           .withExposedPorts(1025, 8025)
           .waitingFor(Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(2)));
-  protected static final FixedPortKafkaContainer KAFKA = new FixedPortKafkaContainer();
+  protected static final StablePortKafkaContainer KAFKA = createKafkaContainer();
 
   protected static ApplicationRuntime applicationRuntime;
   protected static Client client;
@@ -424,7 +426,7 @@ abstract class AbstractApiIT {
   }
 
   protected static String workflowStatus(UUID caseId) {
-    String sql = "SELECT status FROM workflow_instance WHERE case_id = ?";
+    String sql = "SELECT status FROM workflow_instance WHERE case_id = ? AND workflow_type = 'CASE_MAIN'";
     try (Connection connection =
             DriverManager.getConnection(
                 POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
@@ -520,7 +522,7 @@ abstract class AbstractApiIT {
   }
 
   protected static String kafkaBootstrapServers() {
-    return "127.0.0.1:29092";
+    return KAFKA.getBootstrapServers();
   }
 
   protected static String mailpitApiBaseUrl() {
@@ -535,22 +537,35 @@ abstract class AbstractApiIT {
         "acks", "all");
   }
 
-  protected static final class FixedPortKafkaContainer
-      extends GenericContainer<FixedPortKafkaContainer> {
-    private static final int HOST_PORT = 29092;
+  protected static StablePortKafkaContainer createKafkaContainer() {
+    return new StablePortKafkaContainer();
+  }
 
-    FixedPortKafkaContainer() {
+  protected static final class StablePortKafkaContainer
+      extends GenericContainer<StablePortKafkaContainer> {
+    private static final int CONTAINER_BROKER_PORT = 29092;
+    private static final int CONTAINER_CONTROLLER_PORT = 9093;
+
+    private final int hostPort;
+
+    StablePortKafkaContainer() {
       super("confluentinc/cp-kafka:7.8.1");
-      addFixedExposedPort(HOST_PORT, HOST_PORT);
+      this.hostPort = reserveHostPort();
+      addFixedExposedPort(hostPort, CONTAINER_BROKER_PORT);
       withEnv("CLUSTER_ID", "MkU3OEVBNTcwNTJENDM2Qk");
       withEnv("KAFKA_NODE_ID", "1");
       withEnv("KAFKA_PROCESS_ROLES", "broker,controller");
-      withEnv("KAFKA_LISTENERS", "PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093");
-      withEnv("KAFKA_ADVERTISED_LISTENERS", "PLAINTEXT://127.0.0.1:29092");
+      withEnv(
+          "KAFKA_LISTENERS",
+          "PLAINTEXT://0.0.0.0:"
+              + CONTAINER_BROKER_PORT
+              + ",CONTROLLER://0.0.0.0:"
+              + CONTAINER_CONTROLLER_PORT);
+      withEnv("KAFKA_ADVERTISED_LISTENERS", "PLAINTEXT://127.0.0.1:" + hostPort);
       withEnv("KAFKA_LISTENER_SECURITY_PROTOCOL_MAP", "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT");
       withEnv("KAFKA_INTER_BROKER_LISTENER_NAME", "PLAINTEXT");
       withEnv("KAFKA_CONTROLLER_LISTENER_NAMES", "CONTROLLER");
-      withEnv("KAFKA_CONTROLLER_QUORUM_VOTERS", "1@127.0.0.1:9093");
+      withEnv("KAFKA_CONTROLLER_QUORUM_VOTERS", "1@127.0.0.1:" + CONTAINER_CONTROLLER_PORT);
       withEnv("KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR", "1");
       withEnv("KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR", "1");
       withEnv("KAFKA_TRANSACTION_STATE_LOG_MIN_ISR", "1");
@@ -559,6 +574,19 @@ abstract class AbstractApiIT {
       waitingFor(
           Wait.forLogMessage(".*Transitioning from RECOVERY to RUNNING.*", 1)
               .withStartupTimeout(Duration.ofMinutes(3)));
+    }
+
+    String getBootstrapServers() {
+      return "127.0.0.1:" + hostPort;
+    }
+
+    private static int reserveHostPort() {
+      try (ServerSocket socket = new ServerSocket(0)) {
+        socket.setReuseAddress(true);
+        return socket.getLocalPort();
+      } catch (IOException exception) {
+        throw new IllegalStateException("Failed to reserve a host port for Kafka testcontainer.", exception);
+      }
     }
   }
 }

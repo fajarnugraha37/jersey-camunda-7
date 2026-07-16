@@ -22,6 +22,7 @@ final class KafkaOutboxPublisher {
   private final String leaseOwner;
   private final Duration leaseDuration;
   private final int batchSize;
+  private final Runnable topicProvisioner;
 
   KafkaOutboxPublisher(
       OutboxRepository outboxRepository,
@@ -30,7 +31,8 @@ final class KafkaOutboxPublisher {
       Clock clock,
       String leaseOwner,
       Duration leaseDuration,
-      int batchSize) {
+      int batchSize,
+      Runnable topicProvisioner) {
     this.outboxRepository = outboxRepository;
     this.producer = producer;
     this.codec = codec;
@@ -38,6 +40,7 @@ final class KafkaOutboxPublisher {
     this.leaseOwner = leaseOwner;
     this.leaseDuration = leaseDuration;
     this.batchSize = batchSize;
+    this.topicProvisioner = topicProvisioner;
   }
 
   int publishPendingBatch() {
@@ -62,6 +65,7 @@ final class KafkaOutboxPublisher {
             retryAt,
             abbreviatedMessage(exception),
             SYSTEM_ACTOR);
+        ensureTopicsExistForRetry();
         LOGGER.warn(
             "Failed to publish outbox event {} to topic {}. Will retry at {}.",
             outboxEvent.eventId(),
@@ -76,6 +80,14 @@ final class KafkaOutboxPublisher {
   private Duration retryDelay(int attemptNumber) {
     long seconds = Math.min(60L, 1L << Math.min(attemptNumber, 6));
     return Duration.ofSeconds(seconds);
+  }
+
+  private void ensureTopicsExistForRetry() {
+    try {
+      topicProvisioner.run();
+    } catch (RuntimeException ignored) {
+      // Topic recovery is best-effort here; the original publish failure is already recorded.
+    }
   }
 
   private String abbreviatedMessage(Exception exception) {

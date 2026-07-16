@@ -169,6 +169,7 @@ public final class AppealApplicationService {
       }
       throw exception;
     }
+    workflowPort.correlateAppealFiled(currentCase.id(), appeal.id());
     return appeal;
   }
 
@@ -308,6 +309,8 @@ public final class AppealApplicationService {
           outboxRepository.enqueue(MessagingEventFactory.auditIntegrated(auditEvent, now));
           return null;
         });
+    workflowPort.correlateAppealResolved(
+        caseId, targetStatus == CaseStatus.ENFORCEMENT_IN_PROGRESS);
     return updatedCase;
   }
 

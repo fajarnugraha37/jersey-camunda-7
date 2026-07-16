@@ -3,15 +3,15 @@ package com.sentinel.enforcement.workflow;
 final class WorkflowReadinessProbe {
   private final ProcessEngineProvider processEngineProvider;
   private final CamundaServices camundaServices;
-  private final String processDefinitionKey;
+  private final String[] processDefinitionKeys;
 
   WorkflowReadinessProbe(
       ProcessEngineProvider processEngineProvider,
       CamundaServices camundaServices,
-      String processDefinitionKey) {
+      String... processDefinitionKeys) {
     this.processEngineProvider = processEngineProvider;
     this.camundaServices = camundaServices;
-    this.processDefinitionKey = processDefinitionKey;
+    this.processDefinitionKeys = processDefinitionKeys;
   }
 
   boolean isReady() {
@@ -23,13 +23,19 @@ final class WorkflowReadinessProbe {
       if (camundaServices.managementService().getTableCount().isEmpty()) {
         return false;
       }
-      return camundaServices
-              .repositoryService()
-              .createProcessDefinitionQuery()
-              .processDefinitionKey(processDefinitionKey)
-              .latestVersion()
-              .count()
-          > 0;
+      for (String processDefinitionKey : processDefinitionKeys) {
+        long deployedCount =
+            camundaServices
+                .repositoryService()
+                .createProcessDefinitionQuery()
+                .processDefinitionKey(processDefinitionKey)
+                .latestVersion()
+                .count();
+        if (deployedCount == 0) {
+          return false;
+        }
+      }
+      return true;
     } catch (RuntimeException exception) {
       return false;
     }

@@ -1,105 +1,860 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Definitions_1" targetNamespace="https://sentinel.local/workflow" exporter="Camunda Modeler" exporterVersion="5.39.0">
+﻿<?xml version="1.0" encoding="utf-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="Definitions_RegulatoryEnforcementCase" targetNamespace="https://sentinel.local/workflow" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI">
+  <bpmn:message id="Message_CaseCreated" name="CaseCreatedMessage" />
+  <bpmn:message id="Message_ExternalEvidenceDelivered" name="ExternalEvidenceDelivered" />
+  <bpmn:message id="Message_SanctionRegistryAcknowledged" name="SanctionRegistryAcknowledged" />
+  <bpmn:message id="Message_NotificationResultReceived" name="NotificationResultReceived" />
+  <bpmn:message id="Message_AppealFiled" name="AppealFiled" />
+  <bpmn:message id="Message_AppealResolved" name="AppealResolved" />
+  <bpmn:escalation id="Escalation_SupervisorOverride" name="Supervisor Override Escalation" escalationCode="SUPERVISOR_OVERRIDE" />
+  <bpmn:signal id="Signal_GlobalHold" name="GlobalHoldSignal" />
+  <bpmn:dataStore id="DataStore_CaseDatabase" name="Case Database" />
+  <bpmn:dataStore id="DataStore_EvidenceObjectStore" name="Evidence Object Store" />
+  <bpmn:dataStore id="DataStore_SanctionRegistryStore" name="Sanction Registry Store" />
+  <bpmn:dataStore id="DataStore_NotificationStore" name="Notification Store" />
   <bpmn:process id="regulatoryEnforcementCase" name="Regulatory Enforcement Case" isExecutable="true" camunda:historyTimeToLive="30">
-    <bpmn:startEvent id="startEvent" name="Case Created">
-      <bpmn:outgoing>Flow_1</bpmn:outgoing>
+    <bpmn:dataObject id="DataObject_InvestigationPlan" name="Investigation Plan" />
+    <bpmn:dataObjectReference id="DataObjectReference_InvestigationPlan" dataObjectRef="DataObject_InvestigationPlan" />
+    <bpmn:dataStoreReference id="DataStoreReference_CaseDatabase" dataStoreRef="DataStore_CaseDatabase" />
+    <bpmn:startEvent id="caseCreatedStartEvent" name="Case Created">
+      <bpmn:outgoing>Flow_Start_To_PreTriage</bpmn:outgoing>
+      <bpmn:messageEventDefinition messageRef="Message_CaseCreated" />
     </bpmn:startEvent>
+    <bpmn:serviceTask id="preTriageValidationTask" name="Pre-Triage Validation &amp; Routing Enrichment" camunda:delegateExpression="${preTriageRoutingDelegate}">
+      <bpmn:incoming>Flow_Start_To_PreTriage</bpmn:incoming>
+      <bpmn:outgoing>Flow_PreTriage_To_IntakeValid</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="intakeValidGateway" name="Intake Valid?" default="Flow_IntakeValid_DefaultToTriage">
+      <bpmn:incoming>Flow_PreTriage_To_IntakeValid</bpmn:incoming>
+      <bpmn:outgoing>Flow_IntakeRejected</bpmn:outgoing>
+      <bpmn:outgoing>Flow_IntakeValid_DefaultToTriage</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:endEvent id="intakeRejectedEndEvent" name="Intake Rejected">
+      <bpmn:incoming>Flow_IntakeRejected</bpmn:incoming>
+      <bpmn:terminateEventDefinition />
+    </bpmn:endEvent>
     <bpmn:userTask id="triageTask" name="Triage Case" camunda:candidateGroups="TRIAGE_OFFICER,SUPERVISOR">
-      <bpmn:incoming>Flow_1</bpmn:incoming>
-      <bpmn:outgoing>Flow_2</bpmn:outgoing>
+      <bpmn:incoming>Flow_IntakeValid_DefaultToTriage</bpmn:incoming>
+      <bpmn:outgoing>Flow_Triage_To_SelectTracks</bpmn:outgoing>
     </bpmn:userTask>
-    <bpmn:userTask id="investigationTask" name="Investigate Case" camunda:candidateGroups="INVESTIGATOR,SUPERVISOR">
-      <bpmn:incoming>Flow_2</bpmn:incoming>
-      <bpmn:outgoing>Flow_3</bpmn:outgoing>
-    </bpmn:userTask>
-    <bpmn:boundaryEvent id="investigationEscalationTimer" name="Investigation Escalation" cancelActivity="false" attachedToRef="investigationTask">
-      <bpmn:outgoing>Flow_6</bpmn:outgoing>
+    <bpmn:boundaryEvent id="triageSlaWarningTimer" name="Triage SLA Warning" attachedToRef="triageTask" cancelActivity="false">
+      <bpmn:outgoing>Flow_TriageTimer_To_TriageEscalationThrow</bpmn:outgoing>
       <bpmn:timerEventDefinition>
-        <bpmn:timeDuration>${investigationEscalationDuration}</bpmn:timeDuration>
+        <bpmn:timeDuration>PT30M</bpmn:timeDuration>
       </bpmn:timerEventDefinition>
     </bpmn:boundaryEvent>
-    <bpmn:serviceTask id="recordInvestigationEscalation" name="Record Investigation Escalation" camunda:delegateExpression="${investigationEscalationDelegate}">
-      <bpmn:incoming>Flow_6</bpmn:incoming>
-      <bpmn:outgoing>Flow_7</bpmn:outgoing>
-    </bpmn:serviceTask>
-    <bpmn:endEvent id="escalationRecorded" name="Escalation Recorded">
-      <bpmn:incoming>Flow_7</bpmn:incoming>
+    <bpmn:boundaryEvent id="triageSupervisorEscalation" name="Triage Supervisor Attention" attachedToRef="triageTask" cancelActivity="false">
+      <bpmn:outgoing>Flow_TriageEscalation_To_TriageEscalationThrow</bpmn:outgoing>
+      <bpmn:escalationEventDefinition escalationRef="Escalation_SupervisorOverride" />
+    </bpmn:boundaryEvent>
+    <bpmn:intermediateThrowEvent id="triageEscalationThrowEvent" name="Raise Triage Escalation">
+      <bpmn:incoming>Flow_TriageTimer_To_TriageEscalationThrow</bpmn:incoming>
+      <bpmn:incoming>Flow_TriageEscalation_To_TriageEscalationThrow</bpmn:incoming>
+      <bpmn:outgoing>Flow_TriageEscalationThrow_To_TriageEscalationRaisedEnd</bpmn:outgoing>
+      <bpmn:escalationEventDefinition escalationRef="Escalation_SupervisorOverride" />
+    </bpmn:intermediateThrowEvent>
+    <bpmn:endEvent id="triageEscalationRaisedEndEvent" name="Triage Escalation Raised">
+      <bpmn:incoming>Flow_TriageEscalationThrow_To_TriageEscalationRaisedEnd</bpmn:incoming>
     </bpmn:endEvent>
-    <bpmn:userTask id="reviewTask" name="Review Recommendation" camunda:candidateGroups="CASE_REVIEWER,SUPERVISOR">
-      <bpmn:incoming>Flow_3</bpmn:incoming>
-      <bpmn:outgoing>Flow_4</bpmn:outgoing>
+    <bpmn:inclusiveGateway id="selectInvestigationTracksGateway" name="Select Investigation Tracks" default="Flow_Default_InvestigationPath">
+      <bpmn:incoming>Flow_Triage_To_SelectTracks</bpmn:incoming>
+      <bpmn:outgoing>Flow_Default_InvestigationPath</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Optional_LegalAdvisory</bpmn:outgoing>
+      <bpmn:outgoing>Flow_Optional_FinancialAnalysis</bpmn:outgoing>
+    </bpmn:inclusiveGateway>
+    <bpmn:userTask id="optionalLegalAdvisoryTask" name="Optional Legal Advisory Review" camunda:candidateGroups="CASE_REVIEWER,SUPERVISOR">
+      <bpmn:incoming>Flow_Optional_LegalAdvisory</bpmn:incoming>
+      <bpmn:outgoing>Flow_OptionalLegalAdvisory_To_PostInvestigationJoin</bpmn:outgoing>
     </bpmn:userTask>
-    <bpmn:userTask id="decisionTask" name="Approve Decision" camunda:candidateGroups="DECISION_MAKER,SUPERVISOR">
-      <bpmn:incoming>Flow_4</bpmn:incoming>
-      <bpmn:outgoing>Flow_5</bpmn:outgoing>
+    <bpmn:userTask id="financialReviewTask" name="Financial Analysis Review" camunda:candidateGroups="CASE_REVIEWER,SUPERVISOR">
+      <bpmn:incoming>Flow_Optional_FinancialAnalysis</bpmn:incoming>
+      <bpmn:outgoing>Flow_FinancialReview_To_PostInvestigationJoin</bpmn:outgoing>
     </bpmn:userTask>
-    <bpmn:endEvent id="decisionCompleted" name="Decision Completed">
-      <bpmn:incoming>Flow_5</bpmn:incoming>
+    <bpmn:subProcess id="investigationAndEvidenceSubProcess" name="Investigation &amp; Evidence Collection">
+      <bpmn:incoming>Flow_Default_InvestigationPath</bpmn:incoming>
+      <bpmn:outgoing>Flow_InvestigationSubProcess_To_PostInvestigationJoin</bpmn:outgoing>
+      <bpmn:dataObject id="DataObject_EvidenceChecklist" name="Evidence Checklist" />
+      <bpmn:dataObjectReference id="DataObjectReference_EvidenceChecklist" dataObjectRef="DataObject_EvidenceChecklist" />
+      <bpmn:dataStoreReference id="DataStoreReference_EvidenceObjectStore" dataStoreRef="DataStore_EvidenceObjectStore" />
+      <bpmn:startEvent id="investigationSubStartEvent">
+        <bpmn:outgoing>Flow_InvestigationSubStart_To_LaunchTracks</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:inclusiveGateway id="investigationTrackGateway" name="Launch Investigation Tracks" default="Flow_Default_InvestigationTaskPath">
+        <bpmn:incoming>Flow_InvestigationSubStart_To_LaunchTracks</bpmn:incoming>
+        <bpmn:outgoing>Flow_Default_InvestigationTaskPath</bpmn:outgoing>
+        <bpmn:outgoing>Flow_RequestExternalEvidence</bpmn:outgoing>
+        <bpmn:outgoing>Flow_RequestLegalAdvisory</bpmn:outgoing>
+        <bpmn:outgoing>Flow_FinancialAnalysisScript</bpmn:outgoing>
+      </bpmn:inclusiveGateway>
+      <bpmn:userTask id="investigationTask" name="Investigate Case" camunda:candidateGroups="INVESTIGATOR,SUPERVISOR">
+        <bpmn:incoming>Flow_Default_InvestigationTaskPath</bpmn:incoming>
+        <bpmn:outgoing>Flow_InvestigationTask_To_EvidenceReadyJoin</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:boundaryEvent id="investigationEscalationTimer" name="Investigation Escalation" attachedToRef="investigationTask" cancelActivity="false">
+        <bpmn:outgoing>Flow_InvestigationEscalation_To_RecordEscalation</bpmn:outgoing>
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration>${investigationEscalationDuration}</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:boundaryEvent>
+      <bpmn:serviceTask id="recordInvestigationEscalation" name="Record Investigation Escalation" camunda:delegateExpression="${investigationEscalationDelegate}">
+        <bpmn:incoming>Flow_InvestigationEscalation_To_RecordEscalation</bpmn:incoming>
+        <bpmn:outgoing>Flow_RecordEscalation_To_ThrowEscalation</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:intermediateThrowEvent id="investigationSupervisorEscalation" name="Supervisor Review Needed">
+        <bpmn:incoming>Flow_RecordEscalation_To_ThrowEscalation</bpmn:incoming>
+        <bpmn:outgoing>Flow_ThrowEscalation_To_EscalationRecordedEnd</bpmn:outgoing>
+        <bpmn:escalationEventDefinition escalationRef="Escalation_SupervisorOverride" />
+      </bpmn:intermediateThrowEvent>
+      <bpmn:endEvent id="investigationEscalationRecordedEnd" name="Escalation Recorded">
+        <bpmn:incoming>Flow_ThrowEscalation_To_EscalationRecordedEnd</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sendTask id="requestExternalEvidenceTask" name="Request External Evidence" camunda:delegateExpression="${mockWorkflowServiceDelegate}">
+        <bpmn:incoming>Flow_RequestExternalEvidence</bpmn:incoming>
+        <bpmn:outgoing>Flow_RequestExternalEvidence_To_DeliveryMode</bpmn:outgoing>
+      </bpmn:sendTask>
+      <bpmn:exclusiveGateway id="externalEvidenceDeliveryModeGateway" name="External Evidence Delivery Mode" default="Flow_Default_AutoExternalEvidenceDelivery">
+        <bpmn:incoming>Flow_RequestExternalEvidence_To_DeliveryMode</bpmn:incoming>
+        <bpmn:outgoing>Flow_WaitForExternalEvidenceMessage</bpmn:outgoing>
+        <bpmn:outgoing>Flow_Default_AutoExternalEvidenceDelivery</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:receiveTask id="awaitExternalEvidenceTask" name="Await External Evidence Package" messageRef="Message_ExternalEvidenceDelivered">
+        <bpmn:incoming>Flow_WaitForExternalEvidenceMessage</bpmn:incoming>
+        <bpmn:outgoing>Flow_AwaitEvidence_To_EvidenceReadyJoin</bpmn:outgoing>
+      </bpmn:receiveTask>
+      <bpmn:serviceTask id="simulateExternalEvidenceDeliveredTask" name="Simulate External Evidence Delivery" camunda:delegateExpression="${mockWorkflowServiceDelegate}">
+        <bpmn:incoming>Flow_Default_AutoExternalEvidenceDelivery</bpmn:incoming>
+        <bpmn:outgoing>Flow_AutoExternalEvidenceDelivery_To_EvidenceReadyJoin</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:userTask id="legalAdvisoryTask" name="Request Legal Advisory" camunda:candidateGroups="CASE_REVIEWER,SUPERVISOR">
+        <bpmn:incoming>Flow_RequestLegalAdvisory</bpmn:incoming>
+        <bpmn:outgoing>Flow_LegalAdvisory_To_EvidenceReadyJoin</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:scriptTask id="financialAnalysisScriptTask" name="Compute Evidence Completeness Flags" scriptFormat="javascript">
+        <bpmn:incoming>Flow_FinancialAnalysisScript</bpmn:incoming>
+        <bpmn:outgoing>Flow_FinancialAnalysis_To_EvidenceRuleTask</bpmn:outgoing>
+        <bpmn:script>/* optional financial analysis branch */</bpmn:script>
+      </bpmn:scriptTask>
+      <bpmn:serviceTask id="evidenceSufficiencyRuleTask" name="Evaluate Evidence Sufficiency" camunda:delegateExpression="${mockWorkflowServiceDelegate}">
+        <bpmn:incoming>Flow_FinancialAnalysis_To_EvidenceRuleTask</bpmn:incoming>
+        <bpmn:outgoing>Flow_EvidenceRuleTask_To_SufficientEvidenceCondition</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:intermediateCatchEvent id="sufficientEvidenceConditionEvent" name="Evidence Sufficient">
+        <bpmn:incoming>Flow_EvidenceRuleTask_To_SufficientEvidenceCondition</bpmn:incoming>
+        <bpmn:outgoing>Flow_SufficientEvidenceCondition_To_EvidenceReadyJoin</bpmn:outgoing>
+        <bpmn:conditionalEventDefinition>
+          <bpmn:condition xsi:type="bpmn:tFormalExpression">${evidenceSufficient == true}</bpmn:condition>
+        </bpmn:conditionalEventDefinition>
+      </bpmn:intermediateCatchEvent>
+      <bpmn:inclusiveGateway id="evidenceReadyJoinGateway" name="Investigation Tracks Completed">
+        <bpmn:incoming>Flow_InvestigationTask_To_EvidenceReadyJoin</bpmn:incoming>
+        <bpmn:incoming>Flow_AwaitEvidence_To_EvidenceReadyJoin</bpmn:incoming>
+        <bpmn:incoming>Flow_LegalAdvisory_To_EvidenceReadyJoin</bpmn:incoming>
+        <bpmn:incoming>Flow_SufficientEvidenceCondition_To_EvidenceReadyJoin</bpmn:incoming>
+        <bpmn:outgoing>Flow_EvidenceReadyJoin_To_AdditionalEvidenceGateway</bpmn:outgoing>
+      </bpmn:inclusiveGateway>
+      <bpmn:exclusiveGateway id="additionalEvidenceGateway" name="Additional Evidence Required?" default="Flow_NoAdditionalEvidence_Default">
+        <bpmn:incoming>Flow_EvidenceReadyJoin_To_AdditionalEvidenceGateway</bpmn:incoming>
+        <bpmn:outgoing>Flow_AdditionalEvidenceRequested</bpmn:outgoing>
+        <bpmn:outgoing>Flow_NoAdditionalEvidence_Default</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:sendTask id="requestAdditionalEvidenceTask" name="Request Additional Evidence" camunda:delegateExpression="${mockWorkflowServiceDelegate}">
+        <bpmn:incoming>Flow_AdditionalEvidenceRequested</bpmn:incoming>
+        <bpmn:outgoing>Flow_RequestAdditionalEvidence_To_InvestigationSubEnd</bpmn:outgoing>
+      </bpmn:sendTask>
+      <bpmn:endEvent id="investigationSubEndEvent">
+        <bpmn:incoming>Flow_NoAdditionalEvidence_Default</bpmn:incoming>
+        <bpmn:incoming>Flow_RequestAdditionalEvidence_To_InvestigationSubEnd</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_InvestigationSubStart_To_LaunchTracks" sourceRef="investigationSubStartEvent" targetRef="investigationTrackGateway" />
+      <bpmn:sequenceFlow id="Flow_Default_InvestigationTaskPath" sourceRef="investigationTrackGateway" targetRef="investigationTask" />
+      <bpmn:sequenceFlow id="Flow_RequestExternalEvidence" sourceRef="investigationTrackGateway" targetRef="requestExternalEvidenceTask">
+        <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${requiresExternalEvidence == true}</bpmn:conditionExpression>
+      </bpmn:sequenceFlow>
+      <bpmn:sequenceFlow id="Flow_RequestLegalAdvisory" sourceRef="investigationTrackGateway" targetRef="legalAdvisoryTask">
+        <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${requiresLegalAdvisoryTrack == true}</bpmn:conditionExpression>
+      </bpmn:sequenceFlow>
+      <bpmn:sequenceFlow id="Flow_FinancialAnalysisScript" sourceRef="investigationTrackGateway" targetRef="financialAnalysisScriptTask">
+        <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${requiresFinancialAnalysisTrack == true}</bpmn:conditionExpression>
+      </bpmn:sequenceFlow>
+      <bpmn:sequenceFlow id="Flow_InvestigationTask_To_EvidenceReadyJoin" sourceRef="investigationTask" targetRef="evidenceReadyJoinGateway" />
+      <bpmn:sequenceFlow id="Flow_InvestigationEscalation_To_RecordEscalation" sourceRef="investigationEscalationTimer" targetRef="recordInvestigationEscalation" />
+      <bpmn:sequenceFlow id="Flow_RecordEscalation_To_ThrowEscalation" sourceRef="recordInvestigationEscalation" targetRef="investigationSupervisorEscalation" />
+      <bpmn:sequenceFlow id="Flow_ThrowEscalation_To_EscalationRecordedEnd" sourceRef="investigationSupervisorEscalation" targetRef="investigationEscalationRecordedEnd" />
+      <bpmn:sequenceFlow id="Flow_RequestExternalEvidence_To_DeliveryMode" sourceRef="requestExternalEvidenceTask" targetRef="externalEvidenceDeliveryModeGateway" />
+      <bpmn:sequenceFlow id="Flow_WaitForExternalEvidenceMessage" sourceRef="externalEvidenceDeliveryModeGateway" targetRef="awaitExternalEvidenceTask">
+        <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${autoExternalEvidenceDelivery != true}</bpmn:conditionExpression>
+      </bpmn:sequenceFlow>
+      <bpmn:sequenceFlow id="Flow_Default_AutoExternalEvidenceDelivery" sourceRef="externalEvidenceDeliveryModeGateway" targetRef="simulateExternalEvidenceDeliveredTask" />
+      <bpmn:sequenceFlow id="Flow_AwaitEvidence_To_EvidenceReadyJoin" sourceRef="awaitExternalEvidenceTask" targetRef="evidenceReadyJoinGateway" />
+      <bpmn:sequenceFlow id="Flow_AutoExternalEvidenceDelivery_To_EvidenceReadyJoin" sourceRef="simulateExternalEvidenceDeliveredTask" targetRef="evidenceReadyJoinGateway" />
+      <bpmn:sequenceFlow id="Flow_LegalAdvisory_To_EvidenceReadyJoin" sourceRef="legalAdvisoryTask" targetRef="evidenceReadyJoinGateway" />
+      <bpmn:sequenceFlow id="Flow_FinancialAnalysis_To_EvidenceRuleTask" sourceRef="financialAnalysisScriptTask" targetRef="evidenceSufficiencyRuleTask" />
+      <bpmn:sequenceFlow id="Flow_EvidenceRuleTask_To_SufficientEvidenceCondition" sourceRef="evidenceSufficiencyRuleTask" targetRef="sufficientEvidenceConditionEvent" />
+      <bpmn:sequenceFlow id="Flow_SufficientEvidenceCondition_To_EvidenceReadyJoin" sourceRef="sufficientEvidenceConditionEvent" targetRef="evidenceReadyJoinGateway" />
+      <bpmn:sequenceFlow id="Flow_EvidenceReadyJoin_To_AdditionalEvidenceGateway" sourceRef="evidenceReadyJoinGateway" targetRef="additionalEvidenceGateway" />
+      <bpmn:sequenceFlow id="Flow_AdditionalEvidenceRequested" sourceRef="additionalEvidenceGateway" targetRef="requestAdditionalEvidenceTask">
+        <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${additionalEvidenceRequired == true}</bpmn:conditionExpression>
+      </bpmn:sequenceFlow>
+      <bpmn:sequenceFlow id="Flow_NoAdditionalEvidence_Default" sourceRef="additionalEvidenceGateway" targetRef="investigationSubEndEvent" />
+      <bpmn:sequenceFlow id="Flow_RequestAdditionalEvidence_To_InvestigationSubEnd" sourceRef="requestAdditionalEvidenceTask" targetRef="investigationSubEndEvent" />
+    </bpmn:subProcess>
+    <bpmn:inclusiveGateway id="postInvestigationJoinGateway" name="Investigation Selection Completed">
+      <bpmn:incoming>Flow_InvestigationSubProcess_To_PostInvestigationJoin</bpmn:incoming>
+      <bpmn:incoming>Flow_OptionalLegalAdvisory_To_PostInvestigationJoin</bpmn:incoming>
+      <bpmn:incoming>Flow_FinancialReview_To_PostInvestigationJoin</bpmn:incoming>
+      <bpmn:outgoing>Flow_PostInvestigationJoin_To_RecommendationReview</bpmn:outgoing>
+    </bpmn:inclusiveGateway>
+    <bpmn:subProcess id="recommendationReviewSubProcess" name="Recommendation &amp; Multi-Party Review">
+      <bpmn:incoming>Flow_PostInvestigationJoin_To_RecommendationReview</bpmn:incoming>
+      <bpmn:outgoing>Flow_RecommendationReviewSubProcess_To_DecisionPublication</bpmn:outgoing>
+      <bpmn:dataObject id="DataObject_RecommendationDraft" name="Recommendation Draft" />
+      <bpmn:dataObjectReference id="DataObjectReference_RecommendationDraft" dataObjectRef="DataObject_RecommendationDraft" />
+      <bpmn:startEvent id="recommendationSubStartEvent">
+        <bpmn:outgoing>Flow_RecommendationSubStart_To_ReviewTrackGateway</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:inclusiveGateway id="reviewTrackGateway" name="Review Tracks" default="Flow_Default_ReviewTaskPath">
+        <bpmn:incoming>Flow_RecommendationSubStart_To_ReviewTrackGateway</bpmn:incoming>
+        <bpmn:outgoing>Flow_Default_ReviewTaskPath</bpmn:outgoing>
+        <bpmn:outgoing>Flow_Optional_SupervisorReview</bpmn:outgoing>
+      </bpmn:inclusiveGateway>
+      <bpmn:userTask id="reviewTask" name="Review Recommendation" camunda:candidateGroups="CASE_REVIEWER,SUPERVISOR">
+        <bpmn:incoming>Flow_Default_ReviewTaskPath</bpmn:incoming>
+        <bpmn:outgoing>Flow_ReviewTask_To_ReviewJoin</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:userTask id="supervisorReviewTask" name="Supervisor Review" camunda:candidateGroups="SUPERVISOR">
+        <bpmn:incoming>Flow_Optional_SupervisorReview</bpmn:incoming>
+        <bpmn:outgoing>Flow_SupervisorReview_To_ReviewJoin</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:inclusiveGateway id="reviewJoinGateway" name="Review Completed">
+        <bpmn:incoming>Flow_ReviewTask_To_ReviewJoin</bpmn:incoming>
+        <bpmn:incoming>Flow_SupervisorReview_To_ReviewJoin</bpmn:incoming>
+        <bpmn:outgoing>Flow_ReviewJoin_To_ReviewOutcome</bpmn:outgoing>
+      </bpmn:inclusiveGateway>
+      <bpmn:exclusiveGateway id="reviewOutcomeGateway" name="Review Outcome" default="Flow_ReviewApproved_Default">
+        <bpmn:incoming>Flow_ReviewJoin_To_ReviewOutcome</bpmn:incoming>
+        <bpmn:outgoing>Flow_ReviewRequiresRevision</bpmn:outgoing>
+        <bpmn:outgoing>Flow_ReviewApproved_Default</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:userTask id="recommendationRevisionTask" name="Revise Recommendation" camunda:candidateGroups="INVESTIGATOR,SUPERVISOR">
+        <bpmn:incoming>Flow_ReviewRequiresRevision</bpmn:incoming>
+        <bpmn:outgoing>Flow_RecommendationRevision_To_ReviewTrackGateway</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:endEvent id="recommendationReviewSubEndEvent">
+        <bpmn:incoming>Flow_ReviewApproved_Default</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_RecommendationSubStart_To_ReviewTrackGateway" sourceRef="recommendationSubStartEvent" targetRef="reviewTrackGateway" />
+      <bpmn:sequenceFlow id="Flow_Default_ReviewTaskPath" sourceRef="reviewTrackGateway" targetRef="reviewTask" />
+      <bpmn:sequenceFlow id="Flow_Optional_SupervisorReview" sourceRef="reviewTrackGateway" targetRef="supervisorReviewTask">
+        <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${requiresSupervisorReview == true}</bpmn:conditionExpression>
+      </bpmn:sequenceFlow>
+      <bpmn:sequenceFlow id="Flow_ReviewTask_To_ReviewJoin" sourceRef="reviewTask" targetRef="reviewJoinGateway" />
+      <bpmn:sequenceFlow id="Flow_SupervisorReview_To_ReviewJoin" sourceRef="supervisorReviewTask" targetRef="reviewJoinGateway" />
+      <bpmn:sequenceFlow id="Flow_ReviewJoin_To_ReviewOutcome" sourceRef="reviewJoinGateway" targetRef="reviewOutcomeGateway" />
+      <bpmn:sequenceFlow id="Flow_ReviewRequiresRevision" sourceRef="reviewOutcomeGateway" targetRef="recommendationRevisionTask">
+        <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${reviewRequiresRevision == true}</bpmn:conditionExpression>
+      </bpmn:sequenceFlow>
+      <bpmn:sequenceFlow id="Flow_ReviewApproved_Default" sourceRef="reviewOutcomeGateway" targetRef="recommendationReviewSubEndEvent" />
+      <bpmn:sequenceFlow id="Flow_RecommendationRevision_To_ReviewTrackGateway" sourceRef="recommendationRevisionTask" targetRef="reviewTrackGateway" />
+    </bpmn:subProcess>
+    <bpmn:subProcess id="decisionPublicationSubProcess" name="Decision &amp; Sanction Publication">
+      <bpmn:incoming>Flow_RecommendationReviewSubProcess_To_DecisionPublication</bpmn:incoming>
+      <bpmn:outgoing>Flow_DecisionPublicationSubProcess_To_PostDecisionGateway</bpmn:outgoing>
+      <bpmn:dataObject id="DataObject_SanctionPackage" name="Sanction Package" />
+      <bpmn:dataObjectReference id="DataObjectReference_SanctionPackage" dataObjectRef="DataObject_SanctionPackage" />
+      <bpmn:dataStoreReference id="DataStoreReference_SanctionRegistry" dataStoreRef="DataStore_SanctionRegistryStore" />
+      <bpmn:dataStoreReference id="DataStoreReference_NotificationStore" dataStoreRef="DataStore_NotificationStore" />
+      <bpmn:startEvent id="decisionPublicationSubStartEvent">
+        <bpmn:outgoing>Flow_DecisionSubStart_To_DecisionTask</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:userTask id="decisionTask" name="Approve Decision" camunda:candidateGroups="DECISION_MAKER,SUPERVISOR">
+        <bpmn:incoming>Flow_DecisionSubStart_To_DecisionTask</bpmn:incoming>
+        <bpmn:outgoing>Flow_DecisionTask_To_ViolationProvenGateway</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:exclusiveGateway id="violationProvenGateway" name="Violation Proven?" default="Flow_Default_NoSanctionPath">
+        <bpmn:incoming>Flow_DecisionTask_To_ViolationProvenGateway</bpmn:incoming>
+        <bpmn:outgoing>Flow_SanctionPublicationRequired</bpmn:outgoing>
+        <bpmn:outgoing>Flow_Default_NoSanctionPath</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:serviceTask id="determineSanctionPackageTask" name="Determine Sanction Package" camunda:delegateExpression="${mockWorkflowServiceDelegate}">
+        <bpmn:incoming>Flow_SanctionPublicationRequired</bpmn:incoming>
+        <bpmn:outgoing>Flow_DetermineSanctionPackage_To_PublishTransaction</bpmn:outgoing>
+      </bpmn:serviceTask>
+      <bpmn:transaction id="publishSanctionTransaction" name="Publish Sanction">
+        <bpmn:incoming>Flow_DetermineSanctionPackage_To_PublishTransaction</bpmn:incoming>
+        <bpmn:outgoing>Flow_PublishTransaction_To_AppealWindowGateway</bpmn:outgoing>
+        <bpmn:startEvent id="publishSanctionTransactionStart">
+          <bpmn:outgoing>Flow_PublishTransactionStart_To_CreatePublicationPackage</bpmn:outgoing>
+        </bpmn:startEvent>
+        <bpmn:serviceTask id="createPublicationPackageTask" name="Create Publication Package" camunda:delegateExpression="${mockWorkflowServiceDelegate}">
+          <bpmn:incoming>Flow_PublishTransactionStart_To_CreatePublicationPackage</bpmn:incoming>
+          <bpmn:outgoing>Flow_CreatePublicationPackage_To_SendSanctionRegistry</bpmn:outgoing>
+        </bpmn:serviceTask>
+        <bpmn:sendTask id="sendSanctionToRegistryTask" name="Send Sanction To Registry" camunda:delegateExpression="${mockWorkflowServiceDelegate}">
+          <bpmn:incoming>Flow_CreatePublicationPackage_To_SendSanctionRegistry</bpmn:incoming>
+          <bpmn:outgoing>Flow_SendSanctionRegistry_To_RegistryAckMode</bpmn:outgoing>
+        </bpmn:sendTask>
+        <bpmn:exclusiveGateway id="registryAcknowledgmentModeGateway" name="Registry Acknowledgment Mode" default="Flow_Default_AutoRegistryAcknowledgment">
+          <bpmn:incoming>Flow_SendSanctionRegistry_To_RegistryAckMode</bpmn:incoming>
+          <bpmn:outgoing>Flow_WaitForRegistryAcknowledgment</bpmn:outgoing>
+          <bpmn:outgoing>Flow_Default_AutoRegistryAcknowledgment</bpmn:outgoing>
+        </bpmn:exclusiveGateway>
+        <bpmn:serviceTask id="simulateRegistryAcknowledgmentTask" name="Simulate Registry Acknowledgment" camunda:delegateExpression="${mockWorkflowServiceDelegate}">
+          <bpmn:incoming>Flow_Default_AutoRegistryAcknowledgment</bpmn:incoming>
+          <bpmn:outgoing>Flow_AutoRegistryAcknowledgment_To_RegistryAckResultGateway</bpmn:outgoing>
+        </bpmn:serviceTask>
+        <bpmn:receiveTask id="awaitRegistryAcknowledgmentTask" name="Await Registry Acknowledgment" messageRef="Message_SanctionRegistryAcknowledged">
+          <bpmn:incoming>Flow_WaitForRegistryAcknowledgment</bpmn:incoming>
+          <bpmn:outgoing>Flow_AwaitRegistryAck_To_RegistryAckResultGateway</bpmn:outgoing>
+        </bpmn:receiveTask>
+        <bpmn:exclusiveGateway id="registryAckResultGateway" name="Registry Acknowledgment OK?" default="Flow_RegistryAckSuccess_Default">
+          <bpmn:incoming>Flow_AwaitRegistryAck_To_RegistryAckResultGateway</bpmn:incoming>
+          <bpmn:outgoing>Flow_RegistryAckNegative</bpmn:outgoing>
+          <bpmn:outgoing>Flow_RegistryAckSuccess_Default</bpmn:outgoing>
+        </bpmn:exclusiveGateway>
+        <bpmn:userTask id="reviewRegistryFailureTask" name="Review Registry Failure" camunda:candidateGroups="SUPERVISOR,SYSTEM_ADMIN">
+          <bpmn:incoming>Flow_RegistryAckNegative</bpmn:incoming>
+          <bpmn:outgoing>Flow_ReviewRegistryFailure_To_PublicationCancelledEnd</bpmn:outgoing>
+        </bpmn:userTask>
+        <bpmn:parallelGateway id="postPublicationParallelSplit" name="Launch Post-Publication Actions">
+          <bpmn:incoming>Flow_RegistryAckSuccess_Default</bpmn:incoming>
+          <bpmn:outgoing>Flow_PostPublication_To_SendNotificationCommand</bpmn:outgoing>
+          <bpmn:outgoing>Flow_PostPublication_To_CreateObligationSchedule</bpmn:outgoing>
+        </bpmn:parallelGateway>
+        <bpmn:sendTask id="sendNotificationCommandTask" name="Send Notification Command" camunda:delegateExpression="${mockWorkflowServiceDelegate}">
+          <bpmn:incoming>Flow_PostPublication_To_SendNotificationCommand</bpmn:incoming>
+          <bpmn:outgoing>Flow_SendNotificationCommand_To_PostPublicationJoin</bpmn:outgoing>
+        </bpmn:sendTask>
+        <bpmn:serviceTask id="createObligationScheduleTask" name="Create Obligation Schedule" camunda:delegateExpression="${mockWorkflowServiceDelegate}">
+          <bpmn:incoming>Flow_PostPublication_To_CreateObligationSchedule</bpmn:incoming>
+          <bpmn:outgoing>Flow_CreateObligationSchedule_To_PostPublicationJoin</bpmn:outgoing>
+        </bpmn:serviceTask>
+        <bpmn:parallelGateway id="postPublicationParallelJoin" name="Post-Publication Actions Completed">
+          <bpmn:incoming>Flow_SendNotificationCommand_To_PostPublicationJoin</bpmn:incoming>
+          <bpmn:incoming>Flow_CreateObligationSchedule_To_PostPublicationJoin</bpmn:incoming>
+          <bpmn:outgoing>Flow_PostPublicationJoin_To_NotificationResultMode</bpmn:outgoing>
+        </bpmn:parallelGateway>
+        <bpmn:exclusiveGateway id="notificationResultModeGateway" name="Notification Result Mode" default="Flow_Default_AutoNotificationResult">
+          <bpmn:incoming>Flow_PostPublicationJoin_To_NotificationResultMode</bpmn:incoming>
+          <bpmn:outgoing>Flow_WaitForNotificationResult</bpmn:outgoing>
+          <bpmn:outgoing>Flow_Default_AutoNotificationResult</bpmn:outgoing>
+        </bpmn:exclusiveGateway>
+        <bpmn:serviceTask id="simulateNotificationResultTask" name="Simulate Notification Result" camunda:delegateExpression="${mockWorkflowServiceDelegate}">
+          <bpmn:incoming>Flow_Default_AutoNotificationResult</bpmn:incoming>
+          <bpmn:outgoing>Flow_AutoNotificationResult_To_NotificationResultGateway</bpmn:outgoing>
+        </bpmn:serviceTask>
+        <bpmn:receiveTask id="awaitNotificationResultTask" name="Await Notification Result" messageRef="Message_NotificationResultReceived">
+          <bpmn:incoming>Flow_WaitForNotificationResult</bpmn:incoming>
+          <bpmn:outgoing>Flow_AwaitNotificationResult_To_NotificationResultGateway</bpmn:outgoing>
+        </bpmn:receiveTask>
+        <bpmn:exclusiveGateway id="notificationResultGateway" name="Notification Result OK?" default="Flow_NotificationResultSuccess_Default">
+          <bpmn:incoming>Flow_AwaitNotificationResult_To_NotificationResultGateway</bpmn:incoming>
+          <bpmn:outgoing>Flow_NotificationResultFailed</bpmn:outgoing>
+          <bpmn:outgoing>Flow_NotificationResultSuccess_Default</bpmn:outgoing>
+        </bpmn:exclusiveGateway>
+        <bpmn:sendTask id="resendNotificationCommandTask" name="Resend Notification Command" camunda:delegateExpression="${mockWorkflowServiceDelegate}">
+          <bpmn:incoming>Flow_NotificationResultFailed</bpmn:incoming>
+          <bpmn:outgoing>Flow_ResendNotification_To_ReviewNotificationFailure</bpmn:outgoing>
+        </bpmn:sendTask>
+        <bpmn:userTask id="reviewNotificationFailureTask" name="Review Notification Failure" camunda:candidateGroups="SUPERVISOR,SYSTEM_ADMIN">
+          <bpmn:incoming>Flow_ResendNotification_To_ReviewNotificationFailure</bpmn:incoming>
+          <bpmn:outgoing>Flow_ReviewNotificationFailure_To_ManualNotificationGateway</bpmn:outgoing>
+        </bpmn:userTask>
+        <bpmn:exclusiveGateway id="manualNotificationGateway" name="Manual Notification Required?" default="Flow_ManualNotificationRequired_Default">
+          <bpmn:incoming>Flow_ReviewNotificationFailure_To_ManualNotificationGateway</bpmn:incoming>
+          <bpmn:outgoing>Flow_AbortPublicationFinalization</bpmn:outgoing>
+          <bpmn:outgoing>Flow_ManualNotificationRequired_Default</bpmn:outgoing>
+        </bpmn:exclusiveGateway>
+        <bpmn:serviceTask id="markManualNotificationRequiredTask" name="Mark Manual Notification Required" camunda:delegateExpression="${mockWorkflowServiceDelegate}">
+          <bpmn:incoming>Flow_ManualNotificationRequired_Default</bpmn:incoming>
+          <bpmn:outgoing>Flow_MarkManualNotificationRequired_To_PublishTransactionEnd</bpmn:outgoing>
+        </bpmn:serviceTask>
+        <bpmn:endEvent id="publicationCancelledEnd" name="Publication Cancelled">
+          <bpmn:incoming>Flow_AbortPublicationFinalization</bpmn:incoming>
+          <bpmn:incoming>Flow_ReviewRegistryFailure_To_PublicationCancelledEnd</bpmn:incoming>
+          <bpmn:cancelEventDefinition />
+        </bpmn:endEvent>
+        <bpmn:endEvent id="publishSanctionTransactionEnd">
+          <bpmn:incoming>Flow_NotificationResultSuccess_Default</bpmn:incoming>
+          <bpmn:incoming>Flow_MarkManualNotificationRequired_To_PublishTransactionEnd</bpmn:incoming>
+        </bpmn:endEvent>
+        <bpmn:sequenceFlow id="Flow_PublishTransactionStart_To_CreatePublicationPackage" sourceRef="publishSanctionTransactionStart" targetRef="createPublicationPackageTask" />
+        <bpmn:sequenceFlow id="Flow_CreatePublicationPackage_To_SendSanctionRegistry" sourceRef="createPublicationPackageTask" targetRef="sendSanctionToRegistryTask" />
+        <bpmn:sequenceFlow id="Flow_SendSanctionRegistry_To_RegistryAckMode" sourceRef="sendSanctionToRegistryTask" targetRef="registryAcknowledgmentModeGateway" />
+        <bpmn:sequenceFlow id="Flow_WaitForRegistryAcknowledgment" sourceRef="registryAcknowledgmentModeGateway" targetRef="awaitRegistryAcknowledgmentTask">
+          <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${autoRegistryAcknowledgment != true}</bpmn:conditionExpression>
+        </bpmn:sequenceFlow>
+        <bpmn:sequenceFlow id="Flow_Default_AutoRegistryAcknowledgment" sourceRef="registryAcknowledgmentModeGateway" targetRef="simulateRegistryAcknowledgmentTask" />
+        <bpmn:sequenceFlow id="Flow_AutoRegistryAcknowledgment_To_RegistryAckResultGateway" sourceRef="simulateRegistryAcknowledgmentTask" targetRef="registryAckResultGateway" />
+        <bpmn:sequenceFlow id="Flow_AwaitRegistryAck_To_RegistryAckResultGateway" sourceRef="awaitRegistryAcknowledgmentTask" targetRef="registryAckResultGateway" />
+        <bpmn:sequenceFlow id="Flow_RegistryAckNegative" sourceRef="registryAckResultGateway" targetRef="reviewRegistryFailureTask">
+          <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${registryAcknowledgmentFailed == true}</bpmn:conditionExpression>
+        </bpmn:sequenceFlow>
+        <bpmn:sequenceFlow id="Flow_RegistryAckSuccess_Default" sourceRef="registryAckResultGateway" targetRef="postPublicationParallelSplit" />
+        <bpmn:sequenceFlow id="Flow_ReviewRegistryFailure_To_PublicationCancelledEnd" sourceRef="reviewRegistryFailureTask" targetRef="publicationCancelledEnd" />
+        <bpmn:sequenceFlow id="Flow_PostPublication_To_SendNotificationCommand" sourceRef="postPublicationParallelSplit" targetRef="sendNotificationCommandTask" />
+        <bpmn:sequenceFlow id="Flow_PostPublication_To_CreateObligationSchedule" sourceRef="postPublicationParallelSplit" targetRef="createObligationScheduleTask" />
+        <bpmn:sequenceFlow id="Flow_SendNotificationCommand_To_PostPublicationJoin" sourceRef="sendNotificationCommandTask" targetRef="postPublicationParallelJoin" />
+        <bpmn:sequenceFlow id="Flow_CreateObligationSchedule_To_PostPublicationJoin" sourceRef="createObligationScheduleTask" targetRef="postPublicationParallelJoin" />
+        <bpmn:sequenceFlow id="Flow_PostPublicationJoin_To_NotificationResultMode" sourceRef="postPublicationParallelJoin" targetRef="notificationResultModeGateway" />
+        <bpmn:sequenceFlow id="Flow_WaitForNotificationResult" sourceRef="notificationResultModeGateway" targetRef="awaitNotificationResultTask">
+          <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${autoNotificationResult != true}</bpmn:conditionExpression>
+        </bpmn:sequenceFlow>
+        <bpmn:sequenceFlow id="Flow_Default_AutoNotificationResult" sourceRef="notificationResultModeGateway" targetRef="simulateNotificationResultTask" />
+        <bpmn:sequenceFlow id="Flow_AutoNotificationResult_To_NotificationResultGateway" sourceRef="simulateNotificationResultTask" targetRef="notificationResultGateway" />
+        <bpmn:sequenceFlow id="Flow_AwaitNotificationResult_To_NotificationResultGateway" sourceRef="awaitNotificationResultTask" targetRef="notificationResultGateway" />
+        <bpmn:sequenceFlow id="Flow_NotificationResultFailed" sourceRef="notificationResultGateway" targetRef="resendNotificationCommandTask">
+          <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${notificationResultFailed == true}</bpmn:conditionExpression>
+        </bpmn:sequenceFlow>
+        <bpmn:sequenceFlow id="Flow_NotificationResultSuccess_Default" sourceRef="notificationResultGateway" targetRef="publishSanctionTransactionEnd" />
+        <bpmn:sequenceFlow id="Flow_ResendNotification_To_ReviewNotificationFailure" sourceRef="resendNotificationCommandTask" targetRef="reviewNotificationFailureTask" />
+        <bpmn:sequenceFlow id="Flow_ReviewNotificationFailure_To_ManualNotificationGateway" sourceRef="reviewNotificationFailureTask" targetRef="manualNotificationGateway" />
+        <bpmn:sequenceFlow id="Flow_AbortPublicationFinalization" sourceRef="manualNotificationGateway" targetRef="publicationCancelledEnd">
+          <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${abortPublicationFinalization == true}</bpmn:conditionExpression>
+        </bpmn:sequenceFlow>
+        <bpmn:sequenceFlow id="Flow_ManualNotificationRequired_Default" sourceRef="manualNotificationGateway" targetRef="markManualNotificationRequiredTask" />
+        <bpmn:sequenceFlow id="Flow_MarkManualNotificationRequired_To_PublishTransactionEnd" sourceRef="markManualNotificationRequiredTask" targetRef="publishSanctionTransactionEnd" />
+      </bpmn:transaction>
+      <bpmn:boundaryEvent id="publishSanctionCancelledBoundary" attachedToRef="publishSanctionTransaction">
+        <bpmn:outgoing>Flow_PublishSanctionCancelled_To_TriggerCompensation</bpmn:outgoing>
+        <bpmn:cancelEventDefinition />
+      </bpmn:boundaryEvent>
+      <bpmn:boundaryEvent id="publishSanctionErrorBoundary" attachedToRef="publishSanctionTransaction">
+        <bpmn:outgoing>Flow_PublishSanctionError_To_TriggerCompensation</bpmn:outgoing>
+        <bpmn:errorEventDefinition />
+      </bpmn:boundaryEvent>
+      <bpmn:intermediateThrowEvent id="triggerPublicationCompensation" name="Trigger Publication Compensation">
+        <bpmn:incoming>Flow_PublishSanctionCancelled_To_TriggerCompensation</bpmn:incoming>
+        <bpmn:incoming>Flow_PublishSanctionError_To_TriggerCompensation</bpmn:incoming>
+        <bpmn:outgoing>Flow_TriggerCompensation_To_DecisionPublicationSubEnd</bpmn:outgoing>
+        <bpmn:compensateEventDefinition />
+      </bpmn:intermediateThrowEvent>
+      <bpmn:eventBasedGateway id="appealWindowGateway" name="Wait for Appeal or Expiry">
+        <bpmn:incoming>Flow_PublishTransaction_To_AppealWindowGateway</bpmn:incoming>
+        <bpmn:outgoing>Flow_AppealWindow_To_AppealFiled</bpmn:outgoing>
+        <bpmn:outgoing>Flow_AppealWindow_To_AppealExpiry</bpmn:outgoing>
+        <bpmn:outgoing>Flow_AppealWindow_To_GlobalHold</bpmn:outgoing>
+      </bpmn:eventBasedGateway>
+      <bpmn:intermediateCatchEvent id="appealFiledEvent" name="Appeal Filed">
+        <bpmn:incoming>Flow_AppealWindow_To_AppealFiled</bpmn:incoming>
+        <bpmn:outgoing>Flow_AppealFiled_To_AwaitAppealResolution</bpmn:outgoing>
+        <bpmn:messageEventDefinition messageRef="Message_AppealFiled" />
+      </bpmn:intermediateCatchEvent>
+      <bpmn:intermediateCatchEvent id="awaitAppealResolutionEvent" name="Await Appeal Resolution">
+        <bpmn:incoming>Flow_AppealFiled_To_AwaitAppealResolution</bpmn:incoming>
+        <bpmn:outgoing>Flow_AwaitAppealResolution_To_DecisionPublicationSubEnd</bpmn:outgoing>
+        <bpmn:messageEventDefinition messageRef="Message_AppealResolved" />
+      </bpmn:intermediateCatchEvent>
+      <bpmn:intermediateCatchEvent id="appealPeriodExpiredEvent" name="Appeal Period Expired">
+        <bpmn:incoming>Flow_AppealWindow_To_AppealExpiry</bpmn:incoming>
+        <bpmn:outgoing>Flow_AppealExpiry_To_DecisionPublicationSubEnd</bpmn:outgoing>
+        <bpmn:timerEventDefinition>
+          <bpmn:timeDuration>P14D</bpmn:timeDuration>
+        </bpmn:timerEventDefinition>
+      </bpmn:intermediateCatchEvent>
+      <bpmn:intermediateCatchEvent id="globalHoldCatchEvent" name="Global Hold">
+        <bpmn:incoming>Flow_AppealWindow_To_GlobalHold</bpmn:incoming>
+        <bpmn:outgoing>Flow_GlobalHoldCatch_To_DecisionPublicationSubEnd</bpmn:outgoing>
+        <bpmn:signalEventDefinition signalRef="Signal_GlobalHold" />
+      </bpmn:intermediateCatchEvent>
+      <bpmn:endEvent id="decisionPublicationSubEndEvent" name="Decision Publication Completed">
+        <bpmn:incoming>Flow_Default_NoSanctionPath</bpmn:incoming>
+        <bpmn:incoming>Flow_TriggerCompensation_To_DecisionPublicationSubEnd</bpmn:incoming>
+        <bpmn:incoming>Flow_AwaitAppealResolution_To_DecisionPublicationSubEnd</bpmn:incoming>
+        <bpmn:incoming>Flow_AppealExpiry_To_DecisionPublicationSubEnd</bpmn:incoming>
+        <bpmn:incoming>Flow_GlobalHoldCatch_To_DecisionPublicationSubEnd</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_DecisionSubStart_To_DecisionTask" sourceRef="decisionPublicationSubStartEvent" targetRef="decisionTask" />
+      <bpmn:sequenceFlow id="Flow_DecisionTask_To_ViolationProvenGateway" sourceRef="decisionTask" targetRef="violationProvenGateway" />
+      <bpmn:sequenceFlow id="Flow_SanctionPublicationRequired" sourceRef="violationProvenGateway" targetRef="determineSanctionPackageTask">
+        <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${sanctionPublicationRequired == true}</bpmn:conditionExpression>
+      </bpmn:sequenceFlow>
+      <bpmn:sequenceFlow id="Flow_Default_NoSanctionPath" sourceRef="violationProvenGateway" targetRef="decisionPublicationSubEndEvent" />
+      <bpmn:sequenceFlow id="Flow_DetermineSanctionPackage_To_PublishTransaction" sourceRef="determineSanctionPackageTask" targetRef="publishSanctionTransaction" />
+      <bpmn:sequenceFlow id="Flow_PublishTransaction_To_AppealWindowGateway" sourceRef="publishSanctionTransaction" targetRef="appealWindowGateway" />
+      <bpmn:sequenceFlow id="Flow_PublishSanctionCancelled_To_TriggerCompensation" sourceRef="publishSanctionCancelledBoundary" targetRef="triggerPublicationCompensation" />
+      <bpmn:sequenceFlow id="Flow_PublishSanctionError_To_TriggerCompensation" sourceRef="publishSanctionErrorBoundary" targetRef="triggerPublicationCompensation" />
+      <bpmn:sequenceFlow id="Flow_TriggerCompensation_To_DecisionPublicationSubEnd" sourceRef="triggerPublicationCompensation" targetRef="decisionPublicationSubEndEvent" />
+      <bpmn:sequenceFlow id="Flow_AppealWindow_To_AppealFiled" sourceRef="appealWindowGateway" targetRef="appealFiledEvent" />
+      <bpmn:sequenceFlow id="Flow_AppealWindow_To_AppealExpiry" sourceRef="appealWindowGateway" targetRef="appealPeriodExpiredEvent" />
+      <bpmn:sequenceFlow id="Flow_AppealWindow_To_GlobalHold" sourceRef="appealWindowGateway" targetRef="globalHoldCatchEvent" />
+      <bpmn:sequenceFlow id="Flow_AppealFiled_To_AwaitAppealResolution" sourceRef="appealFiledEvent" targetRef="awaitAppealResolutionEvent" />
+      <bpmn:sequenceFlow id="Flow_AwaitAppealResolution_To_DecisionPublicationSubEnd" sourceRef="awaitAppealResolutionEvent" targetRef="decisionPublicationSubEndEvent" />
+      <bpmn:sequenceFlow id="Flow_AppealExpiry_To_DecisionPublicationSubEnd" sourceRef="appealPeriodExpiredEvent" targetRef="decisionPublicationSubEndEvent" />
+      <bpmn:sequenceFlow id="Flow_GlobalHoldCatch_To_DecisionPublicationSubEnd" sourceRef="globalHoldCatchEvent" targetRef="decisionPublicationSubEndEvent" />
+    </bpmn:subProcess>
+    <bpmn:exclusiveGateway id="postDecisionGateway" name="Post-Decision Path" default="Flow_Default_CloseWithoutSanction">
+      <bpmn:incoming>Flow_DecisionPublicationSubProcess_To_PostDecisionGateway</bpmn:incoming>
+      <bpmn:outgoing>Flow_Default_CloseWithoutSanction</bpmn:outgoing>
+      <bpmn:outgoing>Flow_To_EnforcementMonitoring</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:subProcess id="enforcementMonitoringSubProcess" name="Enforcement Monitoring">
+      <bpmn:incoming>Flow_To_EnforcementMonitoring</bpmn:incoming>
+      <bpmn:outgoing>Flow_EnforcementMonitoring_To_CloseAfterEnforcement</bpmn:outgoing>
+      <bpmn:startEvent id="enforcementMonitoringSubStartEvent">
+        <bpmn:outgoing>Flow_EnforcementSubStart_To_EnforcementParallelSplit</bpmn:outgoing>
+      </bpmn:startEvent>
+      <bpmn:parallelGateway id="enforcementParallelSplit" name="Launch Monitoring Tracks">
+        <bpmn:incoming>Flow_EnforcementSubStart_To_EnforcementParallelSplit</bpmn:incoming>
+        <bpmn:outgoing>Flow_EnforcementSplit_To_PaymentMonitor</bpmn:outgoing>
+        <bpmn:outgoing>Flow_EnforcementSplit_To_CorrectiveActionMonitor</bpmn:outgoing>
+        <bpmn:outgoing>Flow_EnforcementSplit_To_ReportingMonitor</bpmn:outgoing>
+      </bpmn:parallelGateway>
+      <bpmn:userTask id="monitorPaymentObligationTask" name="Monitor Payment Obligation" camunda:candidateGroups="SUPERVISOR,CASE_REVIEWER">
+        <bpmn:incoming>Flow_EnforcementSplit_To_PaymentMonitor</bpmn:incoming>
+        <bpmn:outgoing>Flow_PaymentMonitor_To_EnforcementParallelJoin</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:userTask id="monitorCorrectiveActionTask" name="Monitor Corrective Action" camunda:candidateGroups="SUPERVISOR,CASE_REVIEWER">
+        <bpmn:incoming>Flow_EnforcementSplit_To_CorrectiveActionMonitor</bpmn:incoming>
+        <bpmn:outgoing>Flow_CorrectiveActionMonitor_To_EnforcementParallelJoin</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:userTask id="monitorReportingObligationTask" name="Monitor Reporting Obligation" camunda:candidateGroups="SUPERVISOR,CASE_REVIEWER">
+        <bpmn:incoming>Flow_EnforcementSplit_To_ReportingMonitor</bpmn:incoming>
+        <bpmn:outgoing>Flow_ReportingMonitor_To_EnforcementParallelJoin</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:parallelGateway id="enforcementParallelJoin" name="Monitoring Tracks Completed">
+        <bpmn:incoming>Flow_PaymentMonitor_To_EnforcementParallelJoin</bpmn:incoming>
+        <bpmn:incoming>Flow_CorrectiveActionMonitor_To_EnforcementParallelJoin</bpmn:incoming>
+        <bpmn:incoming>Flow_ReportingMonitor_To_EnforcementParallelJoin</bpmn:incoming>
+        <bpmn:outgoing>Flow_EnforcementParallelJoin_To_AllObligationsComplete</bpmn:outgoing>
+      </bpmn:parallelGateway>
+      <bpmn:intermediateCatchEvent id="allObligationsCompleteEvent" name="All Obligations Complete">
+        <bpmn:incoming>Flow_EnforcementParallelJoin_To_AllObligationsComplete</bpmn:incoming>
+        <bpmn:outgoing>Flow_AllObligationsComplete_To_ObligationBreachGateway</bpmn:outgoing>
+        <bpmn:conditionalEventDefinition>
+          <bpmn:condition xsi:type="bpmn:tFormalExpression">${allObligationsComplete == true}</bpmn:condition>
+        </bpmn:conditionalEventDefinition>
+      </bpmn:intermediateCatchEvent>
+      <bpmn:exclusiveGateway id="obligationBreachGateway" name="Obligation Breach?" default="Flow_NoObligationBreach_Default">
+        <bpmn:incoming>Flow_AllObligationsComplete_To_ObligationBreachGateway</bpmn:incoming>
+        <bpmn:outgoing>Flow_ObligationBreachDetected</bpmn:outgoing>
+        <bpmn:outgoing>Flow_NoObligationBreach_Default</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:userTask id="additionalEnforcementActionTask" name="Escalate Additional Enforcement Action" camunda:candidateGroups="SUPERVISOR,SYSTEM_ADMIN">
+        <bpmn:incoming>Flow_ObligationBreachDetected</bpmn:incoming>
+        <bpmn:outgoing>Flow_AdditionalEnforcementAction_To_EnforcementSubEnd</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:endEvent id="enforcementMonitoringSubEndEvent">
+        <bpmn:incoming>Flow_NoObligationBreach_Default</bpmn:incoming>
+        <bpmn:incoming>Flow_AdditionalEnforcementAction_To_EnforcementSubEnd</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_EnforcementSubStart_To_EnforcementParallelSplit" sourceRef="enforcementMonitoringSubStartEvent" targetRef="enforcementParallelSplit" />
+      <bpmn:sequenceFlow id="Flow_EnforcementSplit_To_PaymentMonitor" sourceRef="enforcementParallelSplit" targetRef="monitorPaymentObligationTask" />
+      <bpmn:sequenceFlow id="Flow_EnforcementSplit_To_CorrectiveActionMonitor" sourceRef="enforcementParallelSplit" targetRef="monitorCorrectiveActionTask" />
+      <bpmn:sequenceFlow id="Flow_EnforcementSplit_To_ReportingMonitor" sourceRef="enforcementParallelSplit" targetRef="monitorReportingObligationTask" />
+      <bpmn:sequenceFlow id="Flow_PaymentMonitor_To_EnforcementParallelJoin" sourceRef="monitorPaymentObligationTask" targetRef="enforcementParallelJoin" />
+      <bpmn:sequenceFlow id="Flow_CorrectiveActionMonitor_To_EnforcementParallelJoin" sourceRef="monitorCorrectiveActionTask" targetRef="enforcementParallelJoin" />
+      <bpmn:sequenceFlow id="Flow_ReportingMonitor_To_EnforcementParallelJoin" sourceRef="monitorReportingObligationTask" targetRef="enforcementParallelJoin" />
+      <bpmn:sequenceFlow id="Flow_EnforcementParallelJoin_To_AllObligationsComplete" sourceRef="enforcementParallelJoin" targetRef="allObligationsCompleteEvent" />
+      <bpmn:sequenceFlow id="Flow_AllObligationsComplete_To_ObligationBreachGateway" sourceRef="allObligationsCompleteEvent" targetRef="obligationBreachGateway" />
+      <bpmn:sequenceFlow id="Flow_ObligationBreachDetected" sourceRef="obligationBreachGateway" targetRef="additionalEnforcementActionTask">
+        <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${obligationBreachDetected == true}</bpmn:conditionExpression>
+      </bpmn:sequenceFlow>
+      <bpmn:sequenceFlow id="Flow_NoObligationBreach_Default" sourceRef="obligationBreachGateway" targetRef="enforcementMonitoringSubEndEvent" />
+      <bpmn:sequenceFlow id="Flow_AdditionalEnforcementAction_To_EnforcementSubEnd" sourceRef="additionalEnforcementActionTask" targetRef="enforcementMonitoringSubEndEvent" />
+    </bpmn:subProcess>
+    <bpmn:endEvent id="closeWithoutSanctionEndEvent" name="Case Closed Without Sanction">
+      <bpmn:incoming>Flow_Default_CloseWithoutSanction</bpmn:incoming>
     </bpmn:endEvent>
-    <bpmn:sequenceFlow id="Flow_1" sourceRef="startEvent" targetRef="triageTask" />
-    <bpmn:sequenceFlow id="Flow_2" sourceRef="triageTask" targetRef="investigationTask" />
-    <bpmn:sequenceFlow id="Flow_3" sourceRef="investigationTask" targetRef="reviewTask" />
-    <bpmn:sequenceFlow id="Flow_4" sourceRef="reviewTask" targetRef="decisionTask" />
-    <bpmn:sequenceFlow id="Flow_5" sourceRef="decisionTask" targetRef="decisionCompleted" />
-    <bpmn:sequenceFlow id="Flow_6" sourceRef="investigationEscalationTimer" targetRef="recordInvestigationEscalation" />
-    <bpmn:sequenceFlow id="Flow_7" sourceRef="recordInvestigationEscalation" targetRef="escalationRecorded" />
+    <bpmn:endEvent id="closeAfterEnforcementEndEvent" name="Case Closed After Enforcement">
+      <bpmn:incoming>Flow_EnforcementMonitoring_To_CloseAfterEnforcement</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:subProcess id="supervisorOverrideEventSubProcess" name="Urgent Escalation / Supervisor Override" triggeredByEvent="true">
+      <bpmn:startEvent id="escalationEventSubProcessStart">
+        <bpmn:outgoing>Flow_EscalationStart_To_SupervisorOverrideReview</bpmn:outgoing>
+        <bpmn:escalationEventDefinition escalationRef="Escalation_SupervisorOverride" />
+      </bpmn:startEvent>
+      <bpmn:userTask id="supervisorOverrideReviewTask" name="Supervisor Override Review" camunda:candidateGroups="SUPERVISOR,SYSTEM_ADMIN">
+        <bpmn:incoming>Flow_EscalationStart_To_SupervisorOverrideReview</bpmn:incoming>
+        <bpmn:outgoing>Flow_SupervisorOverrideReview_To_OverrideOutcome</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:exclusiveGateway id="overrideOutcomeGateway" name="Override Outcome" default="Flow_OverrideContinue_Default">
+        <bpmn:incoming>Flow_SupervisorOverrideReview_To_OverrideOutcome</bpmn:incoming>
+        <bpmn:outgoing>Flow_OverrideCancelCase</bpmn:outgoing>
+        <bpmn:outgoing>Flow_OverrideSuspendPath</bpmn:outgoing>
+        <bpmn:outgoing>Flow_OverrideContinue_Default</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:endEvent id="overrideContinueEndEvent">
+        <bpmn:incoming>Flow_OverrideContinue_Default</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:endEvent id="overrideSuspendEndEvent">
+        <bpmn:incoming>Flow_OverrideSuspendPath</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:endEvent id="overrideCancelEndEvent" name="Cancel Case">
+        <bpmn:incoming>Flow_OverrideCancelCase</bpmn:incoming>
+        <bpmn:terminateEventDefinition />
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_EscalationStart_To_SupervisorOverrideReview" sourceRef="escalationEventSubProcessStart" targetRef="supervisorOverrideReviewTask" />
+      <bpmn:sequenceFlow id="Flow_SupervisorOverrideReview_To_OverrideOutcome" sourceRef="supervisorOverrideReviewTask" targetRef="overrideOutcomeGateway" />
+      <bpmn:sequenceFlow id="Flow_OverrideCancelCase" sourceRef="overrideOutcomeGateway" targetRef="overrideCancelEndEvent">
+        <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${overrideCancel == true}</bpmn:conditionExpression>
+      </bpmn:sequenceFlow>
+      <bpmn:sequenceFlow id="Flow_OverrideSuspendPath" sourceRef="overrideOutcomeGateway" targetRef="overrideSuspendEndEvent">
+        <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${overrideSuspend == true}</bpmn:conditionExpression>
+      </bpmn:sequenceFlow>
+      <bpmn:sequenceFlow id="Flow_OverrideContinue_Default" sourceRef="overrideOutcomeGateway" targetRef="overrideContinueEndEvent" />
+    </bpmn:subProcess>
+    <bpmn:subProcess id="globalHoldEventSubProcess" name="Global Hold Supervisor Override" triggeredByEvent="true">
+      <bpmn:startEvent id="globalHoldEventSubProcessStart" isInterrupting="true">
+        <bpmn:outgoing>Flow_GlobalHoldStart_To_GlobalHoldOverrideReview</bpmn:outgoing>
+        <bpmn:signalEventDefinition signalRef="Signal_GlobalHold" />
+      </bpmn:startEvent>
+      <bpmn:userTask id="globalHoldOverrideReviewTask" name="Supervisor Review Global Hold" camunda:candidateGroups="SUPERVISOR,SYSTEM_ADMIN">
+        <bpmn:incoming>Flow_GlobalHoldStart_To_GlobalHoldOverrideReview</bpmn:incoming>
+        <bpmn:outgoing>Flow_GlobalHoldOverrideReview_To_GlobalHoldOverrideOutcome</bpmn:outgoing>
+      </bpmn:userTask>
+      <bpmn:exclusiveGateway id="globalHoldOverrideOutcomeGateway" name="Global Hold Override Outcome" default="Flow_GlobalHoldOverrideContinue_Default">
+        <bpmn:incoming>Flow_GlobalHoldOverrideReview_To_GlobalHoldOverrideOutcome</bpmn:incoming>
+        <bpmn:outgoing>Flow_GlobalHoldOverrideCancelCase</bpmn:outgoing>
+        <bpmn:outgoing>Flow_GlobalHoldOverrideSuspendPath</bpmn:outgoing>
+        <bpmn:outgoing>Flow_GlobalHoldOverrideContinue_Default</bpmn:outgoing>
+      </bpmn:exclusiveGateway>
+      <bpmn:endEvent id="globalHoldOverrideContinueEndEvent">
+        <bpmn:incoming>Flow_GlobalHoldOverrideContinue_Default</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:endEvent id="globalHoldOverrideSuspendEndEvent">
+        <bpmn:incoming>Flow_GlobalHoldOverrideSuspendPath</bpmn:incoming>
+      </bpmn:endEvent>
+      <bpmn:endEvent id="globalHoldOverrideCancelEndEvent" name="Cancel Case From Global Hold">
+        <bpmn:incoming>Flow_GlobalHoldOverrideCancelCase</bpmn:incoming>
+        <bpmn:terminateEventDefinition />
+      </bpmn:endEvent>
+      <bpmn:sequenceFlow id="Flow_GlobalHoldStart_To_GlobalHoldOverrideReview" sourceRef="globalHoldEventSubProcessStart" targetRef="globalHoldOverrideReviewTask" />
+      <bpmn:sequenceFlow id="Flow_GlobalHoldOverrideReview_To_GlobalHoldOverrideOutcome" sourceRef="globalHoldOverrideReviewTask" targetRef="globalHoldOverrideOutcomeGateway" />
+      <bpmn:sequenceFlow id="Flow_GlobalHoldOverrideCancelCase" sourceRef="globalHoldOverrideOutcomeGateway" targetRef="globalHoldOverrideCancelEndEvent">
+        <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${overrideCancel == true}</bpmn:conditionExpression>
+      </bpmn:sequenceFlow>
+      <bpmn:sequenceFlow id="Flow_GlobalHoldOverrideSuspendPath" sourceRef="globalHoldOverrideOutcomeGateway" targetRef="globalHoldOverrideSuspendEndEvent">
+        <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${overrideSuspend == true}</bpmn:conditionExpression>
+      </bpmn:sequenceFlow>
+      <bpmn:sequenceFlow id="Flow_GlobalHoldOverrideContinue_Default" sourceRef="globalHoldOverrideOutcomeGateway" targetRef="globalHoldOverrideContinueEndEvent" />
+    </bpmn:subProcess>
+    <bpmn:sequenceFlow id="Flow_Start_To_PreTriage" sourceRef="caseCreatedStartEvent" targetRef="preTriageValidationTask" />
+    <bpmn:sequenceFlow id="Flow_PreTriage_To_IntakeValid" sourceRef="preTriageValidationTask" targetRef="intakeValidGateway" />
+    <bpmn:sequenceFlow id="Flow_IntakeRejected" sourceRef="intakeValidGateway" targetRef="intakeRejectedEndEvent">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${intakeRejected == true}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_IntakeValid_DefaultToTriage" sourceRef="intakeValidGateway" targetRef="triageTask" />
+    <bpmn:sequenceFlow id="Flow_TriageTimer_To_TriageEscalationThrow" sourceRef="triageSlaWarningTimer" targetRef="triageEscalationThrowEvent" />
+    <bpmn:sequenceFlow id="Flow_TriageEscalation_To_TriageEscalationThrow" sourceRef="triageSupervisorEscalation" targetRef="triageEscalationThrowEvent" />
+    <bpmn:sequenceFlow id="Flow_TriageEscalationThrow_To_TriageEscalationRaisedEnd" sourceRef="triageEscalationThrowEvent" targetRef="triageEscalationRaisedEndEvent" />
+    <bpmn:sequenceFlow id="Flow_Triage_To_SelectTracks" sourceRef="triageTask" targetRef="selectInvestigationTracksGateway" />
+    <bpmn:sequenceFlow id="Flow_Default_InvestigationPath" sourceRef="selectInvestigationTracksGateway" targetRef="investigationAndEvidenceSubProcess" />
+    <bpmn:sequenceFlow id="Flow_Optional_LegalAdvisory" sourceRef="selectInvestigationTracksGateway" targetRef="optionalLegalAdvisoryTask">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${requiresLegalAdvisory == true}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_Optional_FinancialAnalysis" sourceRef="selectInvestigationTracksGateway" targetRef="financialReviewTask">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${requiresFinancialAnalysis == true}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_InvestigationSubProcess_To_PostInvestigationJoin" sourceRef="investigationAndEvidenceSubProcess" targetRef="postInvestigationJoinGateway" />
+    <bpmn:sequenceFlow id="Flow_OptionalLegalAdvisory_To_PostInvestigationJoin" sourceRef="optionalLegalAdvisoryTask" targetRef="postInvestigationJoinGateway" />
+    <bpmn:sequenceFlow id="Flow_FinancialReview_To_PostInvestigationJoin" sourceRef="financialReviewTask" targetRef="postInvestigationJoinGateway" />
+    <bpmn:sequenceFlow id="Flow_PostInvestigationJoin_To_RecommendationReview" sourceRef="postInvestigationJoinGateway" targetRef="recommendationReviewSubProcess" />
+    <bpmn:sequenceFlow id="Flow_RecommendationReviewSubProcess_To_DecisionPublication" sourceRef="recommendationReviewSubProcess" targetRef="decisionPublicationSubProcess" />
+    <bpmn:sequenceFlow id="Flow_DecisionPublicationSubProcess_To_PostDecisionGateway" sourceRef="decisionPublicationSubProcess" targetRef="postDecisionGateway" />
+    <bpmn:sequenceFlow id="Flow_Default_CloseWithoutSanction" sourceRef="postDecisionGateway" targetRef="closeWithoutSanctionEndEvent" />
+    <bpmn:sequenceFlow id="Flow_To_EnforcementMonitoring" sourceRef="postDecisionGateway" targetRef="enforcementMonitoringSubProcess">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${enforcementMonitoringRequired == true}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_EnforcementMonitoring_To_CloseAfterEnforcement" sourceRef="enforcementMonitoringSubProcess" targetRef="closeAfterEnforcementEndEvent" />
+    <bpmn:association id="Association_InvestigationPlan" sourceRef="preTriageValidationTask" targetRef="DataObjectReference_InvestigationPlan" />
+    <bpmn:association id="Association_CaseDatabase" sourceRef="preTriageValidationTask" targetRef="DataStoreReference_CaseDatabase" />
+    <bpmn:association id="Association_EvidenceChecklist" sourceRef="requestExternalEvidenceTask" targetRef="DataObjectReference_EvidenceChecklist" />
+    <bpmn:association id="Association_RecommendationDraft" sourceRef="reviewTask" targetRef="DataObjectReference_RecommendationDraft" />
+    <bpmn:association id="Association_SanctionPackage" sourceRef="determineSanctionPackageTask" targetRef="DataObjectReference_SanctionPackage" />
+    <bpmn:association id="Association_EvidenceStore" sourceRef="awaitExternalEvidenceTask" targetRef="DataStoreReference_EvidenceObjectStore" />
+    <bpmn:association id="Association_SanctionRegistryStore" sourceRef="sendSanctionToRegistryTask" targetRef="DataStoreReference_SanctionRegistry" />
+    <bpmn:association id="Association_NotificationStore" sourceRef="awaitNotificationResultTask" targetRef="DataStoreReference_NotificationStore" />
   </bpmn:process>
-  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
-    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="regulatoryEnforcementCase">
-      <bpmndi:BPMNShape id="StartEventShape" bpmnElement="startEvent">
-        <dc:Bounds x="152" y="132" width="36" height="36" />
+  <bpmn:collaboration id="Collaboration_RegulatoryEnforcement">
+    <bpmn:participant id="Participant_InternalCaseTeam" name="Sentinel Internal Case Team" processRef="regulatoryEnforcementCase" />
+    <bpmn:participant id="Participant_ExternalEvidenceProvider" name="External Evidence Provider" />
+    <bpmn:participant id="Participant_SanctionRegistry" name="Sanction Registry" />
+    <bpmn:participant id="Participant_Appellant" name="Appellant / External Party" />
+    <bpmn:participant id="Participant_NotificationService" name="Notification Service" />
+    <bpmn:messageFlow id="MessageFlow_RequestExternalEvidence" name="Request External Evidence" sourceRef="requestExternalEvidenceTask" targetRef="Participant_ExternalEvidenceProvider" />
+    <bpmn:messageFlow id="MessageFlow_ExternalEvidenceDelivered" name="External Evidence Delivered" sourceRef="Participant_ExternalEvidenceProvider" targetRef="awaitExternalEvidenceTask" />
+    <bpmn:messageFlow id="MessageFlow_SendSanctionToRegistry" name="Send Sanction To Registry" sourceRef="sendSanctionToRegistryTask" targetRef="Participant_SanctionRegistry" />
+    <bpmn:messageFlow id="MessageFlow_RegistryAcknowledged" name="Registry Acknowledged" sourceRef="Participant_SanctionRegistry" targetRef="awaitRegistryAcknowledgmentTask" />
+    <bpmn:messageFlow id="MessageFlow_SendNotificationCommand" name="Send Notification Command" sourceRef="sendNotificationCommandTask" targetRef="Participant_NotificationService" />
+    <bpmn:messageFlow id="MessageFlow_NotificationResultReceived" name="Notification Result Received" sourceRef="Participant_NotificationService" targetRef="awaitNotificationResultTask" />
+    <bpmn:messageFlow id="MessageFlow_AppealFiled" name="Appeal Filed" sourceRef="Participant_Appellant" targetRef="appealFiledEvent" />
+  </bpmn:collaboration>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_RegulatoryEnforcementCase">
+    <bpmndi:BPMNPlane id="BPMNPlane_RegulatoryEnforcementCase" bpmnElement="Collaboration_RegulatoryEnforcement">
+      <bpmndi:BPMNShape id="DI_Participant_InternalCaseTeam" bpmnElement="Participant_InternalCaseTeam" isExpanded="true">
+        <dc:Bounds x="80" y="20" width="1820" height="1000" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="TriageTaskShape" bpmnElement="triageTask">
-        <dc:Bounds x="240" y="110" width="100" height="80" />
+      <bpmndi:BPMNShape id="DI_Participant_ExternalEvidenceProvider" bpmnElement="Participant_ExternalEvidenceProvider" isExpanded="false">
+        <dc:Bounds x="80" y="1080" width="360" height="80" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="InvestigationTaskShape" bpmnElement="investigationTask">
-        <dc:Bounds x="400" y="110" width="100" height="80" />
+      <bpmndi:BPMNShape id="DI_Participant_SanctionRegistry" bpmnElement="Participant_SanctionRegistry" isExpanded="false">
+        <dc:Bounds x="80" y="1190" width="360" height="80" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="EscalationServiceTaskShape" bpmnElement="recordInvestigationEscalation">
-        <dc:Bounds x="560" y="170" width="100" height="80" />
+      <bpmndi:BPMNShape id="DI_Participant_Appellant" bpmnElement="Participant_Appellant" isExpanded="false">
+        <dc:Bounds x="80" y="1300" width="360" height="80" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="EscalationEndShape" bpmnElement="escalationRecorded">
-        <dc:Bounds x="712" y="192" width="36" height="36" />
+      <bpmndi:BPMNShape id="DI_Participant_NotificationService" bpmnElement="Participant_NotificationService" isExpanded="false">
+        <dc:Bounds x="80" y="1410" width="360" height="80" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="ReviewTaskShape" bpmnElement="reviewTask">
-        <dc:Bounds x="560" y="110" width="100" height="80" />
+      <bpmndi:BPMNShape id="DI_DataObjectReference_InvestigationPlan" bpmnElement="DataObjectReference_InvestigationPlan">
+        <dc:Bounds x="170" y="40" width="50" height="60" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="DecisionTaskShape" bpmnElement="decisionTask">
-        <dc:Bounds x="720" y="110" width="100" height="80" />
+      <bpmndi:BPMNShape id="DI_DataStoreReference_CaseDatabase" bpmnElement="DataStoreReference_CaseDatabase">
+        <dc:Bounds x="280" y="40" width="50" height="60" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="DecisionEndShape" bpmnElement="decisionCompleted">
-        <dc:Bounds x="872" y="132" width="36" height="36" />
+      <bpmndi:BPMNShape id="DI_caseCreatedStartEvent" bpmnElement="caseCreatedStartEvent">
+        <dc:Bounds x="180" y="140" width="36" height="36" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="TimerShape" bpmnElement="investigationEscalationTimer">
-        <dc:Bounds x="432" y="192" width="36" height="36" />
+      <bpmndi:BPMNShape id="DI_preTriageValidationTask" bpmnElement="preTriageValidationTask">
+        <dc:Bounds x="400" y="140" width="140" height="80" />
       </bpmndi:BPMNShape>
-      <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1">
-        <di:waypoint x="188" y="150" />
-        <di:waypoint x="240" y="150" />
+      <bpmndi:BPMNShape id="DI_intakeValidGateway" bpmnElement="intakeValidGateway">
+        <dc:Bounds x="620" y="140" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DI_intakeRejectedEndEvent" bpmnElement="intakeRejectedEndEvent">
+        <dc:Bounds x="840" y="140" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DI_triageTask" bpmnElement="triageTask">
+        <dc:Bounds x="1060" y="140" width="140" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DI_triageSlaWarningTimer" bpmnElement="triageSlaWarningTimer">
+        <dc:Bounds x="1072" y="202" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DI_triageSupervisorEscalation" bpmnElement="triageSupervisorEscalation">
+        <dc:Bounds x="1114" y="202" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DI_triageEscalationThrowEvent" bpmnElement="triageEscalationThrowEvent">
+        <dc:Bounds x="1280" y="140" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DI_triageEscalationRaisedEndEvent" bpmnElement="triageEscalationRaisedEndEvent">
+        <dc:Bounds x="1500" y="140" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DI_selectInvestigationTracksGateway" bpmnElement="selectInvestigationTracksGateway">
+        <dc:Bounds x="180" y="350" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DI_optionalLegalAdvisoryTask" bpmnElement="optionalLegalAdvisoryTask">
+        <dc:Bounds x="400" y="350" width="140" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DI_financialReviewTask" bpmnElement="financialReviewTask">
+        <dc:Bounds x="620" y="350" width="140" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DI_investigationAndEvidenceSubProcess" bpmnElement="investigationAndEvidenceSubProcess" isExpanded="false">
+        <dc:Bounds x="840" y="350" width="180" height="110" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DI_postInvestigationJoinGateway" bpmnElement="postInvestigationJoinGateway">
+        <dc:Bounds x="1060" y="350" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DI_recommendationReviewSubProcess" bpmnElement="recommendationReviewSubProcess" isExpanded="false">
+        <dc:Bounds x="1280" y="350" width="180" height="110" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DI_decisionPublicationSubProcess" bpmnElement="decisionPublicationSubProcess" isExpanded="false">
+        <dc:Bounds x="1500" y="350" width="180" height="110" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DI_postDecisionGateway" bpmnElement="postDecisionGateway">
+        <dc:Bounds x="180" y="560" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DI_enforcementMonitoringSubProcess" bpmnElement="enforcementMonitoringSubProcess" isExpanded="false">
+        <dc:Bounds x="400" y="560" width="180" height="110" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DI_closeWithoutSanctionEndEvent" bpmnElement="closeWithoutSanctionEndEvent">
+        <dc:Bounds x="620" y="560" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DI_closeAfterEnforcementEndEvent" bpmnElement="closeAfterEnforcementEndEvent">
+        <dc:Bounds x="840" y="560" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DI_supervisorOverrideEventSubProcess" bpmnElement="supervisorOverrideEventSubProcess" isExpanded="false">
+        <dc:Bounds x="1060" y="560" width="180" height="110" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="DI_globalHoldEventSubProcess" bpmnElement="globalHoldEventSubProcess" isExpanded="false">
+        <dc:Bounds x="1280" y="560" width="180" height="110" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="DI_Flow_Start_To_PreTriage" bpmnElement="Flow_Start_To_PreTriage">
+        <di:waypoint x="198" y="158" />
+        <di:waypoint x="470" y="180" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2">
-        <di:waypoint x="340" y="150" />
-        <di:waypoint x="400" y="150" />
+      <bpmndi:BPMNEdge id="DI_Flow_PreTriage_To_IntakeValid" bpmnElement="Flow_PreTriage_To_IntakeValid">
+        <di:waypoint x="470" y="180" />
+        <di:waypoint x="645" y="165" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_3_di" bpmnElement="Flow_3">
-        <di:waypoint x="500" y="150" />
-        <di:waypoint x="560" y="150" />
+      <bpmndi:BPMNEdge id="DI_Flow_IntakeRejected" bpmnElement="Flow_IntakeRejected">
+        <di:waypoint x="645" y="165" />
+        <di:waypoint x="858" y="158" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_4_di" bpmnElement="Flow_4">
-        <di:waypoint x="660" y="150" />
-        <di:waypoint x="720" y="150" />
+      <bpmndi:BPMNEdge id="DI_Flow_IntakeValid_DefaultToTriage" bpmnElement="Flow_IntakeValid_DefaultToTriage">
+        <di:waypoint x="645" y="165" />
+        <di:waypoint x="1130" y="180" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_5_di" bpmnElement="Flow_5">
-        <di:waypoint x="820" y="150" />
-        <di:waypoint x="872" y="150" />
+      <bpmndi:BPMNEdge id="DI_Flow_TriageTimer_To_TriageEscalationThrow" bpmnElement="Flow_TriageTimer_To_TriageEscalationThrow">
+        <di:waypoint x="1090" y="220" />
+        <di:waypoint x="1298" y="158" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_6_di" bpmnElement="Flow_6">
-        <di:waypoint x="468" y="210" />
-        <di:waypoint x="560" y="210" />
+      <bpmndi:BPMNEdge id="DI_Flow_TriageEscalation_To_TriageEscalationThrow" bpmnElement="Flow_TriageEscalation_To_TriageEscalationThrow">
+        <di:waypoint x="1132" y="220" />
+        <di:waypoint x="1298" y="158" />
       </bpmndi:BPMNEdge>
-      <bpmndi:BPMNEdge id="Flow_7_di" bpmnElement="Flow_7">
-        <di:waypoint x="660" y="210" />
-        <di:waypoint x="712" y="210" />
+      <bpmndi:BPMNEdge id="DI_Flow_TriageEscalationThrow_To_TriageEscalationRaisedEnd" bpmnElement="Flow_TriageEscalationThrow_To_TriageEscalationRaisedEnd">
+        <di:waypoint x="1298" y="158" />
+        <di:waypoint x="1518" y="158" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DI_Flow_Triage_To_SelectTracks" bpmnElement="Flow_Triage_To_SelectTracks">
+        <di:waypoint x="1130" y="180" />
+        <di:waypoint x="205" y="375" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DI_Flow_Default_InvestigationPath" bpmnElement="Flow_Default_InvestigationPath">
+        <di:waypoint x="205" y="375" />
+        <di:waypoint x="930" y="405" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DI_Flow_Optional_LegalAdvisory" bpmnElement="Flow_Optional_LegalAdvisory">
+        <di:waypoint x="205" y="375" />
+        <di:waypoint x="470" y="390" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DI_Flow_Optional_FinancialAnalysis" bpmnElement="Flow_Optional_FinancialAnalysis">
+        <di:waypoint x="205" y="375" />
+        <di:waypoint x="690" y="390" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DI_Flow_InvestigationSubProcess_To_PostInvestigationJoin" bpmnElement="Flow_InvestigationSubProcess_To_PostInvestigationJoin">
+        <di:waypoint x="930" y="405" />
+        <di:waypoint x="1085" y="375" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DI_Flow_OptionalLegalAdvisory_To_PostInvestigationJoin" bpmnElement="Flow_OptionalLegalAdvisory_To_PostInvestigationJoin">
+        <di:waypoint x="470" y="390" />
+        <di:waypoint x="1085" y="375" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DI_Flow_FinancialReview_To_PostInvestigationJoin" bpmnElement="Flow_FinancialReview_To_PostInvestigationJoin">
+        <di:waypoint x="690" y="390" />
+        <di:waypoint x="1085" y="375" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DI_Flow_PostInvestigationJoin_To_RecommendationReview" bpmnElement="Flow_PostInvestigationJoin_To_RecommendationReview">
+        <di:waypoint x="1085" y="375" />
+        <di:waypoint x="1370" y="405" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DI_Flow_RecommendationReviewSubProcess_To_DecisionPublication" bpmnElement="Flow_RecommendationReviewSubProcess_To_DecisionPublication">
+        <di:waypoint x="1370" y="405" />
+        <di:waypoint x="1590" y="405" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DI_Flow_DecisionPublicationSubProcess_To_PostDecisionGateway" bpmnElement="Flow_DecisionPublicationSubProcess_To_PostDecisionGateway">
+        <di:waypoint x="1590" y="405" />
+        <di:waypoint x="205" y="585" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DI_Flow_Default_CloseWithoutSanction" bpmnElement="Flow_Default_CloseWithoutSanction">
+        <di:waypoint x="205" y="585" />
+        <di:waypoint x="638" y="578" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DI_Flow_To_EnforcementMonitoring" bpmnElement="Flow_To_EnforcementMonitoring">
+        <di:waypoint x="205" y="585" />
+        <di:waypoint x="490" y="615" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DI_Flow_EnforcementMonitoring_To_CloseAfterEnforcement" bpmnElement="Flow_EnforcementMonitoring_To_CloseAfterEnforcement">
+        <di:waypoint x="490" y="615" />
+        <di:waypoint x="858" y="578" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DI_Association_InvestigationPlan" bpmnElement="Association_InvestigationPlan">
+        <di:waypoint x="470" y="180" />
+        <di:waypoint x="195" y="70" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="DI_Association_CaseDatabase" bpmnElement="Association_CaseDatabase">
+        <di:waypoint x="470" y="180" />
+        <di:waypoint x="305" y="70" />
       </bpmndi:BPMNEdge>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>

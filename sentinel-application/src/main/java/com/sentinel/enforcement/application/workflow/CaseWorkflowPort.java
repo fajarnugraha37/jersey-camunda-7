@@ -2,6 +2,7 @@ package com.sentinel.enforcement.application.workflow;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -35,5 +36,9 @@ public interface CaseWorkflowPort {
 
   WorkflowTaskView claimTask(String taskId, String username);
 
-  void completeTask(String taskId);
+  void completeTask(String taskId, Map<String, Object> variables);
+
+  boolean correlateAppealFiled(UUID caseId, UUID appealId);
+
+  boolean correlateAppealResolved(UUID caseId, boolean enforcementMonitoringRequired);
 }

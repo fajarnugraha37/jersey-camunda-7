@@ -12,6 +12,10 @@ import org.camunda.bpm.engine.impl.el.JuelExpressionManager;
 public final class WorkflowModule {
   public static final String PROCESS_DEFINITION_KEY = "regulatoryEnforcementCase";
   public static final String APPEAL_PROCESS_DEFINITION_KEY = "decisionAppealReview";
+  public static final String CASE_CREATED_MESSAGE_NAME = "CaseCreatedMessage";
+  public static final String APPEAL_WORKFLOW_STARTED_MESSAGE_NAME = "AppealWorkflowStarted";
+  public static final String APPEAL_FILED_MESSAGE_NAME = "AppealFiled";
+  public static final String APPEAL_RESOLVED_MESSAGE_NAME = "AppealResolved";
   private static final String BPMN_RESOURCE = "bpmn/regulatory-enforcement-case.bpmn";
   private static final String APPEAL_BPMN_RESOURCE = "bpmn/decision-appeal-review.bpmn";
 
@@ -23,8 +27,10 @@ public final class WorkflowModule {
       WorkflowInstanceStore workflowInstanceStore,
       Clock clock,
       String engineName) {
+    PreTriageRoutingDelegate preTriageRoutingDelegate = new PreTriageRoutingDelegate();
     InvestigationEscalationDelegate escalationDelegate =
         new InvestigationEscalationDelegate(caseRepository, clock);
+    MockWorkflowServiceDelegate mockWorkflowServiceDelegate = new MockWorkflowServiceDelegate();
 
     StandaloneProcessEngineConfiguration configuration = new StandaloneProcessEngineConfiguration();
     configuration.setProcessEngineName(engineName);
@@ -34,7 +40,11 @@ public final class WorkflowModule {
     configuration.setJobExecutorActivate(true);
     configuration.setJdbcBatchProcessing(true);
     configuration.setExpressionManager(
-        new JuelExpressionManager(Map.of("investigationEscalationDelegate", escalationDelegate)));
+        new JuelExpressionManager(
+            Map.of(
+                "preTriageRoutingDelegate", preTriageRoutingDelegate,
+                "investigationEscalationDelegate", escalationDelegate,
+                "mockWorkflowServiceDelegate", mockWorkflowServiceDelegate)));
 
     ProcessEngineProvider processEngineProvider =
         new SingleProcessEngineProvider(configuration.buildProcessEngine());
@@ -57,6 +67,10 @@ public final class WorkflowModule {
         processEngineProvider,
         workflowAdapter,
         workflowAdministrationAdapter,
-        new WorkflowReadinessProbe(processEngineProvider, camundaServices, PROCESS_DEFINITION_KEY));
+        new WorkflowReadinessProbe(
+            processEngineProvider,
+            camundaServices,
+            PROCESS_DEFINITION_KEY,
+            APPEAL_PROCESS_DEFINITION_KEY));
   }
 }

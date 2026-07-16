@@ -19,7 +19,7 @@ class ApplicationRuntimeSchemaLifecycleIT {
   @Test
   void applicationStartupRequiresMigrationToRunFirst() {
     try (PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:18.3-alpine");
-        AbstractApiIT.FixedPortKafkaContainer kafka = new AbstractApiIT.FixedPortKafkaContainer();
+        AbstractApiIT.StablePortKafkaContainer kafka = AbstractApiIT.createKafkaContainer();
         GenericContainer<?> redis =
             new GenericContainer<>("redis:7.2.7-alpine")
                 .withExposedPorts(6379)
@@ -69,7 +69,7 @@ class ApplicationRuntimeSchemaLifecycleIT {
                   Map.entry("DB_URL", postgres.getJdbcUrl()),
                   Map.entry("DB_USERNAME", postgres.getUsername()),
                   Map.entry("DB_PASSWORD", postgres.getPassword()),
-                  Map.entry("KAFKA_BOOTSTRAP_SERVERS", AbstractApiIT.kafkaBootstrapServers()),
+                  Map.entry("KAFKA_BOOTSTRAP_SERVERS", kafka.getBootstrapServers()),
                   Map.entry("APP_INSTANCE_ID", "schema-lifecycle-it"),
                   Map.entry("OUTBOX_POLL_INTERVAL", "PT1S"),
                   Map.entry("OUTBOX_LEASE_DURATION", "PT10S"),

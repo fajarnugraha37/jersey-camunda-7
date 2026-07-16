@@ -534,7 +534,17 @@ class CaseApplicationServiceTest {
     }
 
     @Override
-    public void completeTask(String taskId) {}
+    public void completeTask(String taskId, java.util.Map<String, Object> variables) {}
+
+    @Override
+    public boolean correlateAppealFiled(UUID caseId, UUID appealId) {
+      return false;
+    }
+
+    @Override
+    public boolean correlateAppealResolved(UUID caseId, boolean enforcementMonitoringRequired) {
+      return false;
+    }
   }
 
   private static final class ImmediateTransactionManager implements ApplicationTransactionManager {

@@ -2,7 +2,9 @@ package com.sentinel.enforcement.integration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.sentinel.enforcement.api.generated.model.AppealDecisionOutcomeValue;
 import com.sentinel.enforcement.api.generated.model.AssignCaseRequest;
 import com.sentinel.enforcement.api.generated.model.CaseClassificationValue;
 import com.sentinel.enforcement.api.generated.model.CaseResponse;
@@ -18,7 +20,10 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -114,6 +119,122 @@ class WorkflowTaskApiIT extends AbstractApiIT {
     assertEquals("COMPLETED", workflowStatus(createdCase.getId()));
     assertEquals(6L, decidedCase.getVersion());
     assertEquals(assigned.getId(), decidedCase.getId());
+  }
+
+  @Test
+  void deniedAppealMovesMainWorkflowIntoEnforcementMonitoringTasks() {
+    ReportResponse report =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
+    CaseResponse createdCase =
+        createCase(
+            accessToken("triage-jkt"),
+            report.getId(),
+            "Workflow appeal enforcement case",
+            "Exercise sanction publication and appeal resolution.");
+
+    WorkflowTaskResponse triageTask =
+        singleTask(
+            accessToken("triage-jkt"),
+            Map.of("caseId", createdCase.getId().toString(), "limit", "10"));
+    claimTask(accessToken("triage-jkt"), triageTask.getTaskId());
+    completeTask(accessToken("triage-jkt"), triageTask.getTaskId());
+
+    CaseResponse afterTriage = getCase(accessToken("triage-jkt"), createdCase.getId());
+    assignCase(
+        accessToken("triage-jkt"),
+        createdCase.getId(),
+        "JKT-UNIT-1",
+        "investigator-jkt",
+        afterTriage.getVersion(),
+        "Assign investigator after triage.");
+
+    WorkflowTaskResponse investigationTask =
+        singleTask(
+            accessToken("investigator-jkt"),
+            Map.of("caseId", createdCase.getId().toString(), "limit", "10"));
+    claimTask(accessToken("investigator-jkt"), investigationTask.getTaskId());
+    UUID recommendationId =
+        createRecommendation(
+                accessToken("investigator-jkt"),
+                createdCase.getId(),
+                "Workflow sanction recommendation",
+                "Recommendation prepared for sanction publication flow.",
+                "Proceed to sanction.",
+                "Apply financial and reporting sanctions.")
+            .getId();
+    submitRecommendation(accessToken("investigator-jkt"), recommendationId);
+    completeTask(accessToken("investigator-jkt"), investigationTask.getTaskId());
+
+    WorkflowTaskResponse reviewTask =
+        singleTask(
+            accessToken("reviewer-jkt"),
+            Map.of("caseId", createdCase.getId().toString(), "limit", "10"));
+    claimTask(accessToken("reviewer-jkt"), reviewTask.getTaskId());
+    approveRecommendation(
+        accessToken("reviewer-jkt"), recommendationId, "Workflow sanction review approved.");
+    completeTask(accessToken("reviewer-jkt"), reviewTask.getTaskId());
+
+    WorkflowTaskResponse decisionTask =
+        singleTask(
+            accessToken("decision-jkt"),
+            Map.of("caseId", createdCase.getId().toString(), "limit", "10"));
+    claimTask(accessToken("decision-jkt"), decisionTask.getTaskId());
+    UUID decisionId =
+        createDecision(
+                accessToken("decision-jkt"),
+                createdCase.getId(),
+                "Workflow sanction decision",
+                "Decision published into sanction branch.",
+                true,
+                "Administrative fine and quarterly reporting.",
+                "Pay administrative fine",
+                "Transfer the assessed fine within the prescribed window.",
+                LocalDate.parse("2026-08-20"),
+                LocalDate.parse("2026-08-15"))
+            .getId();
+    approveDecision(accessToken("supervisor-jkt"), decisionId);
+    publishDecision(accessToken("decision-jkt"), decisionId);
+    completeTask(accessToken("decision-jkt"), decisionTask.getTaskId());
+
+    var appeal =
+        createAppeal(
+            accessToken("appeal-jkt"),
+            decisionId,
+            "The sanction calculation is disputed.",
+            OffsetDateTime.parse("2026-07-20T10:00:00Z"),
+            false,
+            null);
+    decideAppeal(
+        accessToken("supervisor-jkt"), appeal.getId(), AppealDecisionOutcomeValue.DENIED, "Denied");
+
+    WorkflowTaskResponse appealReviewTask =
+        singleTask(
+            accessToken("appeal-jkt"),
+            Map.of("caseId", createdCase.getId().toString(), "limit", "10"));
+    assertEquals("appealReviewTask", appealReviewTask.getTaskDefinitionKey());
+    claimTask(accessToken("appeal-jkt"), appealReviewTask.getTaskId());
+    completeTask(accessToken("appeal-jkt"), appealReviewTask.getTaskId());
+
+    WorkflowTaskListResponse enforcementTasks =
+        listTasks(
+            accessToken("reviewer-jkt"),
+            Map.of("caseId", createdCase.getId().toString(), "limit", "10"));
+
+    assertEquals(3, enforcementTasks.getItems().size());
+    Set<String> taskKeys =
+        enforcementTasks.getItems().stream()
+            .map(WorkflowTaskResponse::getTaskDefinitionKey)
+            .collect(java.util.stream.Collectors.toSet());
+    assertEquals(
+        Set.of(
+            "monitorPaymentObligationTask",
+            "monitorCorrectiveActionTask",
+            "monitorReportingObligationTask"),
+        taskKeys);
+    assertEquals("ACTIVE", workflowStatus(createdCase.getId()));
+    assertTrue(
+        enforcementTasks.getItems().stream()
+            .allMatch(task -> task.getCaseId().equals(createdCase.getId())));
   }
 
   @Test

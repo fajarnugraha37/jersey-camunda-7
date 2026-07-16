@@ -94,6 +94,8 @@
             <phase>package</phase>
             <configuration>
               <createDependencyReducedPom>false</createDependencyReducedPom>
+              <shadedArtifactAttached>true</shadedArtifactAttached>
+              <shadedClassifierName>all</shadedClassifierName>
               <filters>
                 <filter>
                   <artifact>*:*</artifact>

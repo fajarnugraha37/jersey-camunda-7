@@ -20,6 +20,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.camunda.bpm.engine.MismatchingMessageCorrelationException;
 import org.camunda.bpm.engine.ProcessEngineException;
 import org.camunda.bpm.engine.repository.ProcessDefinition;
 import org.camunda.bpm.engine.runtime.ProcessInstance;
@@ -61,8 +62,8 @@ final class CamundaCaseWorkflowAdapter implements CaseWorkflowPort {
     ProcessInstance processInstance =
         camundaServices
             .runtimeService()
-            .startProcessInstanceByKey(
-                WorkflowModule.PROCESS_DEFINITION_KEY, caseId.toString(), variables);
+            .startProcessInstanceByMessage(
+                WorkflowModule.CASE_CREATED_MESSAGE_NAME, caseId.toString(), variables);
     ProcessDefinition processDefinition =
         camundaServices
             .repositoryService()
@@ -102,13 +103,15 @@ final class CamundaCaseWorkflowAdapter implements CaseWorkflowPort {
     variables.put("caseNumber", caseNumber);
     variables.put("caseTitle", caseTitle);
     variables.put("startedBy", startedBy);
+    variables.put("appealGlobalHoldRequested", false);
+    variables.put("appealOverrideTerminate", false);
 
     String businessKey = caseId + ":appeal:" + appealId;
     ProcessInstance processInstance =
         camundaServices
             .runtimeService()
-            .startProcessInstanceByKey(
-                WorkflowModule.APPEAL_PROCESS_DEFINITION_KEY, businessKey, variables);
+            .startProcessInstanceByMessage(
+                WorkflowModule.APPEAL_WORKFLOW_STARTED_MESSAGE_NAME, businessKey, variables);
     ProcessDefinition processDefinition =
         camundaServices
             .repositoryService()
@@ -247,7 +250,7 @@ final class CamundaCaseWorkflowAdapter implements CaseWorkflowPort {
   }
 
   @Override
-  public void completeTask(String taskId) {
+  public void completeTask(String taskId, Map<String, Object> variables) {
     var taskService = camundaServices.taskService();
     Task currentTask = taskService.createTaskQuery().taskId(taskId).active().singleResult();
     if (currentTask == null) {
@@ -258,7 +261,7 @@ final class CamundaCaseWorkflowAdapter implements CaseWorkflowPort {
     }
     String processInstanceId = currentTask.getProcessInstanceId();
     try {
-      taskService.complete(taskId);
+      taskService.complete(taskId, variables);
     } catch (ProcessEngineException exception) {
       if (isTaskCompleted(taskId)) {
         return;
@@ -274,6 +277,22 @@ final class CamundaCaseWorkflowAdapter implements CaseWorkflowPort {
         == 0) {
       workflowInstanceStore.markCompleted(processInstanceId, clock.instant());
     }
+  }
+
+  @Override
+  public boolean correlateAppealFiled(UUID caseId, UUID appealId) {
+    return correlateCaseMessage(
+        WorkflowModule.APPEAL_FILED_MESSAGE_NAME,
+        caseId,
+        Map.of("appealId", appealId.toString()));
+  }
+
+  @Override
+  public boolean correlateAppealResolved(UUID caseId, boolean enforcementMonitoringRequired) {
+    return correlateCaseMessage(
+        WorkflowModule.APPEAL_RESOLVED_MESSAGE_NAME,
+        caseId,
+        Map.of("enforcementMonitoringRequired", enforcementMonitoringRequired));
   }
 
   private Map<UUID, CaseRecord> loadCases(List<Task> tasks) {
@@ -309,5 +328,20 @@ final class CamundaCaseWorkflowAdapter implements CaseWorkflowPort {
       throw new IllegalStateException("Workflow task " + task.getId() + " is missing caseId.");
     }
     return UUID.fromString(caseIdValue);
+  }
+
+  private boolean correlateCaseMessage(
+      String messageName, UUID caseId, Map<String, Object> variables) {
+    try {
+      camundaServices
+          .runtimeService()
+          .createMessageCorrelation(messageName)
+          .processInstanceBusinessKey(caseId.toString())
+          .setVariables(variables)
+          .correlateWithResult();
+      return true;
+    } catch (MismatchingMessageCorrelationException exception) {
+      return false;
+    }
   }
 }

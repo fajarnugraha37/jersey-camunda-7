@@ -52,7 +52,8 @@ public final class MessagingRuntime implements AutoCloseable {
       NotificationRepository notificationRepository,
       Clock clock) {
     AtomicBoolean running = new AtomicBoolean(true);
-    ensureTopicsExist(configuration);
+    Runnable topicProvisioner = () -> ensureTopicsExist(configuration);
+    topicProvisioner.run();
     EventEnvelopeJsonCodec codec = new EventEnvelopeJsonCodec();
     KafkaProducer<String, String> producer = new KafkaProducer<>(producerProperties(configuration));
     KafkaConsumer<String, String> consumer = new KafkaConsumer<>(consumerProperties(configuration));
@@ -65,7 +66,8 @@ public final class MessagingRuntime implements AutoCloseable {
             clock,
             configuration.appInstanceId(),
             configuration.outboxLeaseDuration(),
-            configuration.outboxBatchSize());
+            configuration.outboxBatchSize(),
+            topicProvisioner);
     NotificationEventHandler notificationEventHandler =
         new NotificationEventHandler(
             transactionManager,
@@ -132,6 +134,7 @@ public final class MessagingRuntime implements AutoCloseable {
     properties.put(ProducerConfig.ACKS_CONFIG, "all");
     properties.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true");
     properties.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, "5");
+    properties.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, "5000");
     properties.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, "5000");
     properties.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, "10000");
     return properties;
