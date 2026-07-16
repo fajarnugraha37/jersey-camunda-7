@@ -3,18 +3,26 @@ package com.sentinel.enforcement.persistence.casefile;
 import com.sentinel.enforcement.application.casefile.AuditEventListSortBy;
 import com.sentinel.enforcement.application.casefile.AuditEventPageRequest;
 import com.sentinel.enforcement.application.casefile.CasePageRequest;
+import com.sentinel.enforcement.application.casefile.CaseRelationshipTraversalDirection;
+import com.sentinel.enforcement.application.casefile.CaseRelationshipView;
+import com.sentinel.enforcement.application.casefile.CaseRelationshipViewDirection;
 import com.sentinel.enforcement.application.casefile.CaseRepository;
 import com.sentinel.enforcement.domain.casefile.AuditEvent;
 import com.sentinel.enforcement.domain.casefile.CaseAssignment;
 import com.sentinel.enforcement.domain.casefile.CaseClassification;
 import com.sentinel.enforcement.domain.casefile.CaseConflictException;
 import com.sentinel.enforcement.domain.casefile.CaseRecord;
+import com.sentinel.enforcement.domain.casefile.CaseRelationship;
+import com.sentinel.enforcement.domain.casefile.CaseRelationshipType;
 import com.sentinel.enforcement.domain.casefile.CaseStatus;
 import com.sentinel.enforcement.domain.casefile.CaseStatusHistoryEntry;
 import com.sentinel.enforcement.persistence.MyBatisRepositorySupport;
+import com.sentinel.enforcement.persistence.PersistenceExceptionClassifier;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -110,13 +118,27 @@ public final class CaseRepositoryMyBatisAdapter extends MyBatisRepositorySupport
     executeWrite(
         session -> {
           CaseMyBatisMapper mapper = session.getMapper(CaseMyBatisMapper.class);
-          int updated = mapper.updateCase(toCaseData(caseRecord), caseRecord.version() - 1);
+          int updated =
+              mapper.rotateAssignment(
+                  new CaseAssignmentRotationData(
+                      caseRecord.id(),
+                      caseRecord.version() - 1,
+                      caseRecord.assignedUnitId(),
+                      caseRecord.assigneeUserId(),
+                      caseRecord.updatedAt().atOffset(ZoneOffset.UTC),
+                      caseRecord.updatedBy(),
+                      caseAssignment.id(),
+                      caseAssignment.assignmentReason(),
+                      caseAssignment.assignedAt().atOffset(ZoneOffset.UTC),
+                      caseAssignment.assignedBy(),
+                      caseAssignment.createdAt().atOffset(ZoneOffset.UTC),
+                      caseAssignment.createdBy(),
+                      caseAssignment.version()));
           if (updated == 0) {
             throw new CaseConflictException(
                 "CONCURRENT_MODIFICATION",
                 "Case " + caseRecord.caseNumber() + " was modified by another transaction.");
           }
-          mapper.insertAssignment(toAssignmentData(caseAssignment));
           mapper.insertAuditEvent(toAuditData(auditEvent));
           return null;
         });
@@ -137,6 +159,75 @@ public final class CaseRepositoryMyBatisAdapter extends MyBatisRepositorySupport
           mapper.insertStatusHistory(toHistoryData(statusHistoryEntry));
           mapper.insertAuditEvent(toAuditData(auditEvent));
           return null;
+        });
+  }
+
+  @Override
+  public void createRelationship(CaseRelationship relationship) {
+    try {
+      executeWrite(
+          session -> {
+            session
+                .getMapper(CaseMyBatisMapper.class)
+                .insertRelationship(toRelationshipData(relationship));
+            return null;
+          });
+    } catch (RuntimeException exception) {
+      if (PersistenceExceptionClassifier.isUniqueViolation(exception)) {
+        throw new CaseConflictException(
+            "CASE_RELATIONSHIP_ALREADY_EXISTS",
+            "Relationship already exists between cases "
+                + relationship.parentCaseId()
+                + " and "
+                + relationship.childCaseId()
+                + ".");
+      }
+      throw exception;
+    }
+  }
+
+  @Override
+  public boolean wouldCreateRelationshipCycle(UUID parentCaseId, UUID childCaseId) {
+    return executeRead(
+        session ->
+            session
+                .getMapper(CaseMyBatisMapper.class)
+                .wouldCreateRelationshipCycle(parentCaseId, childCaseId));
+  }
+
+  @Override
+  public List<CaseRelationshipView> findRelationships(
+      UUID caseId,
+      CaseRelationshipTraversalDirection direction,
+      int maxDepth,
+      CaseRelationshipType relationshipType) {
+    return executeRead(
+        session -> {
+          CaseMyBatisMapper mapper = session.getMapper(CaseMyBatisMapper.class);
+          CaseRelationshipQueryData queryData =
+              new CaseRelationshipQueryData(
+                  caseId, maxDepth, relationshipType == null ? null : relationshipType.name());
+          List<CaseRelationshipView> relationships = new ArrayList<>();
+          if (direction == CaseRelationshipTraversalDirection.ANCESTORS
+              || direction == CaseRelationshipTraversalDirection.BOTH) {
+            relationships.addAll(
+                mapper.findAncestorRelationships(queryData).stream()
+                    .map(this::toRelationshipView)
+                    .toList());
+          }
+          if (direction == CaseRelationshipTraversalDirection.DESCENDANTS
+              || direction == CaseRelationshipTraversalDirection.BOTH) {
+            relationships.addAll(
+                mapper.findDescendantRelationships(queryData).stream()
+                    .map(this::toRelationshipView)
+                    .toList());
+          }
+          relationships.sort(
+              Comparator.comparing((CaseRelationshipView view) -> view.direction().name())
+                  .thenComparingInt(CaseRelationshipView::depth)
+                  .thenComparing(CaseRelationshipView::relatedCaseNumber)
+                  .thenComparing(CaseRelationshipView::relatedCaseId));
+          return relationships;
         });
   }
 
@@ -196,22 +287,6 @@ public final class CaseRepositoryMyBatisAdapter extends MyBatisRepositorySupport
         caseRecord.version());
   }
 
-  private CaseAssignmentData toAssignmentData(CaseAssignment caseAssignment) {
-    return new CaseAssignmentData(
-        caseAssignment.id(),
-        caseAssignment.caseId(),
-        caseAssignment.assignedUnitId(),
-        caseAssignment.assigneeUserId(),
-        caseAssignment.assignmentReason(),
-        caseAssignment.assignedAt().atOffset(ZoneOffset.UTC),
-        caseAssignment.assignedBy(),
-        caseAssignment.createdAt().atOffset(ZoneOffset.UTC),
-        caseAssignment.createdBy(),
-        caseAssignment.updatedAt().atOffset(ZoneOffset.UTC),
-        caseAssignment.updatedBy(),
-        caseAssignment.version());
-  }
-
   private CaseStatusHistoryData toHistoryData(CaseStatusHistoryEntry historyEntry) {
     return new CaseStatusHistoryData(
         historyEntry.id(),
@@ -244,6 +319,20 @@ public final class CaseRepositoryMyBatisAdapter extends MyBatisRepositorySupport
         auditEvent.beforeSummary(),
         auditEvent.afterSummary(),
         auditEvent.metadata());
+  }
+
+  private CaseRelationshipData toRelationshipData(CaseRelationship relationship) {
+    return new CaseRelationshipData(
+        relationship.id(),
+        relationship.parentCaseId(),
+        relationship.childCaseId(),
+        relationship.relationshipType().name(),
+        relationship.relationshipReason(),
+        relationship.createdAt().atOffset(ZoneOffset.UTC),
+        relationship.createdBy(),
+        relationship.updatedAt().atOffset(ZoneOffset.UTC),
+        relationship.updatedBy(),
+        relationship.version());
   }
 
   private CaseRecord toCaseDomain(CaseRecordData caseRecordData) {
@@ -284,6 +373,30 @@ public final class CaseRepositoryMyBatisAdapter extends MyBatisRepositorySupport
         auditEventData.beforeSummary(),
         auditEventData.afterSummary(),
         auditEventData.metadata());
+  }
+
+  private CaseRelationshipView toRelationshipView(CaseRelationshipLineageData relationshipData) {
+    return new CaseRelationshipView(
+        relationshipData.caseId(),
+        relationshipData.relatedCaseId(),
+        relationshipData.relatedCaseNumber(),
+        relationshipData.relatedCaseTitle(),
+        relationshipData.depth(),
+        CaseRelationshipViewDirection.valueOf(relationshipData.direction()),
+        CaseRelationshipType.valueOf(relationshipData.relationshipType()),
+        relationshipData.relationshipReason(),
+        parsePathCaseIds(relationshipData.pathCaseIdsCsv()));
+  }
+
+  private List<UUID> parsePathCaseIds(String pathCaseIdsCsv) {
+    if (pathCaseIdsCsv == null || pathCaseIdsCsv.isBlank()) {
+      return List.of();
+    }
+    return java.util.Arrays.stream(pathCaseIdsCsv.split(","))
+        .map(String::trim)
+        .filter(value -> !value.isEmpty())
+        .map(UUID::fromString)
+        .toList();
   }
 
   private String toContainsPattern(String value) {

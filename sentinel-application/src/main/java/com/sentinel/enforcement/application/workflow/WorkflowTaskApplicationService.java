@@ -34,14 +34,12 @@ public final class WorkflowTaskApplicationService {
   private static final String RECOMMENDATION_REVISION_TASK_KEY = "recommendationRevisionTask";
   private static final String DECISION_TASK_KEY = "decisionTask";
   private static final String REVIEW_REGISTRY_FAILURE_TASK_KEY = "reviewRegistryFailureTask";
-  private static final String REVIEW_NOTIFICATION_FAILURE_TASK_KEY = "reviewNotificationFailureTask";
+  private static final String REVIEW_NOTIFICATION_FAILURE_TASK_KEY =
+      "reviewNotificationFailureTask";
   private static final String SUPERVISOR_OVERRIDE_REVIEW_TASK_KEY = "supervisorOverrideReviewTask";
-  private static final String GLOBAL_HOLD_OVERRIDE_REVIEW_TASK_KEY =
-      "globalHoldOverrideReviewTask";
-  private static final String MONITOR_PAYMENT_OBLIGATION_TASK_KEY =
-      "monitorPaymentObligationTask";
-  private static final String MONITOR_CORRECTIVE_ACTION_TASK_KEY =
-      "monitorCorrectiveActionTask";
+  private static final String GLOBAL_HOLD_OVERRIDE_REVIEW_TASK_KEY = "globalHoldOverrideReviewTask";
+  private static final String MONITOR_PAYMENT_OBLIGATION_TASK_KEY = "monitorPaymentObligationTask";
+  private static final String MONITOR_CORRECTIVE_ACTION_TASK_KEY = "monitorCorrectiveActionTask";
   private static final String MONITOR_REPORTING_OBLIGATION_TASK_KEY =
       "monitorReportingObligationTask";
   private static final String ADDITIONAL_ENFORCEMENT_ACTION_TASK_KEY =
@@ -238,8 +236,8 @@ public final class WorkflowTaskApplicationService {
       case SUPERVISOR_OVERRIDE_REVIEW_TASK_KEY, GLOBAL_HOLD_OVERRIDE_REVIEW_TASK_KEY ->
           Map.of("overrideCancel", false, "overrideSuspend", false);
       case MONITOR_PAYMENT_OBLIGATION_TASK_KEY,
-          MONITOR_CORRECTIVE_ACTION_TASK_KEY,
-          MONITOR_REPORTING_OBLIGATION_TASK_KEY ->
+              MONITOR_CORRECTIVE_ACTION_TASK_KEY,
+              MONITOR_REPORTING_OBLIGATION_TASK_KEY ->
           Map.of("allObligationsComplete", true, "obligationBreachDetected", false);
       case APPEAL_SUPERVISOR_OVERRIDE_REVIEW_TASK_KEY -> Map.of("appealOverrideTerminate", false);
       default -> Map.of();
@@ -271,7 +269,8 @@ public final class WorkflowTaskApplicationService {
       return;
     }
     boolean hasRemainingTasks =
-        workflowPort.listActiveTasks().stream().anyMatch(active -> active.caseId().equals(task.caseId()));
+        workflowPort.listActiveTasks().stream()
+            .anyMatch(active -> active.caseId().equals(task.caseId()));
     if (hasRemainingTasks) {
       return;
     }
@@ -409,9 +408,9 @@ public final class WorkflowTaskApplicationService {
     return switch (task.taskDefinitionKey()) {
       case TRIAGE_TASK_KEY -> actor.hasRole("TRIAGE_OFFICER") || actor.hasRole("SUPERVISOR");
       case OPTIONAL_LEGAL_ADVISORY_TASK_KEY,
-          FINANCIAL_REVIEW_TASK_KEY,
-          LEGAL_ADVISORY_TASK_KEY,
-          REVIEW_TASK_KEY ->
+              FINANCIAL_REVIEW_TASK_KEY,
+              LEGAL_ADVISORY_TASK_KEY,
+              REVIEW_TASK_KEY ->
           actor.hasRole("CASE_REVIEWER") || actor.hasRole("SUPERVISOR");
       case INVESTIGATION_TASK_KEY ->
           actor.hasRole("SUPERVISOR")
@@ -422,17 +421,17 @@ public final class WorkflowTaskApplicationService {
               || (actor.hasRole("INVESTIGATOR")
                   && actor.username().equals(resolveAssignedUserId(task.caseId())));
       case SUPERVISOR_REVIEW_TASK_KEY,
-          REVIEW_REGISTRY_FAILURE_TASK_KEY,
-          REVIEW_NOTIFICATION_FAILURE_TASK_KEY,
-          SUPERVISOR_OVERRIDE_REVIEW_TASK_KEY,
-          GLOBAL_HOLD_OVERRIDE_REVIEW_TASK_KEY,
-          ADDITIONAL_ENFORCEMENT_ACTION_TASK_KEY,
-          APPEAL_SUPERVISOR_OVERRIDE_REVIEW_TASK_KEY ->
+              REVIEW_REGISTRY_FAILURE_TASK_KEY,
+              REVIEW_NOTIFICATION_FAILURE_TASK_KEY,
+              SUPERVISOR_OVERRIDE_REVIEW_TASK_KEY,
+              GLOBAL_HOLD_OVERRIDE_REVIEW_TASK_KEY,
+              ADDITIONAL_ENFORCEMENT_ACTION_TASK_KEY,
+              APPEAL_SUPERVISOR_OVERRIDE_REVIEW_TASK_KEY ->
           actor.hasRole("SUPERVISOR") || actor.hasRole("SYSTEM_ADMIN");
       case DECISION_TASK_KEY -> actor.hasRole("DECISION_MAKER") || actor.hasRole("SUPERVISOR");
       case MONITOR_PAYMENT_OBLIGATION_TASK_KEY,
-          MONITOR_CORRECTIVE_ACTION_TASK_KEY,
-          MONITOR_REPORTING_OBLIGATION_TASK_KEY ->
+              MONITOR_CORRECTIVE_ACTION_TASK_KEY,
+              MONITOR_REPORTING_OBLIGATION_TASK_KEY ->
           actor.hasRole("CASE_REVIEWER") || actor.hasRole("SUPERVISOR");
       case APPEAL_REVIEW_TASK_KEY -> actor.hasRole("APPEAL_OFFICER") || actor.hasRole("SUPERVISOR");
       default -> false;

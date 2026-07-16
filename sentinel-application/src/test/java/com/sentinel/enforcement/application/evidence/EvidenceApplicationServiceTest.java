@@ -18,6 +18,8 @@ import com.sentinel.enforcement.domain.casefile.AuditEvent;
 import com.sentinel.enforcement.domain.casefile.CaseAssignment;
 import com.sentinel.enforcement.domain.casefile.CaseClassification;
 import com.sentinel.enforcement.domain.casefile.CaseRecord;
+import com.sentinel.enforcement.domain.casefile.CaseRelationship;
+import com.sentinel.enforcement.domain.casefile.CaseRelationshipType;
 import com.sentinel.enforcement.domain.casefile.CaseStatus;
 import com.sentinel.enforcement.domain.casefile.CaseStatusHistoryEntry;
 import com.sentinel.enforcement.domain.evidence.Evidence;
@@ -376,6 +378,27 @@ class EvidenceApplicationServiceTest {
     public void transition(
         CaseRecord caseRecord, CaseStatusHistoryEntry statusHistoryEntry, AuditEvent auditEvent) {
       throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void createRelationship(CaseRelationship relationship) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean wouldCreateRelationshipCycle(UUID parentCaseId, UUID childCaseId) {
+      return false;
+    }
+
+    @Override
+    public List<com.sentinel.enforcement.application.casefile.CaseRelationshipView>
+        findRelationships(
+            UUID caseId,
+            com.sentinel.enforcement.application.casefile.CaseRelationshipTraversalDirection
+                direction,
+            int maxDepth,
+            CaseRelationshipType relationshipType) {
+      return List.of();
     }
 
     @Override

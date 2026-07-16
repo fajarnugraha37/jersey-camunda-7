@@ -8,6 +8,7 @@ import com.sentinel.enforcement.domain.decision.DecisionVersion;
 import com.sentinel.enforcement.domain.sanction.Sanction;
 import com.sentinel.enforcement.domain.sanction.SanctionObligation;
 import com.sentinel.enforcement.persistence.MyBatisRepositorySupport;
+import com.sentinel.enforcement.persistence.PersistenceExceptionClassifier;
 import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
@@ -34,6 +35,27 @@ public final class DecisionRepositoryMyBatisAdapter extends MyBatisRepositorySup
         session ->
             Optional.ofNullable(session.getMapper(DecisionMyBatisMapper.class).findById(decisionId))
                 .map(this::toDomain));
+  }
+
+  @Override
+  public Optional<Decision> findByIdForUpdate(UUID decisionId) {
+    return executeBoundSession(
+        session -> {
+          try {
+            return Optional.ofNullable(
+                    session.getMapper(DecisionMyBatisMapper.class).findByIdForUpdate(decisionId))
+                .map(this::toDomain);
+          } catch (RuntimeException exception) {
+            if (PersistenceExceptionClassifier.isLockNotAvailable(exception)) {
+              throw new DecisionConflictException(
+                  "DECISION_LOCKED",
+                  "Decision "
+                      + decisionId
+                      + " is currently being approved by another transaction.");
+            }
+            throw exception;
+          }
+        });
   }
 
   @Override

@@ -10,12 +10,19 @@ import com.sentinel.enforcement.api.generated.model.AssignCaseRequest;
 import com.sentinel.enforcement.api.generated.model.CaseAuditEventListResponse;
 import com.sentinel.enforcement.api.generated.model.CaseClassificationValue;
 import com.sentinel.enforcement.api.generated.model.CaseListResponse;
+import com.sentinel.enforcement.api.generated.model.CaseRelationshipListResponse;
+import com.sentinel.enforcement.api.generated.model.CaseRelationshipResponse;
+import com.sentinel.enforcement.api.generated.model.CaseRelationshipTypeValue;
 import com.sentinel.enforcement.api.generated.model.CaseResponse;
 import com.sentinel.enforcement.api.generated.model.CaseStatusValue;
 import com.sentinel.enforcement.api.generated.model.CreateAppealRequest;
+import com.sentinel.enforcement.api.generated.model.CreateCaseRelationshipDirectionValue;
+import com.sentinel.enforcement.api.generated.model.CreateCaseRelationshipRequest;
 import com.sentinel.enforcement.api.generated.model.CreateCaseRequest;
 import com.sentinel.enforcement.api.generated.model.DecisionResponse;
 import com.sentinel.enforcement.api.generated.model.ErrorResponse;
+import com.sentinel.enforcement.api.generated.model.MaintenanceOperationRunResponse;
+import com.sentinel.enforcement.api.generated.model.RecalculateOverdueSanctionObligationsRequest;
 import com.sentinel.enforcement.api.generated.model.RecommendationResponse;
 import com.sentinel.enforcement.api.generated.model.ReportResponse;
 import com.sentinel.enforcement.api.generated.model.ReviewRecommendationRequest;
@@ -27,8 +34,13 @@ import jakarta.ws.rs.client.WebTarget;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -295,6 +307,237 @@ class CaseApiIT extends AbstractApiIT {
   }
 
   @Test
+  void reassignmentClosesPreviousAssignmentAndLeavesSingleActiveAssignment() {
+    ReportResponse report =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
+    CaseResponse createdCase =
+        createCase(
+            accessToken("triage-jkt"),
+            report.getId(),
+            "Reassignment case",
+            "Assignment rotation should preserve one active row.");
+
+    CaseResponse firstAssignment =
+        assignCase(
+            accessToken("triage-jkt"),
+            createdCase.getId(),
+            "JKT-UNIT-1",
+            "investigator-jkt",
+            createdCase.getVersion(),
+            "Initial assignment.");
+    CaseResponse secondAssignment =
+        assignCase(
+            accessToken("triage-jkt"),
+            firstAssignment.getId(),
+            "JKT-UNIT-1",
+            "other-investigator",
+            firstAssignment.getVersion(),
+            "Reassign to another investigator.");
+
+    assertEquals("JKT-UNIT-1", secondAssignment.getAssignedUnitId());
+    assertEquals("other-investigator", secondAssignment.getAssigneeUserId());
+    assertEquals(2L, countByCaseId("case_assignment", secondAssignment.getId()));
+    assertEquals(
+        1L,
+        queryForLong(
+            "SELECT COUNT(*) FROM case_assignment WHERE case_id = ? AND is_active = TRUE",
+            secondAssignment.getId()));
+    assertEquals(
+        1L,
+        queryForLong(
+            """
+            SELECT COUNT(*)
+            FROM case_assignment
+            WHERE case_id = ?
+              AND is_active = FALSE
+              AND released_at IS NOT NULL
+              AND released_by = ?
+              AND superseded_by_assignment_id IS NOT NULL
+            """,
+            secondAssignment.getId(),
+            "triage-jkt"));
+    assertEquals(
+        "other-investigator",
+        queryForString(
+            """
+            SELECT assignee_user_id
+            FROM case_assignment
+            WHERE case_id = ?
+              AND is_active = TRUE
+            """,
+            secondAssignment.getId()));
+  }
+
+  @Test
+  void identicalAssignmentTargetReturnsConflictWithoutAddingHistoryRow() {
+    ReportResponse report =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
+    CaseResponse createdCase =
+        createCase(
+            accessToken("triage-jkt"),
+            report.getId(),
+            "No-op assignment case",
+            "Repeated assignment target should be rejected.");
+    CaseResponse assigned =
+        assignCase(
+            accessToken("triage-jkt"),
+            createdCase.getId(),
+            "JKT-UNIT-1",
+            "investigator-jkt",
+            createdCase.getVersion(),
+            "Initial assignment.");
+
+    Response repeatedAssignmentResponse =
+        client
+            .target(applicationRuntime.baseUri())
+            .path("/api/v1/cases/" + assigned.getId() + "/assignments")
+            .request(MediaType.APPLICATION_JSON_TYPE)
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken("triage-jkt"))
+            .post(
+                Entity.entity(
+                    new AssignCaseRequest()
+                        .assignedUnitId("JKT-UNIT-1")
+                        .assigneeUserId("investigator-jkt")
+                        .expectedVersion(assigned.getVersion())
+                        .reason("Retry same assignment target."),
+                    MediaType.APPLICATION_JSON_TYPE));
+
+    ErrorResponse error = repeatedAssignmentResponse.readEntity(ErrorResponse.class);
+    assertEquals(409, repeatedAssignmentResponse.getStatus());
+    assertEquals("NO_EFFECT_ASSIGNMENT", error.getCode());
+    assertEquals(1L, countByCaseId("case_assignment", assigned.getId()));
+    assertEquals(
+        1L,
+        queryForLong(
+            "SELECT COUNT(*) FROM case_assignment WHERE case_id = ? AND is_active = TRUE",
+            assigned.getId()));
+  }
+
+  @Test
+  void caseRelationshipsExposeRecursiveLineageAndRejectCycles() {
+    ReportResponse rootReport =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
+    ReportResponse middleReport =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
+    ReportResponse leafReport =
+        createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
+
+    CaseResponse rootCase =
+        createCase(
+            accessToken("triage-jkt"),
+            rootReport.getId(),
+            "Root relationship case",
+            "Parent case for recursive lineage coverage.");
+    CaseResponse middleCase =
+        createCase(
+            accessToken("triage-jkt"),
+            middleReport.getId(),
+            "Middle relationship case",
+            "Intermediate case for recursive lineage coverage.");
+    CaseResponse leafCase =
+        createCase(
+            accessToken("triage-jkt"),
+            leafReport.getId(),
+            "Leaf relationship case",
+            "Child case for recursive lineage coverage.");
+
+    createCaseRelationship(
+        accessToken("triage-jkt"),
+        rootCase.getId(),
+        middleCase.getId(),
+        CaseRelationshipTypeValue.MERGE,
+        CreateCaseRelationshipDirectionValue.PARENT_OF,
+        "Merge related investigations.");
+    createCaseRelationship(
+        accessToken("triage-jkt"),
+        middleCase.getId(),
+        leafCase.getId(),
+        CaseRelationshipTypeValue.DERIVATION,
+        CreateCaseRelationshipDirectionValue.PARENT_OF,
+        "Derive follow-up case from merged matter.");
+
+    CaseRelationshipListResponse descendantRelationships =
+        listCaseRelationships(
+            accessToken("triage-jkt"),
+            rootCase.getId(),
+            Map.of("direction", "DESCENDANTS", "maxDepth", "5"));
+
+    assertEquals(2, descendantRelationships.getItems().size());
+    assertEquals(middleCase.getId(), descendantRelationships.getItems().get(0).getRelatedCaseId());
+    assertEquals(1, descendantRelationships.getItems().get(0).getDepth());
+    assertEquals(
+        List.of(rootCase.getId(), middleCase.getId()),
+        descendantRelationships.getItems().get(0).getPathCaseIds());
+    assertEquals(leafCase.getId(), descendantRelationships.getItems().get(1).getRelatedCaseId());
+    assertEquals(2, descendantRelationships.getItems().get(1).getDepth());
+    assertEquals(
+        List.of(rootCase.getId(), middleCase.getId(), leafCase.getId()),
+        descendantRelationships.getItems().get(1).getPathCaseIds());
+
+    CaseRelationshipListResponse ancestorRelationships =
+        listCaseRelationships(
+            accessToken("triage-jkt"),
+            leafCase.getId(),
+            Map.of("direction", "ANCESTORS", "maxDepth", "5"));
+
+    assertEquals(2, ancestorRelationships.getItems().size());
+    assertEquals(middleCase.getId(), ancestorRelationships.getItems().get(0).getRelatedCaseId());
+    assertEquals(1, ancestorRelationships.getItems().get(0).getDepth());
+    assertEquals(
+        List.of(leafCase.getId(), middleCase.getId()),
+        ancestorRelationships.getItems().get(0).getPathCaseIds());
+    assertEquals(rootCase.getId(), ancestorRelationships.getItems().get(1).getRelatedCaseId());
+    assertEquals(2, ancestorRelationships.getItems().get(1).getDepth());
+    assertEquals(
+        List.of(leafCase.getId(), middleCase.getId(), rootCase.getId()),
+        ancestorRelationships.getItems().get(1).getPathCaseIds());
+
+    CaseRelationshipListResponse filteredRelationships =
+        listCaseRelationships(
+            accessToken("triage-jkt"),
+            rootCase.getId(),
+            Map.of(
+                "direction", "DESCENDANTS",
+                "maxDepth", "5",
+                "relationshipType", "MERGE"));
+    assertEquals(1, filteredRelationships.getItems().size());
+    assertEquals(middleCase.getId(), filteredRelationships.getItems().get(0).getRelatedCaseId());
+
+    CaseRelationshipListResponse shallowRelationships =
+        listCaseRelationships(
+            accessToken("triage-jkt"),
+            rootCase.getId(),
+            Map.of("direction", "DESCENDANTS", "maxDepth", "1"));
+    assertEquals(1, shallowRelationships.getItems().size());
+    assertEquals(middleCase.getId(), shallowRelationships.getItems().get(0).getRelatedCaseId());
+
+    Response duplicateRelationshipResponse =
+        createCaseRelationshipRaw(
+            accessToken("triage-jkt"),
+            rootCase.getId(),
+            middleCase.getId(),
+            CaseRelationshipTypeValue.MERGE,
+            CreateCaseRelationshipDirectionValue.PARENT_OF,
+            "Duplicate relationship should be rejected.");
+    ErrorResponse duplicateError = duplicateRelationshipResponse.readEntity(ErrorResponse.class);
+    assertEquals(409, duplicateRelationshipResponse.getStatus());
+    assertEquals("CASE_RELATIONSHIP_ALREADY_EXISTS", duplicateError.getCode());
+
+    Response cycleRelationshipResponse =
+        createCaseRelationshipRaw(
+            accessToken("triage-jkt"),
+            leafCase.getId(),
+            rootCase.getId(),
+            CaseRelationshipTypeValue.SPLIT,
+            CreateCaseRelationshipDirectionValue.PARENT_OF,
+            "Cycle should be rejected.");
+    ErrorResponse cycleError = cycleRelationshipResponse.readEntity(ErrorResponse.class);
+    assertEquals(409, cycleRelationshipResponse.getStatus());
+    assertEquals("CASE_RELATIONSHIP_CYCLE", cycleError.getCode());
+    assertEquals(2L, queryForLong("SELECT COUNT(*) FROM case_relationship"));
+  }
+
+  @Test
   void invalidTransitionAndStaleVersionReturnConflictEnvelope() {
     ReportResponse report =
         createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
@@ -344,6 +587,138 @@ class CaseApiIT extends AbstractApiIT {
     ErrorResponse staleVersion = staleVersionResponse.readEntity(ErrorResponse.class);
     assertEquals(409, staleVersionResponse.getStatus());
     assertEquals("CONCURRENT_MODIFICATION", staleVersion.getCode());
+  }
+
+  @Test
+  void recalculateOverdueSanctionObligationsMarksExpiredRowsAndPreservesClosureGuard() {
+    DecisionFlowContext context =
+        createPublishedDecisionContext(
+            "Overdue obligation case",
+            "Maintenance batch should mark the obligation as overdue.",
+            true,
+            LocalDate.parse("2026-07-01"));
+    LocalDate effectiveDate = LocalDate.parse("2026-07-16");
+    long expectedAffectedRows =
+        queryForLong(
+            "SELECT COUNT(*) FROM sanction_obligation WHERE status = 'ACTIVE' AND due_date < ?",
+            effectiveDate);
+
+    MaintenanceOperationRunResponse operationRun =
+        recalculateOverdueSanctionObligations(accessToken("supervisor-jkt"), effectiveDate);
+
+    assertEquals("recalculate-overdue-sanction-obligations", operationRun.getOperationName());
+    assertEquals("supervisor-jkt", operationRun.getRequestedBy());
+    assertEquals(effectiveDate, operationRun.getEffectiveDate());
+    assertEquals("COMPLETED", operationRun.getResultStatus().toString());
+    assertEquals(expectedAffectedRows, operationRun.getAffectedRows());
+    assertEquals(
+        "OVERDUE",
+        queryForString(
+            """
+            SELECT obligation.status
+            FROM sanction_obligation obligation
+            JOIN sanction sanction ON sanction.id = obligation.sanction_id
+            WHERE sanction.decision_id = ?
+            """,
+            context.decision().getId()));
+    assertEquals(
+        1L,
+        queryForLong(
+            "SELECT COUNT(*) FROM maintenance_operation_run WHERE id = ?",
+            operationRun.getRunId()));
+
+    CaseResponse enforcementInProgress =
+        transitionCase(
+            accessToken("supervisor-jkt"),
+            context.caseResponse().getId(),
+            CaseStatusValue.ENFORCEMENT_IN_PROGRESS,
+            context.caseResponse().getVersion(),
+            "Entering enforcement after overdue recalculation.");
+
+    Response closeResponse =
+        client
+            .target(applicationRuntime.baseUri())
+            .path("/api/v1/cases/" + enforcementInProgress.getId() + "/transitions")
+            .request(MediaType.APPLICATION_JSON_TYPE)
+            .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken("supervisor-jkt"))
+            .post(
+                Entity.entity(
+                    new TransitionCaseRequest()
+                        .targetStatus(CaseStatusValue.CLOSED)
+                        .expectedVersion(enforcementInProgress.getVersion())
+                        .reason("Attempting closure while overdue obligation remains."),
+                    MediaType.APPLICATION_JSON_TYPE));
+
+    ErrorResponse error = closeResponse.readEntity(ErrorResponse.class);
+    assertEquals(409, closeResponse.getStatus());
+    assertEquals("CASE_TRANSITION_NOT_ALLOWED", error.getCode());
+  }
+
+  @Test
+  void recalculateOverdueSanctionObligationsReturnsConflictWhenTableIsLocked() throws Exception {
+    createPublishedDecisionContext(
+        "Locked maintenance case",
+        "Maintenance lock conflict should fail fast.",
+        true,
+        LocalDate.parse("2026-07-01"));
+    long maintenanceRunCountBefore = queryForLong("SELECT COUNT(*) FROM maintenance_operation_run");
+
+    try (Connection connection =
+            DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+        PreparedStatement statement =
+            connection.prepareStatement(
+                "LOCK TABLE sanction_obligation IN SHARE ROW EXCLUSIVE MODE")) {
+      connection.setAutoCommit(false);
+      statement.execute();
+
+      Response lockedOperationResponse =
+          recalculateOverdueSanctionObligationsRaw(
+              accessToken("supervisor-jkt"), LocalDate.parse("2026-07-16"));
+
+      ErrorResponse error = lockedOperationResponse.readEntity(ErrorResponse.class);
+      assertEquals(409, lockedOperationResponse.getStatus());
+      assertEquals("MAINTENANCE_OPERATION_LOCKED", error.getCode());
+      assertEquals(
+          maintenanceRunCountBefore,
+          queryForLong("SELECT COUNT(*) FROM maintenance_operation_run"));
+    }
+  }
+
+  @Test
+  void decisionApprovalReturnsConflictWhenDecisionRowIsLocked() throws Exception {
+    DecisionFlowContext context =
+        createDraftDecisionContext(
+            "Locked approval case",
+            "Approval should fail fast while another transaction holds the row lock.",
+            false,
+            LocalDate.parse("2026-08-01"));
+
+    try (Connection connection =
+            DriverManager.getConnection(
+                POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+        PreparedStatement statement =
+            connection.prepareStatement("SELECT id FROM decision WHERE id = ? FOR UPDATE");
+        ResultSet ignored = lockDecisionRow(connection, statement, context.decision().getId())) {
+      Response lockedApprovalResponse =
+          client
+              .target(applicationRuntime.baseUri())
+              .path("/api/v1/decisions/" + context.decision().getId() + "/approve")
+              .request(MediaType.APPLICATION_JSON_TYPE)
+              .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken("supervisor-jkt"))
+              .post(Entity.entity("", MediaType.APPLICATION_JSON_TYPE));
+
+      ErrorResponse error = lockedApprovalResponse.readEntity(ErrorResponse.class);
+      assertEquals(409, lockedApprovalResponse.getStatus());
+      assertEquals("DECISION_LOCKED", error.getCode());
+      assertEquals(0L, countAuditEventsByType(context.caseResponse().getId(), "DecisionApproved"));
+    }
+
+    DecisionResponse approved =
+        approveDecision(accessToken("supervisor-jkt"), context.decision().getId());
+
+    assertNotNull(approved.getApprovedAt());
+    assertEquals(1L, countAuditEventsByType(context.caseResponse().getId(), "DecisionApproved"));
   }
 
   @Test
@@ -714,6 +1089,74 @@ class CaseApiIT extends AbstractApiIT {
             CaseResponse.class);
   }
 
+  private static CaseRelationshipResponse createCaseRelationship(
+      String accessToken,
+      UUID caseId,
+      UUID relatedCaseId,
+      CaseRelationshipTypeValue relationshipType,
+      CreateCaseRelationshipDirectionValue direction,
+      String relationshipReason) {
+    return createCaseRelationshipRaw(
+            accessToken, caseId, relatedCaseId, relationshipType, direction, relationshipReason)
+        .readEntity(CaseRelationshipResponse.class);
+  }
+
+  private static Response createCaseRelationshipRaw(
+      String accessToken,
+      UUID caseId,
+      UUID relatedCaseId,
+      CaseRelationshipTypeValue relationshipType,
+      CreateCaseRelationshipDirectionValue direction,
+      String relationshipReason) {
+    return client
+        .target(applicationRuntime.baseUri())
+        .path("/api/v1/cases/" + caseId + "/relationships")
+        .request(MediaType.APPLICATION_JSON_TYPE)
+        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+        .post(
+            Entity.entity(
+                new CreateCaseRelationshipRequest()
+                    .relatedCaseId(relatedCaseId)
+                    .relationshipType(relationshipType)
+                    .direction(direction)
+                    .relationshipReason(relationshipReason),
+                MediaType.APPLICATION_JSON_TYPE));
+  }
+
+  private static CaseRelationshipListResponse listCaseRelationships(
+      String accessToken, UUID caseId, Map<String, String> queryParams) {
+    WebTarget target =
+        client
+            .target(applicationRuntime.baseUri())
+            .path("/api/v1/cases/" + caseId + "/relationships");
+    for (Map.Entry<String, String> entry : queryParams.entrySet()) {
+      target = target.queryParam(entry.getKey(), entry.getValue());
+    }
+    return target
+        .request(MediaType.APPLICATION_JSON_TYPE)
+        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+        .get(CaseRelationshipListResponse.class);
+  }
+
+  private static MaintenanceOperationRunResponse recalculateOverdueSanctionObligations(
+      String accessToken, LocalDate effectiveDate) {
+    return recalculateOverdueSanctionObligationsRaw(accessToken, effectiveDate)
+        .readEntity(MaintenanceOperationRunResponse.class);
+  }
+
+  private static Response recalculateOverdueSanctionObligationsRaw(
+      String accessToken, LocalDate effectiveDate) {
+    return client
+        .target(applicationRuntime.baseUri())
+        .path("/api/v1/operations/sanction-obligations/recalculate-overdue")
+        .request(MediaType.APPLICATION_JSON_TYPE)
+        .header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
+        .post(
+            Entity.entity(
+                new RecalculateOverdueSanctionObligationsRequest().effectiveDate(effectiveDate),
+                MediaType.APPLICATION_JSON_TYPE));
+  }
+
   private static CaseResponse getCase(String accessToken, UUID caseId) {
     return client
         .target(applicationRuntime.baseUri())
@@ -840,7 +1283,16 @@ class CaseApiIT extends AbstractApiIT {
         .post(Entity.entity("", MediaType.APPLICATION_JSON_TYPE));
   }
 
-  private static DecisionFlowContext createPublishedDecisionContext(
+  private static ResultSet lockDecisionRow(
+      Connection connection, PreparedStatement statement, UUID decisionId) throws Exception {
+    connection.setAutoCommit(false);
+    statement.setObject(1, decisionId);
+    ResultSet resultSet = statement.executeQuery();
+    assertTrue(resultSet.next());
+    return resultSet;
+  }
+
+  private static DecisionFlowContext createDraftDecisionContext(
       String caseTitle, String caseSummary, boolean violationProven, LocalDate appealDeadline) {
     ReportResponse report =
         createTriagedReport(accessToken("intake-jkt"), accessToken("triage-jkt"), "JKT");
@@ -853,21 +1305,21 @@ class CaseApiIT extends AbstractApiIT {
             "JKT-UNIT-1",
             "investigator-jkt",
             createdCase.getVersion(),
-            "Assign investigator for phase seven flow.");
+            "Assign investigator for approval lock coverage.");
     CaseResponse underTriage =
         transitionCase(
             accessToken("triage-jkt"),
             assigned.getId(),
             CaseStatusValue.UNDER_TRIAGE,
             assigned.getVersion(),
-            "Triage opened for the case.");
+            "Triage opened for approval lock coverage.");
     CaseResponse underInvestigation =
         transitionCase(
             accessToken("triage-jkt"),
             underTriage.getId(),
             CaseStatusValue.UNDER_INVESTIGATION,
             underTriage.getVersion(),
-            "Escalating into investigation.");
+            "Escalating into investigation for approval lock coverage.");
 
     RecommendationResponse recommendation =
         createRecommendation(
@@ -911,6 +1363,15 @@ class CaseApiIT extends AbstractApiIT {
             violationProven ? "Provide written remediation evidence." : null,
             violationProven ? appealDeadline.plusDays(14) : null,
             appealDeadline);
+    return new DecisionFlowContext(pendingDecision, draftDecision);
+  }
+
+  private static DecisionFlowContext createPublishedDecisionContext(
+      String caseTitle, String caseSummary, boolean violationProven, LocalDate appealDeadline) {
+    DecisionFlowContext draft =
+        createDraftDecisionContext(caseTitle, caseSummary, violationProven, appealDeadline);
+    CaseResponse pendingDecision = draft.caseResponse();
+    DecisionResponse draftDecision = draft.decision();
     approveDecision(accessToken("supervisor-jkt"), draftDecision.getId());
     DecisionResponse publishedDecision =
         publishDecision(accessToken("decision-jkt"), draftDecision.getId());

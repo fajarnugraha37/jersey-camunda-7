@@ -380,6 +380,123 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/cases/{caseId}/relationships:
+    post:
+      operationId: createCaseRelationship
+      tags:
+        - cases
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: caseId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCaseRelationshipRequest'
+      responses:
+        '201':
+          description: Case relationship created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseRelationshipResponse'
+        '400':
+          description: Request body failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to manage case relationships.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Case not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Relationship conflicts with the current case graph.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    get:
+      operationId: listCaseRelationships
+      tags:
+        - cases
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: caseId
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: direction
+          schema:
+            $ref: '#/components/schemas/CaseRelationshipTraversalDirectionValue'
+            default: BOTH
+        - in: query
+          name: maxDepth
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 25
+            default: 10
+        - in: query
+          name: relationshipType
+          schema:
+            $ref: '#/components/schemas/CaseRelationshipTypeValue'
+      responses:
+        '200':
+          description: Case relationships loaded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseRelationshipListResponse'
+        '400':
+          description: Invalid relationship query.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to read the case.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Case not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/cases/{caseId}/transitions:
     post:
       operationId: transitionCase
@@ -1332,6 +1449,50 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/operations/sanction-obligations/recalculate-overdue:
+    post:
+      operationId: recalculateOverdueSanctionObligations
+      tags:
+        - operations
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecalculateOverdueSanctionObligationsRequest'
+      responses:
+        '200':
+          description: Overdue sanction obligations recalculated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaintenanceOperationRunResponse'
+        '400':
+          description: Request body failed validation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Request is unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Authenticated actor is not allowed to run maintenance operations.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Another maintenance transaction already holds the required lock.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/workflow-reconciliation:
     get:
       operationId: listWorkflowReconciliationIssues
@@ -1800,6 +1961,25 @@ components:
           type: string
           minLength: 1
           maxLength: 500
+    CreateCaseRelationshipRequest:
+      type: object
+      required:
+        - relatedCaseId
+        - relationshipType
+        - direction
+        - relationshipReason
+      properties:
+        relatedCaseId:
+          type: string
+          format: uuid
+        relationshipType:
+          $ref: '#/components/schemas/CaseRelationshipTypeValue'
+        direction:
+          $ref: '#/components/schemas/CreateCaseRelationshipDirectionValue'
+        relationshipReason:
+          type: string
+          minLength: 1
+          maxLength: 500
     TransitionCaseRequest:
       type: object
       required:
@@ -2142,6 +2322,28 @@ components:
         - ENFORCEMENT_IN_PROGRESS
         - CLOSED
         - CANCELLED
+    CaseRelationshipTypeValue:
+      type: string
+      enum:
+        - MERGE
+        - DERIVATION
+        - SPLIT
+    CreateCaseRelationshipDirectionValue:
+      type: string
+      enum:
+        - PARENT_OF
+        - CHILD_OF
+    CaseRelationshipDirectionValue:
+      type: string
+      enum:
+        - ANCESTOR
+        - DESCENDANT
+    CaseRelationshipTraversalDirectionValue:
+      type: string
+      enum:
+        - ANCESTORS
+        - DESCENDANTS
+        - BOTH
     CaseResponse:
       type: object
       required:
@@ -2196,6 +2398,52 @@ components:
         version:
           type: integer
           format: int64
+    CaseRelationshipResponse:
+      type: object
+      required:
+        - caseId
+        - relatedCaseId
+        - relatedCaseNumber
+        - relatedCaseTitle
+        - depth
+        - direction
+        - relationshipType
+        - relationshipReason
+        - pathCaseIds
+      properties:
+        caseId:
+          type: string
+          format: uuid
+        relatedCaseId:
+          type: string
+          format: uuid
+        relatedCaseNumber:
+          type: string
+        relatedCaseTitle:
+          type: string
+        depth:
+          type: integer
+          minimum: 1
+        direction:
+          $ref: '#/components/schemas/CaseRelationshipDirectionValue'
+        relationshipType:
+          $ref: '#/components/schemas/CaseRelationshipTypeValue'
+        relationshipReason:
+          type: string
+        pathCaseIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+    CaseRelationshipListResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CaseRelationshipResponse'
     CaseListResponse:
       type: object
       required:
@@ -2323,6 +2571,53 @@ components:
         nextCursor:
           type: string
           nullable: true
+    RecalculateOverdueSanctionObligationsRequest:
+      type: object
+      required:
+        - effectiveDate
+      properties:
+        effectiveDate:
+          type: string
+          format: date
+    MaintenanceOperationResultStatusValue:
+      type: string
+      enum:
+        - RUNNING
+        - COMPLETED
+        - FAILED
+    MaintenanceOperationRunResponse:
+      type: object
+      required:
+        - runId
+        - operationName
+        - requestedBy
+        - requestedAt
+        - effectiveDate
+        - resultStatus
+        - affectedRows
+      properties:
+        runId:
+          type: string
+          format: uuid
+        operationName:
+          type: string
+        requestedBy:
+          type: string
+        requestedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        effectiveDate:
+          type: string
+          format: date
+        resultStatus:
+          $ref: '#/components/schemas/MaintenanceOperationResultStatusValue'
+        affectedRows:
+          type: integer
+          format: int64
     WorkflowTaskResponse:
       type: object
       required:

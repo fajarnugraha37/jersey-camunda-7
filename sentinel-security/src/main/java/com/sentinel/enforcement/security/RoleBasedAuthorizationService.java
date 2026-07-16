@@ -115,6 +115,8 @@ public final class RoleBasedAuthorizationService implements AuthorizationService
               "APPEAL_OFFICER",
               "SUPERVISOR");
       case RECONCILE_WORKFLOW -> Set.of("SUPERVISOR");
+      case MANAGE_CASE_RELATIONSHIPS -> Set.of("TRIAGE_OFFICER", "SUPERVISOR");
+      case RUN_MAINTENANCE_OPERATION -> Set.of("SUPERVISOR");
     };
   }
 

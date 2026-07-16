@@ -5,18 +5,28 @@ import com.sentinel.enforcement.api.generated.model.CaseAuditEventListResponse;
 import com.sentinel.enforcement.api.generated.model.CaseAuditEventResponse;
 import com.sentinel.enforcement.api.generated.model.CaseClassificationValue;
 import com.sentinel.enforcement.api.generated.model.CaseListResponse;
+import com.sentinel.enforcement.api.generated.model.CaseRelationshipListResponse;
+import com.sentinel.enforcement.api.generated.model.CaseRelationshipResponse;
 import com.sentinel.enforcement.api.generated.model.CaseResponse;
 import com.sentinel.enforcement.api.generated.model.CaseStatusValue;
+import com.sentinel.enforcement.api.generated.model.CreateCaseRelationshipRequest;
 import com.sentinel.enforcement.api.generated.model.CreateCaseRequest;
 import com.sentinel.enforcement.api.generated.model.TransitionCaseRequest;
 import com.sentinel.enforcement.application.casefile.AssignCaseCommand;
 import com.sentinel.enforcement.application.casefile.AuditEventPage;
 import com.sentinel.enforcement.application.casefile.CasePage;
+import com.sentinel.enforcement.application.casefile.CaseRelationshipReferenceDirection;
+import com.sentinel.enforcement.application.casefile.CaseRelationshipTraversalDirection;
+import com.sentinel.enforcement.application.casefile.CaseRelationshipView;
+import com.sentinel.enforcement.application.casefile.CaseRelationshipViewDirection;
 import com.sentinel.enforcement.application.casefile.CreateCaseCommand;
+import com.sentinel.enforcement.application.casefile.CreateCaseRelationshipCommand;
+import com.sentinel.enforcement.application.casefile.ListCaseRelationshipsQuery;
 import com.sentinel.enforcement.application.casefile.TransitionCaseCommand;
 import com.sentinel.enforcement.domain.casefile.AuditEvent;
 import com.sentinel.enforcement.domain.casefile.CaseClassification;
 import com.sentinel.enforcement.domain.casefile.CaseRecord;
+import com.sentinel.enforcement.domain.casefile.CaseRelationshipType;
 import com.sentinel.enforcement.domain.casefile.CaseStatus;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -43,6 +53,17 @@ public interface ApiCaseMapper {
   @Mapping(target = "sourceIp", source = "sourceIp")
   AssignCaseCommand toAssignCaseCommand(
       AssignCaseRequest request, String correlationId, String sourceIp);
+
+  @Mapping(
+      target = "relationshipType",
+      expression = "java(toDomainRelationshipType(request.getRelationshipType()))")
+  @Mapping(
+      target = "direction",
+      expression = "java(toDomainRelationshipDirection(request.getDirection()))")
+  @Mapping(target = "correlationId", source = "correlationId")
+  @Mapping(target = "sourceIp", source = "sourceIp")
+  CreateCaseRelationshipCommand toCreateCaseRelationshipCommand(
+      CreateCaseRelationshipRequest request, String correlationId, String sourceIp);
 
   @Mapping(target = "targetStatus", expression = "java(toDomainStatus(request.getTargetStatus()))")
   @Mapping(target = "correlationId", source = "correlationId")
@@ -87,6 +108,43 @@ public interface ApiCaseMapper {
         .metadata(auditEvent.metadata());
   }
 
+  default ListCaseRelationshipsQuery toListRelationshipsQuery(
+      String directionValue, Integer maxDepth, String relationshipTypeValue) {
+    CaseRelationshipTraversalDirection direction =
+        directionValue == null
+            ? CaseRelationshipTraversalDirection.BOTH
+            : toDomainRelationshipTraversalDirection(
+                com.sentinel.enforcement.api.generated.model.CaseRelationshipTraversalDirectionValue
+                    .fromValue(directionValue));
+    CaseRelationshipType relationshipType =
+        relationshipTypeValue == null
+            ? null
+            : toDomainRelationshipType(
+                com.sentinel.enforcement.api.generated.model.CaseRelationshipTypeValue.fromValue(
+                    relationshipTypeValue));
+    return new ListCaseRelationshipsQuery(
+        direction, maxDepth == null ? 10 : maxDepth, relationshipType);
+  }
+
+  default CaseRelationshipListResponse toRelationshipListResponse(
+      List<CaseRelationshipView> relationships) {
+    return new CaseRelationshipListResponse()
+        .items(relationships.stream().map(this::toRelationshipResponse).toList());
+  }
+
+  default CaseRelationshipResponse toRelationshipResponse(CaseRelationshipView relationship) {
+    return new CaseRelationshipResponse()
+        .caseId(relationship.caseId())
+        .relatedCaseId(relationship.relatedCaseId())
+        .relatedCaseNumber(relationship.relatedCaseNumber())
+        .relatedCaseTitle(relationship.relatedCaseTitle())
+        .depth(relationship.depth())
+        .direction(toApiRelationshipViewDirection(relationship.direction()))
+        .relationshipType(toApiRelationshipType(relationship.relationshipType()))
+        .relationshipReason(relationship.relationshipReason())
+        .pathCaseIds(relationship.pathCaseIds());
+  }
+
   default CaseStatus toDomainStatus(CaseStatusValue statusValue) {
     return CaseStatus.valueOf(statusValue.toString());
   }
@@ -95,12 +153,42 @@ public interface ApiCaseMapper {
     return CaseClassification.valueOf(classificationValue.toString());
   }
 
+  default CaseRelationshipType toDomainRelationshipType(
+      com.sentinel.enforcement.api.generated.model.CaseRelationshipTypeValue
+          relationshipTypeValue) {
+    return CaseRelationshipType.valueOf(relationshipTypeValue.toString());
+  }
+
+  default CaseRelationshipReferenceDirection toDomainRelationshipDirection(
+      com.sentinel.enforcement.api.generated.model.CreateCaseRelationshipDirectionValue
+          directionValue) {
+    return CaseRelationshipReferenceDirection.valueOf(directionValue.toString());
+  }
+
+  default CaseRelationshipTraversalDirection toDomainRelationshipTraversalDirection(
+      com.sentinel.enforcement.api.generated.model.CaseRelationshipTraversalDirectionValue
+          directionValue) {
+    return CaseRelationshipTraversalDirection.valueOf(directionValue.toString());
+  }
+
   default CaseStatusValue toApiStatus(CaseStatus status) {
     return CaseStatusValue.fromValue(status.name());
   }
 
   default CaseClassificationValue toApiClassification(CaseClassification classification) {
     return CaseClassificationValue.fromValue(classification.name());
+  }
+
+  default com.sentinel.enforcement.api.generated.model.CaseRelationshipTypeValue
+      toApiRelationshipType(CaseRelationshipType relationshipType) {
+    return com.sentinel.enforcement.api.generated.model.CaseRelationshipTypeValue.fromValue(
+        relationshipType.name());
+  }
+
+  default com.sentinel.enforcement.api.generated.model.CaseRelationshipDirectionValue
+      toApiRelationshipViewDirection(CaseRelationshipViewDirection direction) {
+    return com.sentinel.enforcement.api.generated.model.CaseRelationshipDirectionValue.fromValue(
+        direction.name());
   }
 
   default OffsetDateTime toOffsetDateTime(java.time.Instant instant) {

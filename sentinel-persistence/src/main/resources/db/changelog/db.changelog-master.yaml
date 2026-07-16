@@ -15,3 +15,9 @@ databaseChangeLog:
       file: db/changelog/releases/0007-phase8-case-authorization.yaml
   - include:
       file: db/changelog/releases/0008-phase8-observability-notification.yaml
+  - include:
+      file: db/changelog/releases/0009-advanced-persistence-assignment.yaml
+  - include:
+      file: db/changelog/releases/0010-advanced-persistence-case-relationships.yaml
+  - include:
+      file: db/changelog/releases/0011-advanced-persistence-maintenance-operations.yaml

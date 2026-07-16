@@ -12,6 +12,8 @@ public interface DecisionRepository {
 
   Optional<Decision> findById(UUID decisionId);
 
+  Optional<Decision> findByIdForUpdate(UUID decisionId);
+
   Optional<Decision> findByCaseId(UUID caseId);
 
   void approve(Decision decision);

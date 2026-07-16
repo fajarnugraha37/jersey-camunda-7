@@ -2,7 +2,6 @@ package com.sentinel.enforcement.application.workflow;
 
 import com.sentinel.enforcement.application.casefile.CaseNotFoundException;
 import com.sentinel.enforcement.application.casefile.CaseRepository;
-import com.sentinel.enforcement.application.casefile.SortDirection;
 import com.sentinel.enforcement.application.messaging.ApplicationTransactionManager;
 import com.sentinel.enforcement.application.messaging.MessagingEventFactory;
 import com.sentinel.enforcement.application.messaging.OutboxRepository;
@@ -17,11 +16,8 @@ import com.sentinel.enforcement.domain.casefile.CaseStatus;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -66,21 +62,44 @@ public final class WorkflowReconciliationApplicationService {
         Permission.RECONCILE_WORKFLOW,
         new AuthorizationContext(null, CASE_RESOURCE_TYPE, null, null));
 
-    Map<UUID, WorkflowProcessSnapshot> runtimeByCaseId = activeRuntimeByCaseId();
-    List<WorkflowReconciliationView> issues =
-        reconciliationQueryPort.findCandidates().stream()
-            .filter(candidate -> isVisibleToActor(actor, candidate.caseId()))
-            .map(candidate -> detectIssue(candidate, runtimeByCaseId.get(candidate.caseId())))
-            .filter(Optional::isPresent)
-            .map(Optional::get)
-            .filter(issue -> matchesFilters(issue, query))
-            .sorted(buildComparator(query.sortBy(), query.sortDirection()))
-            .toList();
+    List<WorkflowReconciliationView> collected = new ArrayList<>();
+    String cursorValue = query.cursorValue();
+    String cursorCaseId = query.cursorCaseId();
+    boolean hasMoreSourcePages = true;
 
-    List<WorkflowReconciliationView> sliced = applyCursor(issues, query);
-    boolean hasNextPage = sliced.size() > query.limit();
+    while (collected.size() < query.limit() + 1 && hasMoreSourcePages) {
+      WorkflowReconciliationPage sourcePage =
+          reconciliationQueryPort.findIssuePage(
+              new ListWorkflowReconciliationIssuesQuery(
+                  cursorValue,
+                  cursorCaseId,
+                  sourceBatchLimit(query.limit()),
+                  query.quickSearch(),
+                  query.searchField(),
+                  query.searchValue(),
+                  query.issueType(),
+                  query.caseStatus(),
+                  query.workflowCorrelationStatus(),
+                  query.sortBy(),
+                  query.sortDirection()));
+      for (WorkflowReconciliationView issue : sourcePage.items()) {
+        if (isVisibleToActor(actor, issue.caseId())) {
+          collected.add(issue);
+          if (collected.size() == query.limit() + 1) {
+            break;
+          }
+        }
+      }
+      hasMoreSourcePages = sourcePage.hasNextPage();
+      cursorValue = sourcePage.nextCursorValue();
+      cursorCaseId = sourcePage.nextCursorCaseId();
+    }
+
+    boolean hasNextPage = collected.size() > query.limit();
     List<WorkflowReconciliationView> trimmed =
-        hasNextPage ? new ArrayList<>(sliced.subList(0, query.limit())) : new ArrayList<>(sliced);
+        hasNextPage
+            ? new ArrayList<>(collected.subList(0, query.limit()))
+            : new ArrayList<>(collected);
 
     String nextCursorValue = null;
     String nextCursorCaseId = null;
@@ -90,6 +109,10 @@ public final class WorkflowReconciliationApplicationService {
       nextCursorCaseId = cursorItem.caseId().toString();
     }
     return new WorkflowReconciliationPage(trimmed, nextCursorValue, nextCursorCaseId, hasNextPage);
+  }
+
+  private int sourceBatchLimit(int requestedLimit) {
+    return Math.min(150, Math.max(requestedLimit * 3, requestedLimit + 1));
   }
 
   public WorkflowReconciliationActionResult reconcileCase(
@@ -351,94 +374,6 @@ public final class WorkflowReconciliationApplicationService {
         availableActions);
   }
 
-  private boolean matchesFilters(
-      WorkflowReconciliationView issue, ListWorkflowReconciliationIssuesQuery query) {
-    if (query.issueType() != null && query.issueType() != issue.issueType()) {
-      return false;
-    }
-    if (query.caseStatus() != null && query.caseStatus() != issue.caseStatus()) {
-      return false;
-    }
-    if (query.workflowCorrelationStatus() != null
-        && !query
-            .workflowCorrelationStatus()
-            .equals(normalize(issue.workflowCorrelationStatus()))) {
-      return false;
-    }
-    if (query.quickSearch() != null && !matchesQuickSearch(issue, query.quickSearch())) {
-      return false;
-    }
-    return query.searchField() == null
-        || matchesTargetedSearch(issue, query.searchField(), query.searchValue());
-  }
-
-  private boolean matchesQuickSearch(WorkflowReconciliationView issue, String quickSearch) {
-    String pattern = normalize(quickSearch);
-    return contains(issue.caseNumber(), pattern)
-        || contains(issue.caseTitle(), pattern)
-        || contains(issue.jurisdictionCode(), pattern)
-        || contains(issue.issueType().name(), pattern)
-        || contains(issue.correlationProcessInstanceId(), pattern)
-        || contains(issue.runtimeProcessInstanceId(), pattern);
-  }
-
-  private boolean matchesTargetedSearch(
-      WorkflowReconciliationView issue,
-      WorkflowReconciliationSearchField searchField,
-      String searchValue) {
-    String pattern = normalize(searchValue);
-    return switch (searchField) {
-      case CASE_NUMBER -> contains(issue.caseNumber(), pattern);
-      case CASE_TITLE -> contains(issue.caseTitle(), pattern);
-      case ISSUE_TYPE -> contains(issue.issueType().name(), pattern);
-      case PROCESS_INSTANCE_ID ->
-          contains(issue.correlationProcessInstanceId(), pattern)
-              || contains(issue.runtimeProcessInstanceId(), pattern);
-      case JURISDICTION_CODE -> contains(issue.jurisdictionCode(), pattern);
-    };
-  }
-
-  private Comparator<WorkflowReconciliationView> buildComparator(
-      WorkflowReconciliationSortBy sortBy, SortDirection sortDirection) {
-    Comparator<WorkflowReconciliationView> comparator =
-        switch (sortBy) {
-          case CASE_UPDATED_AT -> Comparator.comparing(WorkflowReconciliationView::caseUpdatedAt);
-          case CASE_NUMBER -> Comparator.comparing(item -> normalize(item.caseNumber()));
-          case CASE_STATUS -> Comparator.comparing(item -> normalize(item.caseStatus().name()));
-          case ISSUE_TYPE -> Comparator.comparing(item -> normalize(item.issueType().name()));
-          case CORRELATION_STATUS ->
-              Comparator.comparing(item -> normalize(item.workflowCorrelationStatus()));
-        };
-    comparator = comparator.thenComparing(item -> item.caseId().toString());
-    return sortDirection == SortDirection.ASC ? comparator : comparator.reversed();
-  }
-
-  private List<WorkflowReconciliationView> applyCursor(
-      List<WorkflowReconciliationView> issues, ListWorkflowReconciliationIssuesQuery query) {
-    if (query.cursorCaseId() == null) {
-      return issues;
-    }
-    return issues.stream().filter(issue -> compareToCursor(issue, query) > 0).toList();
-  }
-
-  private int compareToCursor(
-      WorkflowReconciliationView issue, ListWorkflowReconciliationIssuesQuery query) {
-    int comparison =
-        switch (query.sortBy()) {
-          case CASE_UPDATED_AT ->
-              issue.caseUpdatedAt().compareTo(Instant.parse(query.cursorValue()));
-          case CASE_NUMBER -> normalize(issue.caseNumber()).compareTo(query.cursorValue());
-          case CASE_STATUS -> normalize(issue.caseStatus().name()).compareTo(query.cursorValue());
-          case ISSUE_TYPE -> normalize(issue.issueType().name()).compareTo(query.cursorValue());
-          case CORRELATION_STATUS ->
-              normalize(issue.workflowCorrelationStatus()).compareTo(query.cursorValue());
-        };
-    if (comparison == 0) {
-      comparison = issue.caseId().toString().compareTo(query.cursorCaseId());
-    }
-    return query.sortDirection() == SortDirection.ASC ? comparison : -comparison;
-  }
-
   private String extractCursorValue(
       WorkflowReconciliationView issue, WorkflowReconciliationSortBy sortBy) {
     return switch (sortBy) {
@@ -448,15 +383,6 @@ public final class WorkflowReconciliationApplicationService {
       case ISSUE_TYPE -> normalize(issue.issueType().name());
       case CORRELATION_STATUS -> normalize(issue.workflowCorrelationStatus());
     };
-  }
-
-  private Map<UUID, WorkflowProcessSnapshot> activeRuntimeByCaseId() {
-    Map<UUID, WorkflowProcessSnapshot> result = new HashMap<>();
-    for (WorkflowProcessSnapshot snapshot :
-        workflowAdministrationPort.listActiveProcessInstances()) {
-      result.put(snapshot.caseId(), snapshot);
-    }
-    return result;
   }
 
   private void authorizeCandidate(
