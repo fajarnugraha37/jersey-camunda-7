@@ -3,7 +3,7 @@ SHELL := pwsh.exe
 ROLLBACK_COUNT ?= 1
 LOCAL_RUNTIME_ENV := $$env:HTTP_PORT = if ($$env:HTTP_PORT) { $$env:HTTP_PORT } else { '8080' }; $$env:DB_URL = if ($$env:DB_URL) { $$env:DB_URL } else { 'jdbc:postgresql://localhost:5432/sentinel' }; $$env:DB_USERNAME = if ($$env:DB_USERNAME) { $$env:DB_USERNAME } else { 'sentinel' }; $$env:DB_PASSWORD = if ($$env:DB_PASSWORD) { $$env:DB_PASSWORD } else { 'sentinel' }; $$env:KAFKA_BOOTSTRAP_SERVERS = if ($$env:KAFKA_BOOTSTRAP_SERVERS) { $$env:KAFKA_BOOTSTRAP_SERVERS } else { 'localhost:29092' }; $$env:REDIS_HOST = if ($$env:REDIS_HOST) { $$env:REDIS_HOST } else { 'localhost' }; $$env:REDIS_PORT = if ($$env:REDIS_PORT) { $$env:REDIS_PORT } else { '6379' }; $$env:MAILPIT_SMTP_HOST = if ($$env:MAILPIT_SMTP_HOST) { $$env:MAILPIT_SMTP_HOST } else { 'localhost' }; $$env:MAILPIT_SMTP_PORT = if ($$env:MAILPIT_SMTP_PORT) { $$env:MAILPIT_SMTP_PORT } else { '1025' }; $$env:NOTIFICATION_FROM_EMAIL = if ($$env:NOTIFICATION_FROM_EMAIL) { $$env:NOTIFICATION_FROM_EMAIL } else { 'sentinel@local.test' }; $$env:NOTIFICATION_TO_EMAIL = if ($$env:NOTIFICATION_TO_EMAIL) { $$env:NOTIFICATION_TO_EMAIL } else { 'ops@local.test' }; $$env:MINIO_ENDPOINT = if ($$env:MINIO_ENDPOINT) { $$env:MINIO_ENDPOINT } else { 'http://localhost:9000' }; $$env:MINIO_ACCESS_KEY = if ($$env:MINIO_ACCESS_KEY) { $$env:MINIO_ACCESS_KEY } else { 'sentinel' }; $$env:MINIO_SECRET_KEY = if ($$env:MINIO_SECRET_KEY) { $$env:MINIO_SECRET_KEY } else { 'sentinel-secret' }; $$env:MINIO_EVIDENCE_BUCKET = if ($$env:MINIO_EVIDENCE_BUCKET) { $$env:MINIO_EVIDENCE_BUCKET } else { 'sentinel-evidence' }; $$env:EVIDENCE_UPLOAD_URL_TTL = if ($$env:EVIDENCE_UPLOAD_URL_TTL) { $$env:EVIDENCE_UPLOAD_URL_TTL } else { 'PT15M' }; $$env:EVIDENCE_DOWNLOAD_URL_TTL = if ($$env:EVIDENCE_DOWNLOAD_URL_TTL) { $$env:EVIDENCE_DOWNLOAD_URL_TTL } else { 'PT10M' }; $$env:KEYCLOAK_ISSUER = if ($$env:KEYCLOAK_ISSUER) { $$env:KEYCLOAK_ISSUER } else { 'http://localhost:8081/realms/sentinel' }; $$env:KEYCLOAK_AUDIENCE = if ($$env:KEYCLOAK_AUDIENCE) { $$env:KEYCLOAK_AUDIENCE } else { 'sentinel-api' }; $$env:KEYCLOAK_JWKS_URL = if ($$env:KEYCLOAK_JWKS_URL) { $$env:KEYCLOAK_JWKS_URL } else { 'http://localhost:8081/realms/sentinel/protocol/openid-connect/certs' }; $$env:WORKFLOW_INVESTIGATION_ESCALATION_DURATION = if ($$env:WORKFLOW_INVESTIGATION_ESCALATION_DURATION) { $$env:WORKFLOW_INVESTIGATION_ESCALATION_DURATION } else { 'PT30M' };
 
-.PHONY: help bootstrap clean compile test unit-test integration-test workflow-test messaging-test e2e-test verify package \
+.PHONY: help bootstrap clean compile test unit-test integration-test workflow-test messaging-test e2e-test karate-smoke karate-regression karate-full verify package \
 	openapi-generate openapi-validate up down restart reset ps logs app-logs docker-build docker-push-local \
 	migrate rollback db-status db-shell db-reset seed smoke-test kafka-topics kafka-consume kafka-produce \
 	minio-init keycloak-import bpmn-validate bpmn-deploy format lint dependency-check
@@ -19,6 +19,9 @@ help:
 	Write-Host "  workflow-test      Run workflow-focused unit and integration tests"
 	Write-Host "  messaging-test     Run messaging-focused integration tests"
 	Write-Host "  e2e-test           Run the phase 6 end-to-end integration slice"
+	Write-Host "  karate-smoke       Run Karate smoke suite against the running app"
+	Write-Host "  karate-regression  Run Karate regression suite against the running app"
+	Write-Host "  karate-full        Run Karate full suite against the running app"
 	Write-Host "  verify             Run Maven verify"
 	Write-Host "  package            Build distributable artifacts"
 	Write-Host "  format             Apply Java and pom formatting"
@@ -71,6 +74,15 @@ messaging-test:
 
 e2e-test:
 	mvn -q -pl sentinel-integration-tests -am verify
+
+karate-smoke:
+	mvn -q -pl sentinel-integration-tests -am "-Dit.test=KarateSmokeIT" verify
+
+karate-regression:
+	mvn -q -pl sentinel-integration-tests -am "-Dit.test=KarateRegressionIT" verify
+
+karate-full:
+	mvn -q -pl sentinel-integration-tests -am "-Dit.test=KarateFullIT" verify
 
 verify:
 	mvn -q verify

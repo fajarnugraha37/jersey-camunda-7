@@ -159,6 +159,7 @@ public final class ApplicationRuntime implements AutoCloseable {
       MinioEvidenceStorageAdapter evidenceStorage =
           new MinioEvidenceStorageAdapter(
               configuration.minioEndpoint(),
+              configuration.minioPublicEndpoint(),
               configuration.minioAccessKey(),
               configuration.minioSecretKey());
       evidenceStorage.ensureBucketExists(configuration.minioEvidenceBucket());
@@ -427,9 +428,9 @@ public final class ApplicationRuntime implements AutoCloseable {
     hikariConfig.setJdbcUrl(configuration.dbUrl());
     hikariConfig.setUsername(configuration.dbUsername());
     hikariConfig.setPassword(configuration.dbPassword());
-    hikariConfig.setMaximumPoolSize(4);
-    hikariConfig.setMinimumIdle(1);
-    hikariConfig.setConnectionTimeout(5000);
+    hikariConfig.setMaximumPoolSize(configuration.dbMaxPoolSize());
+    hikariConfig.setMinimumIdle(Math.min(2, configuration.dbMaxPoolSize()));
+    hikariConfig.setConnectionTimeout(10000);
     hikariConfig.setValidationTimeout(2000);
     hikariConfig.setInitializationFailTimeout(5000);
     hikariConfig.setLeakDetectionThreshold(30000);
