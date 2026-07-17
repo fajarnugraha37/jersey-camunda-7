@@ -4,8 +4,8 @@ Sentinel Enforcement Platform is an enterprise training project for regulatory e
 
 ## Architecture Overview
 
-- Bentuk aplikasi: modular monolith berbasis Maven multi-module.
-- Modul yang tersedia:
+- Application form: modular monolith based on Maven multi-module.
+- Available modules:
   - `sentinel-domain`
   - `sentinel-application`
   - `sentinel-api`
@@ -17,17 +17,17 @@ Sentinel Enforcement Platform is an enterprise training project for regulatory e
   - `sentinel-security`
   - `sentinel-bootstrap`
   - `sentinel-integration-tests`
-- Boundary saat ini:
-  - `sentinel-api` menangani Jersey resource, bean validation, JSON, dan error envelope.
-  - `sentinel-application` menangani use case, authorization orchestration, command/query contract, dan workflow/storage port.
-  - `sentinel-domain` memegang aggregate, transition rule, dan invariant.
-  - `sentinel-persistence` memegang MyBatis adapter dan Liquibase changelog.
-  - `sentinel-messaging` memegang Kafka publisher/consumer runtime, outbox polling, retry, dan dead-letter routing.
-  - `sentinel-observability` memegang correlation context, request metrics, dan dependency health composition.
-  - `sentinel-storage` memegang adapter MinIO untuk evidence storage.
-  - `sentinel-workflow` memegang embedded Camunda runtime, BPMN deployment, task query adapter, dan workflow correlation.
-  - `sentinel-security` memegang JWT verification Keycloak dan authorization berbasis role, jurisdiction, assigned unit, classification clearance, direct assignment, dan conflict-of-interest.
-  - `sentinel-bootstrap` merakit dependency, start server, readiness, dan migration entrypoint.
+- Current boundaries:
+  - `sentinel-api` handles Jersey resource, bean validation, JSON, and error envelope.
+  - `sentinel-application` handles use case, authorization orchestration, command/query contract, and workflow/storage port.
+  - `sentinel-domain` holds aggregate, transition rule, and invariant.
+  - `sentinel-persistence` holds MyBatis adapter and Liquibase changelog.
+  - `sentinel-messaging` holds Kafka publisher/consumer runtime, outbox polling, retry, and dead-letter routing.
+  - `sentinel-observability` holds correlation context, request metrics, and dependency health composition.
+  - `sentinel-storage` holds MinIO adapter for evidence storage.
+  - `sentinel-workflow` holds embedded Camunda runtime, BPMN deployment, task query adapter, and workflow correlation.
+  - `sentinel-security` holds JWT verification Keycloak and authorization based on role, jurisdiction, assigned unit, classification clearance, direct assignment, and conflict-of-interest.
+  - `sentinel-bootstrap` assembles dependency, starts server, readiness, and migration entrypoint.
 
 ## Technology Stack
 
@@ -57,12 +57,12 @@ Sentinel Enforcement Platform is an enterprise training project for regulatory e
 
 ## Local Setup
 
-1. Copy `.env.example` menjadi `.env` bila ingin override default local config.
-2. Jalankan `make bootstrap`.
-3. Jalankan `make up` untuk menyalakan PostgreSQL, Kafka, Redis, Mailpit, MinIO, Keycloak, dan bootstrap bucket MinIO.
-4. Jalankan `make migrate` untuk menjalankan migration aplikasi + schema Camunda official, lalu start aplikasi.
-5. Jalankan `make seed` bila ingin mengulang bootstrap helper yang idempotent.
-6. Jalankan `make smoke-test`.
+1. Copy `.env.example` to `.env` if you want to override the default local config.
+2. Run `make bootstrap`.
+3. Run `make up` to spin up PostgreSQL, Kafka, Redis, Mailpit, MinIO, Keycloak, and bootstrap the MinIO bucket.
+4. Run `make migrate` to execute application migrations + official Camunda schemas, and then start the application.
+5. Run `make seed` if you want to replay the idempotent bootstrap helper.
+6. Run `make smoke-test`.
 
 ## Commands
 
@@ -116,7 +116,7 @@ Sentinel Enforcement Platform is an enterprise training project for regulatory e
 
 ## Messaging Slice
 
-- Topic yang aktif pada phase ini:
+- Topics active in this phase:
   - `case.lifecycle.v1`
   - `case.assignment.v1`
   - `evidence.lifecycle.v1`
@@ -126,102 +126,102 @@ Sentinel Enforcement Platform is an enterprise training project for regulatory e
   - `notification.command.v1`
   - `notification.result.v1`
   - `audit.integration.v1`
-- Setiap perubahan domain yang relevan menulis event ke `outbox_event` dalam transaksi yang sama dengan perubahan bisnis.
-- Background publisher akan lease row pending dengan `FOR UPDATE SKIP LOCKED`, publish ke Kafka, lalu menandai row sebagai `PUBLISHED`.
-- Notification projection dan notification command consumer memproses event melalui `inbox_event` agar duplicate delivery tidak menghasilkan duplicate side effect pada tabel `notification`.
-- Event audit domain yang relevan juga dipublikasikan ke `audit.integration.v1`, sehingga audit append-only database dan integration stream tetap sinkron.
-- Retry dikirim ke topic `.retry` dan kegagalan berulang dipindahkan ke topic `.dlq`.
+- Every relevant domain change writes an event to `outbox_event` within the same transaction as the business change.
+- The background publisher will lease pending rows using `FOR UPDATE SKIP LOCKED`, publish them to Kafka, and then mark the rows as `PUBLISHED`.
+- The notification projection and notification command consumer process events through `inbox_event` so that duplicate delivery does not result in duplicate side effects on the `notification` table.
+- Relevant domain audit events are also published to `audit.integration.v1`, ensuring the append-only audit database and integration stream remain synchronized.
+- Retries are sent to the `.retry` topic, and repeated failures are moved to the `.dlq` topic.
 
-Spesifikasi kontrak ada di [docs/api/openapi.yaml](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/api/openapi.yaml). Generated request/response model untuk layer API dibangun dari spec tersebut pada phase `generate-sources`.
+Contract specifications are located in [docs/api/openapi.yaml](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/api/openapi.yaml). Generated request/response models for the API layer are built from this spec during the `generate-sources` phase.
 
-Pattern wajib untuk endpoint list ada di [docs/api/list-query-pattern.md](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/api/list-query-pattern.md). Semua list API baru harus mengikuti kombinasi `cursor`, `limit`, `q`, `searchField/searchValue`, dan enum-based `sortBy/sortDirection` dengan SQL dinamis yang aman.
+The mandatory pattern for list endpoints is available in [docs/api/list-query-pattern.md](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/api/list-query-pattern.md). All new list APIs must adhere to the combination of `cursor`, `limit`, `q`, `searchField/searchValue`, and enum-based `sortBy/sortDirection` using safe dynamic SQL.
 
 ## Authorization Model
 
-- JWT actor lokal sekarang membawa claim `jurisdictions`, `assigned_units`, `case_classifications`, dan `conflicted_actor_ids`.
-- Akses resource kasus tidak hanya ditentukan role. Evaluasinya juga mempertimbangkan jurisdiction, assigned unit, direct assignment investigator, classification clearance, dan conflict-of-interest terhadap owner resource.
-- `GET /api/v1/cases` dan visibility task workflow memakai aturan otorisasi yang sama, jadi filter list tidak lagi lebih longgar dari `GET /api/v1/cases/{caseId}`.
+- The local JWT actor now carries `jurisdictions`, `assigned_units`, `case_classifications`, and `conflicted_actor_ids` claims.
+- Case resource access is not determined by role alone. Evaluation also considers jurisdiction, assigned unit, direct investigator assignment, classification clearance, and conflict-of-interest against the resource owner.
+- `GET /api/v1/cases` and workflow task visibility share the exact same authorization rules, meaning list filters are no longer more relaxed than `GET /api/v1/cases/{caseId}`.
 
 ## Default Runtime Configuration
 
-Konfigurasi default untuk local development ada di `.env.example`. Credential di sana adalah dummy local-only credential dan tidak untuk production.
+The default configuration for local development is in `.env.example`. The credentials specified there are dummy, local-only credentials and are not meant for production.
 
-Untuk local Compose:
+For local Compose:
 
-- `KEYCLOAK_ISSUER` tetap mengacu ke `http://localhost:8081/realms/sentinel` agar cocok dengan issuer token yang didapat client lokal.
-- `KEYCLOAK_JWKS_URL` di container app diarahkan ke `host.docker.internal` agar aplikasi di Docker tetap bisa mengambil JWKS dari Keycloak host port.
-- `MINIO_ENDPOINT` untuk host default ke `http://localhost:9000`; di container app diarahkan ke `http://minio:9000`.
-- `KAFKA_BOOTSTRAP_SERVERS` untuk host default ke `localhost:29092`; di container app diarahkan ke `kafka:9092`.
-- `REDIS_HOST`/`REDIS_PORT` default ke `localhost:6379`; di container app diarahkan ke `redis:6379`.
-- `MAILPIT_SMTP_HOST`/`MAILPIT_SMTP_PORT` default ke `localhost:1025`; di container app diarahkan ke `mailpit:1025`.
-- `APP_INSTANCE_ID` dipakai sebagai lease owner outbox publisher.
-- `OUTBOX_POLL_INTERVAL`, `OUTBOX_LEASE_DURATION`, dan `OUTBOX_BATCH_SIZE` mengatur cadence publisher.
-- `NOTIFICATION_CONSUMER_GROUP_ID` dan `NOTIFICATION_MAX_RETRIES` mengatur inbox consumer lokal.
-- `NOTIFICATION_FROM_EMAIL` dan `NOTIFICATION_TO_EMAIL` mengatur envelope email lokal untuk dispatch notification.
-- `MINIO_EVIDENCE_BUCKET` default ke `sentinel-evidence`.
-- `EVIDENCE_UPLOAD_URL_TTL` dan `EVIDENCE_DOWNLOAD_URL_TTL` harus berupa ISO-8601 duration seperti `PT15M`.
-- `WORKFLOW_ENGINE_NAME` default ke `sentinel-workflow-engine`.
-- `WORKFLOW_INVESTIGATION_ESCALATION_DURATION` mengontrol boundary timer escalation untuk task investigasi dan harus berupa ISO-8601 duration seperti `PT30M`.
-- Saat meminta token dan memanggil app dari host, gunakan `localhost` secara konsisten, bukan campuran `localhost` dan `127.0.0.1`, karena issuer JWT diverifikasi secara exact-match.
-- BPMN `regulatory-enforcement-case.bpmn` dideploy otomatis saat aplikasi start.
-- Camunda runtime start dengan `databaseSchemaUpdate=false`. Schema Camunda harus sudah dibuat lebih dulu melalui `make migrate`.
+- `KEYCLOAK_ISSUER` still points to `http://localhost:8081/realms/sentinel` to match the token issuer received by local clients.
+- `KEYCLOAK_JWKS_URL` in the app container is routed to `host.docker.internal` so the application inside Docker can still fetch JWKS from Keycloak's host port.
+- `MINIO_ENDPOINT` for the host defaults to `http://localhost:9000`; in the app container, it is routed to `http://minio:9000`.
+- `KAFKA_BOOTSTRAP_SERVERS` for the host defaults to `localhost:29092`; in the app container, it is routed to `kafka:9092`.
+- `REDIS_HOST`/`REDIS_PORT` defaults to `localhost:6379`; in the app container, it is routed to `redis:6379`.
+- `MAILPIT_SMTP_HOST`/`MAILPIT_SMTP_PORT` defaults to `localhost:1025`; in the app container, it is routed to `mailpit:1025`.
+- `APP_INSTANCE_ID` is used as the outbox publisher lease owner.
+- `OUTBOX_POLL_INTERVAL`, `OUTBOX_LEASE_DURATION`, and `OUTBOX_BATCH_SIZE` configure the publisher cadence.
+- `NOTIFICATION_CONSUMER_GROUP_ID` and `NOTIFICATION_MAX_RETRIES` govern the local inbox consumer.
+- `NOTIFICATION_FROM_EMAIL` and `NOTIFICATION_TO_EMAIL` govern the local email envelope for dispatching notifications.
+- `MINIO_EVIDENCE_BUCKET` defaults to `sentinel-evidence`.
+- `EVIDENCE_UPLOAD_URL_TTL` and `EVIDENCE_DOWNLOAD_URL_TTL` must be ISO-8601 durations like `PT15M`.
+- `WORKFLOW_ENGINE_NAME` defaults to `sentinel-workflow-engine`.
+- `WORKFLOW_INVESTIGATION_ESCALATION_DURATION` controls the boundary timer escalation for investigation tasks and must be an ISO-8601 duration like `PT30M`.
+- When requesting tokens and calling the app from the host, use `localhost` consistently instead of a mix of `localhost` and `127.0.0.1`, as the JWT issuer is verified via an exact-match comparison.
+- The BPMN `regulatory-enforcement-case.bpmn` is deployed automatically on application startup.
+- The Camunda runtime starts with `databaseSchemaUpdate=false`. The Camunda schema must be created beforehand using `make migrate`.
 
 ## Default Users
 
-- `intake-jkt` / `sentinel` dengan role `CASE_INTAKE_OFFICER` dan jurisdiction `JKT`
-- `intake-bdg` / `sentinel` dengan role `CASE_INTAKE_OFFICER` dan jurisdiction `BDG`
-- `triage-jkt` / `sentinel` dengan role `TRIAGE_OFFICER` dan jurisdiction `JKT`
-- `triage-bdg` / `sentinel` dengan role `TRIAGE_OFFICER` dan jurisdiction `BDG`
-- `investigator-jkt` / `sentinel` dengan role `INVESTIGATOR` dan jurisdiction `JKT`
-- `reviewer-jkt` / `sentinel` dengan role `CASE_REVIEWER` dan jurisdiction `JKT`
-- `reviewer-jkt-public` / `sentinel` dengan role `CASE_REVIEWER`, jurisdiction `JKT`, dan clearance hanya `PUBLIC`
-- `reviewer-jkt-conflicted` / `sentinel` dengan role `CASE_REVIEWER`, jurisdiction `JKT`, dan conflict terhadap actor `investigator-jkt`
-- `decision-jkt` / `sentinel` dengan role `DECISION_MAKER` dan jurisdiction `JKT`
-- `appeal-jkt` / `sentinel` dengan role `APPEAL_OFFICER` dan jurisdiction `JKT`
-- `supervisor-jkt` / `sentinel` dengan role `SUPERVISOR` dan jurisdiction `JKT`
-- `supervisor-jkt-unit-2` / `sentinel` dengan role `SUPERVISOR`, jurisdiction `JKT`, dan assigned unit `JKT-UNIT-2`
-- `auditor-jkt` / `sentinel` dengan role `AUDITOR` dan jurisdiction `JKT`
-- `system-admin` / `sentinel` dengan role `SYSTEM_ADMIN`
+- `intake-jkt` / `sentinel` with role `CASE_INTAKE_OFFICER` and jurisdiction `JKT`
+- `intake-bdg` / `sentinel` with role `CASE_INTAKE_OFFICER` and jurisdiction `BDG`
+- `triage-jkt` / `sentinel` with role `TRIAGE_OFFICER` and jurisdiction `JKT`
+- `triage-bdg` / `sentinel` with role `TRIAGE_OFFICER` and jurisdiction `BDG`
+- `investigator-jkt` / `sentinel` with role `INVESTIGATOR` and jurisdiction `JKT`
+- `reviewer-jkt` / `sentinel` with role `CASE_REVIEWER` and jurisdiction `JKT`
+- `reviewer-jkt-public` / `sentinel` with role `CASE_REVIEWER`, jurisdiction `JKT`, and clearance limited to `PUBLIC`
+- `reviewer-jkt-conflicted` / `sentinel` with role `CASE_REVIEWER`, jurisdiction `JKT`, and conflict against actor `investigator-jkt`
+- `decision-jkt` / `sentinel` with role `DECISION_MAKER` and jurisdiction `JKT`
+- `appeal-jkt` / `sentinel` with role `APPEAL_OFFICER` and jurisdiction `JKT`
+- `supervisor-jkt` / `sentinel` with role `SUPERVISOR` and jurisdiction `JKT`
+- `supervisor-jkt-unit-2` / `sentinel` with role `SUPERVISOR`, jurisdiction `JKT`, and assigned unit `JKT-UNIT-2`
+- `auditor-jkt` / `sentinel` with role `AUDITOR` and jurisdiction `JKT`
+- `system-admin` / `sentinel` with role `SYSTEM_ADMIN`
 
 ## Testing Strategy
 
-- Unit test untuk application service, domain transition policy, optimistic locking guards, authorization policy, report triage, dan evidence lifecycle.
-- Workflow unit test untuk validasi model BPMN dan wiring stage utama.
-- Karate suite terhadap aplikasi yang running dibagi menjadi:
-  - `make karate-smoke` untuk health, login, report intake, triage, create/get case, dan baseline API readiness.
-  - `make karate-regression` untuk seluruh smoke ditambah workflow task happy path, evidence, appeal, maintenance, dan workflow reconciliation yang sudah dianggap regresi utama.
-  - `make karate-full` untuk seluruh regression ditambah search/cursor matrix, authorization denial matrix, relationship recursion, locking, duplicate-delivery observability, dan negative paths penting lain terhadap aplikasi yang sedang berjalan.
-- Integration test dengan Testcontainers PostgreSQL + Kafka + Keycloak + MinIO untuk:
+- Unit tests for application service, domain transition policy, optimistic locking guards, authorization policy, report triage, and evidence lifecycle.
+- Workflow unit tests for BPMN model validation and core stage wiring.
+- The Karate suite against the running application is divided into:
+  - `make karate-smoke` for health, login, report intake, triage, create/get case, and baseline API readiness.
+  - `make karate-regression` for all smoke tests plus workflow task happy paths, evidence, appeal, maintenance, and workflow reconciliation which are already considered primary regressions.
+  - `make karate-full` for the entire regression suite plus search/cursor matrix, authorization denial matrix, relationship recursion, locking, duplicate-delivery observability, and other critical negative paths against the running application.
+- Integration tests using Testcontainers PostgreSQL + Kafka + Keycloak + MinIO for:
   - happy path authorized create/get/triage report
   - happy path case lifecycle from create through close
   - investigator visibility filtered to directly assigned cases
-  - assigned-unit restriction, classification clearance, dan conflict-of-interest denial pada case/recommendation access
+  - assigned-unit restriction, classification clearance, and conflict-of-interest denial on case/recommendation access
   - workflow task query, claim, completion, cursor, search, sort, and duplicate-completion safety
   - workflow reconciliation query, cursor, search, sort, authorization, auto-repair from runtime/history, and invalid-runtime termination
   - evidence upload session, presigned upload, finalize, get, download, checksum mismatch, and unauthorized download audit
-  - outbox reliability saat Kafka unavailable dan inbox deduplication saat duplicate event dikirim ulang
+  - outbox reliability when Kafka is unavailable and inbox deduplication when duplicate events are resent
   - `409` invalid transition
   - `409` stale optimistic-lock version
-  - `401` tanpa bearer token
-  - `403` role salah
-  - `403` jurisdiction salah
+  - `401` missing bearer token
+  - `403` wrong role
+  - `403` wrong jurisdiction
   - public health endpoint
-- Integration test juga menyalakan Redis dan Mailpit agar dependency health, notification dispatch, dan outbox result flow tervalidasi pada runtime nyata.
-- Untuk sequence manual menjalankan app lalu Karate, jalankan `make up`, `make migrate`, tunggu `GET /health` menjadi `UP`, lalu pilih suite `make karate-smoke`, `make karate-regression`, atau `make karate-full`.
+- Integration tests also spin up Redis and Mailpit so that dependency health, notification dispatch, and outbox result flows are validated in a real runtime.
+- For the manual sequence of running the app then Karate, run `make up`, `make migrate`, wait for `GET /health` to turn `UP`, then choose the suite: `make karate-smoke`, `make karate-regression`, or `make karate-full`.
 
 ## Troubleshooting
 
-- Jika aplikasi gagal start, pastikan `DB_URL`, `DB_USERNAME`, dan `DB_PASSWORD` sesuai.
-- Jika aplikasi gagal start dengan pesan tidak ada tabel Camunda, jalankan `make migrate` terlebih dahulu.
-- Jika request report selalu `401`, cek `KEYCLOAK_ISSUER`, `KEYCLOAK_JWKS_URL`, dan token issuer dari Keycloak.
-- Jika token dari host gagal dengan `Access token issuer is invalid`, pastikan URL yang dipakai konsisten dengan `localhost` seperti di `.env.example`.
-- Jika upload evidence gagal finalize, cek `MINIO_ENDPOINT`, bucket `MINIO_EVIDENCE_BUCKET`, `Content-Type` upload client, dan checksum SHA-256 yang dikirim saat membuat upload session.
-- Jika bucket MinIO belum ada, jalankan `make minio-init`.
-- Jika integration test gagal karena Docker, pastikan Docker Desktop aktif.
-- Jika notification tidak muncul, cek `outbox_event` status, lalu lihat runbook [docs/runbooks/outbox-stuck.md](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/runbooks/outbox-stuck.md).
-- Jika `GET /health` menandai dependency selain `UP`, cek host/port untuk Kafka, Redis, Mailpit, dan workflow sebelum mengasumsikan bug bisnis.
-- Jika consumer memindahkan event ke DLQ, lihat runbook [docs/runbooks/dead-letter-events.md](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/runbooks/dead-letter-events.md).
-- Jika backlog Kafka meningkat, lihat runbook [docs/runbooks/kafka-backlog.md](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/runbooks/kafka-backlog.md).
-- Jika migration gagal, cek changelog di `sentinel-persistence/src/main/resources/db/changelog`.
-- Jika workflow task tidak muncul, cek `workflow_instance` table, log startup BPMN deployment, dan pastikan case dibuat lewat API sehingga workflow otomatis dimulai.
-- Jika domain state dan workflow state terlihat tidak sinkron, gunakan runbook [docs/runbooks/domain-workflow-mismatch-reconciliation.md](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/runbooks/domain-workflow-mismatch-reconciliation.md).
+- If the application fails to start, make sure `DB_URL`, `DB_USERNAME`, and `DB_PASSWORD` are correct.
+- If the application fails to start with a message stating that Camunda tables do not exist, run `make migrate` first.
+- If report requests consistently return `401`, check `KEYCLOAK_ISSUER`, `KEYCLOAK_JWKS_URL`, and the token issuer from Keycloak.
+- If tokens from the host fail with `Access token issuer is invalid`, ensure the URL used is consistent with `localhost` as shown in `.env.example`.
+- If evidence upload fails to finalize, check `MINIO_ENDPOINT`, the `MINIO_EVIDENCE_BUCKET` bucket, the client upload `Content-Type`, and the SHA-256 checksum sent when creating the upload session.
+- If the MinIO bucket does not exist yet, run `make minio-init`.
+- If integration tests fail due to Docker, make sure Docker Desktop is active.
+- If notifications do not appear, check the `outbox_event` status, then refer to the runbook [docs/runbooks/outbox-stuck.md](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/runbooks/outbox-stuck.md).
+- If `GET /health` marks dependencies other than `UP`, check the host/port configurations for Kafka, Redis, Mailpit, and workflow before assuming a business logic bug.
+- If consumers move events to the DLQ, refer to the runbook [docs/runbooks/dead-letter-events.md](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/runbooks/dead-letter-events.md).
+- If the Kafka backlog increases, refer to the runbook [docs/runbooks/kafka-backlog.md](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/runbooks/kafka-backlog.md).
+- If migrations fail, check the changelog at `sentinel-persistence/src/main/resources/db/changelog`.
+- If workflow tasks do not appear, check the `workflow_instance` table, the BPMN deployment startup logs, and ensure cases are created via the API so the workflow starts automatically.
+- If domain state and workflow state appear out of sync, use the runbook [docs/runbooks/domain-workflow-mismatch-reconciliation.md](/C:/Users/nugra/workspace/project/.jax-rs/.onboard/docs/runbooks/domain-workflow-mismatch-reconciliation.md).
