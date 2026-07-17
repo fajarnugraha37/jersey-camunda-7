@@ -19,6 +19,7 @@ import com.sentinel.enforcement.api.error.EvidenceNotFoundExceptionMapper;
 import com.sentinel.enforcement.api.error.EvidenceObjectMissingExceptionMapper;
 import com.sentinel.enforcement.api.error.EvidenceStorageUnavailableExceptionMapper;
 import com.sentinel.enforcement.api.error.GenericExceptionMapper;
+import com.sentinel.enforcement.api.error.MaintenanceOperationConflictExceptionMapper;
 import com.sentinel.enforcement.api.error.NotFoundExceptionMapper;
 import com.sentinel.enforcement.api.error.RecommendationConflictExceptionMapper;
 import com.sentinel.enforcement.api.error.RecommendationNotFoundExceptionMapper;
@@ -32,6 +33,7 @@ import com.sentinel.enforcement.api.evidence.CaseEvidenceResource;
 import com.sentinel.enforcement.api.evidence.EvidenceResource;
 import com.sentinel.enforcement.api.health.HealthResource;
 import com.sentinel.enforcement.api.json.ObjectMapperContextResolver;
+import com.sentinel.enforcement.api.operations.MaintenanceOperationResource;
 import com.sentinel.enforcement.api.recommendation.CaseRecommendationResource;
 import com.sentinel.enforcement.api.recommendation.RecommendationResource;
 import com.sentinel.enforcement.api.report.ReportResource;
@@ -50,6 +52,7 @@ import com.sentinel.enforcement.application.messaging.ApplicationTransactionMana
 import com.sentinel.enforcement.application.messaging.InboxRepository;
 import com.sentinel.enforcement.application.messaging.NotificationRepository;
 import com.sentinel.enforcement.application.messaging.OutboxRepository;
+import com.sentinel.enforcement.application.operations.MaintenanceOperationApplicationService;
 import com.sentinel.enforcement.application.recommendation.RecommendationApplicationService;
 import com.sentinel.enforcement.application.recommendation.RecommendationRepository;
 import com.sentinel.enforcement.application.report.ReportApplicationService;
@@ -76,6 +79,7 @@ import com.sentinel.enforcement.persistence.evidence.EvidenceRepositoryMyBatisAd
 import com.sentinel.enforcement.persistence.messaging.InboxRepositoryMyBatisAdapter;
 import com.sentinel.enforcement.persistence.messaging.NotificationRepositoryMyBatisAdapter;
 import com.sentinel.enforcement.persistence.messaging.OutboxRepositoryMyBatisAdapter;
+import com.sentinel.enforcement.persistence.operations.MaintenanceOperationRepositoryMyBatisAdapter;
 import com.sentinel.enforcement.persistence.recommendation.RecommendationRepositoryMyBatisAdapter;
 import com.sentinel.enforcement.persistence.report.ReportRepositoryMyBatisAdapter;
 import com.sentinel.enforcement.persistence.workflow.WorkflowInstanceMyBatisAdapter;
@@ -145,6 +149,8 @@ public final class ApplicationRuntime implements AutoCloseable {
           new DecisionRepositoryMyBatisAdapter(sqlSessionFactory);
       SanctionRepository sanctionRepository =
           new SanctionRepositoryMyBatisAdapter(sqlSessionFactory);
+      MaintenanceOperationRepositoryMyBatisAdapter maintenanceOperationRepository =
+          new MaintenanceOperationRepositoryMyBatisAdapter(sqlSessionFactory);
       AppealRepository appealRepository = new AppealRepositoryMyBatisAdapter(sqlSessionFactory);
       OutboxRepository outboxRepository = new OutboxRepositoryMyBatisAdapter(sqlSessionFactory);
       InboxRepository inboxRepository = new InboxRepositoryMyBatisAdapter(sqlSessionFactory);
@@ -250,6 +256,9 @@ public final class ApplicationRuntime implements AutoCloseable {
               caseRepository,
               outboxRepository,
               clock);
+      MaintenanceOperationApplicationService maintenanceOperationApplicationService =
+          new MaintenanceOperationApplicationService(
+              authorizationService, transactionManager, maintenanceOperationRepository);
       HealthStatusService healthStatusService =
           new CompositeHealthStatusService(
               List.of(
@@ -304,6 +313,7 @@ public final class ApplicationRuntime implements AutoCloseable {
                       appealApplicationService,
                       workflowTaskApplicationService,
                       workflowReconciliationApplicationService,
+                      maintenanceOperationApplicationService,
                       reportApplicationService,
                       authorizationService,
                       tokenVerifier))
@@ -326,6 +336,7 @@ public final class ApplicationRuntime implements AutoCloseable {
               .register(EvidenceNotFoundExceptionMapper.class)
               .register(EvidenceObjectMissingExceptionMapper.class)
               .register(EvidenceStorageUnavailableExceptionMapper.class)
+              .register(MaintenanceOperationConflictExceptionMapper.class)
               .register(NotFoundExceptionMapper.class)
               .register(RecommendationConflictExceptionMapper.class)
               .register(RecommendationNotFoundExceptionMapper.class)
@@ -343,6 +354,7 @@ public final class ApplicationRuntime implements AutoCloseable {
               .register(CaseRecommendationResource.class)
               .register(DecisionResource.class)
               .register(EvidenceResource.class)
+              .register(MaintenanceOperationResource.class)
               .register(RecommendationResource.class)
               .register(ReportResource.class)
               .register(TaskResource.class)

@@ -3,7 +3,10 @@ package com.sentinel.enforcement.api.casefile;
 import com.sentinel.enforcement.api.generated.model.AssignCaseRequest;
 import com.sentinel.enforcement.api.generated.model.CaseAuditEventListResponse;
 import com.sentinel.enforcement.api.generated.model.CaseListResponse;
+import com.sentinel.enforcement.api.generated.model.CaseRelationshipListResponse;
+import com.sentinel.enforcement.api.generated.model.CaseRelationshipResponse;
 import com.sentinel.enforcement.api.generated.model.CaseResponse;
+import com.sentinel.enforcement.api.generated.model.CreateCaseRelationshipRequest;
 import com.sentinel.enforcement.api.generated.model.CreateCaseRequest;
 import com.sentinel.enforcement.api.generated.model.TransitionCaseRequest;
 import com.sentinel.enforcement.api.security.RequestActorResolver;
@@ -124,6 +127,39 @@ public final class CaseResource {
                 request,
                 RequestMetadataResolver.correlationId(requestContext),
                 RequestMetadataResolver.sourceIp(requestContext))));
+  }
+
+  @POST
+  @Path("/{caseId}/relationships")
+  public Response createCaseRelationship(
+      @PathParam("caseId") UUID caseId,
+      @Valid CreateCaseRelationshipRequest request,
+      @Context ContainerRequestContext requestContext) {
+    ApplicationActor actor = RequestActorResolver.resolveRequired(requestContext);
+    CaseRelationshipResponse response =
+        mapper.toRelationshipResponse(
+            caseApplicationService.createRelationship(
+                actor,
+                caseId,
+                mapper.toCreateCaseRelationshipCommand(
+                    request,
+                    RequestMetadataResolver.correlationId(requestContext),
+                    RequestMetadataResolver.sourceIp(requestContext))));
+    return Response.status(Response.Status.CREATED).entity(response).build();
+  }
+
+  @GET
+  @Path("/{caseId}/relationships")
+  public CaseRelationshipListResponse listCaseRelationships(
+      @PathParam("caseId") UUID caseId,
+      @QueryParam("direction") String direction,
+      @QueryParam("maxDepth") @Min(1) @Max(25) Integer maxDepth,
+      @QueryParam("relationshipType") String relationshipType,
+      @Context ContainerRequestContext requestContext) {
+    ApplicationActor actor = RequestActorResolver.resolveRequired(requestContext);
+    return mapper.toRelationshipListResponse(
+        caseApplicationService.listRelationships(
+            actor, caseId, mapper.toListRelationshipsQuery(direction, maxDepth, relationshipType)));
   }
 
   @POST

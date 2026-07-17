@@ -426,7 +426,8 @@ abstract class AbstractApiIT {
   }
 
   protected static String workflowStatus(UUID caseId) {
-    String sql = "SELECT status FROM workflow_instance WHERE case_id = ? AND workflow_type = 'CASE_MAIN'";
+    String sql =
+        "SELECT status FROM workflow_instance WHERE case_id = ? AND workflow_type = 'CASE_MAIN'";
     try (Connection connection =
             DriverManager.getConnection(
                 POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
@@ -585,7 +586,8 @@ abstract class AbstractApiIT {
         socket.setReuseAddress(true);
         return socket.getLocalPort();
       } catch (IOException exception) {
-        throw new IllegalStateException("Failed to reserve a host port for Kafka testcontainer.", exception);
+        throw new IllegalStateException(
+            "Failed to reserve a host port for Kafka testcontainer.", exception);
       }
     }
   }

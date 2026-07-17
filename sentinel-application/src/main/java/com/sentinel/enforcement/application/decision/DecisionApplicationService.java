@@ -5,6 +5,8 @@ import com.sentinel.enforcement.application.casefile.CaseRepository;
 import com.sentinel.enforcement.application.messaging.ApplicationTransactionManager;
 import com.sentinel.enforcement.application.messaging.MessagingEventFactory;
 import com.sentinel.enforcement.application.messaging.OutboxRepository;
+import com.sentinel.enforcement.application.messaging.TransactionIsolation;
+import com.sentinel.enforcement.application.messaging.TransactionOptions;
 import com.sentinel.enforcement.application.recommendation.RecommendationRepository;
 import com.sentinel.enforcement.application.security.ApplicationActor;
 import com.sentinel.enforcement.application.security.AuthorizationContext;
@@ -125,38 +127,41 @@ public final class DecisionApplicationService {
 
   public Decision approveDecision(
       ApplicationActor actor, UUID decisionId, ApproveDecisionCommand command) {
-    Decision current = getRequiredDecision(decisionId);
-    CaseRecord caseRecord = getRequiredCase(current.caseId());
-    authorizationService.requirePermission(
-        actor,
-        Permission.APPROVE_DECISION,
-        authorizationContext(
-            caseRecord, DECISION_RESOURCE_TYPE, decisionId.toString(), current.createdBy()));
-    Instant now = clock.instant();
-    Decision updated = current.approve(now, actor.username());
-    AuditEvent auditEvent =
-        newAuditEvent(
-            actor,
-            caseRecord.id(),
-            updated.id(),
-            "DecisionApproved",
-            "DECISION_APPROVED",
-            "SUCCESS",
-            "Decision approved.",
-            current.auditSummary(),
-            updated.auditSummary(),
-            null,
-            command.correlationId(),
-            command.sourceIp(),
-            now);
-    transactionManager.required(
+    return transactionManager.required(
+        TransactionOptions.write(TransactionIsolation.READ_COMMITTED, "approve-decision"),
         () -> {
+          Decision current =
+              decisionRepository
+                  .findByIdForUpdate(decisionId)
+                  .orElseThrow(() -> new DecisionNotFoundException(decisionId));
+          CaseRecord caseRecord = getRequiredCase(current.caseId());
+          authorizationService.requirePermission(
+              actor,
+              Permission.APPROVE_DECISION,
+              authorizationContext(
+                  caseRecord, DECISION_RESOURCE_TYPE, decisionId.toString(), current.createdBy()));
+          Instant now = clock.instant();
+          Decision updated = current.approve(now, actor.username());
+          AuditEvent auditEvent =
+              newAuditEvent(
+                  actor,
+                  caseRecord.id(),
+                  updated.id(),
+                  "DecisionApproved",
+                  "DECISION_APPROVED",
+                  "SUCCESS",
+                  "Decision approved.",
+                  current.auditSummary(),
+                  updated.auditSummary(),
+                  null,
+                  command.correlationId(),
+                  command.sourceIp(),
+                  now);
           decisionRepository.approve(updated);
           caseRepository.appendAuditEvent(auditEvent);
           outboxRepository.enqueue(MessagingEventFactory.auditIntegrated(auditEvent, now));
-          return null;
+          return updated;
         });
-    return updated;
   }
 
   public Decision publishDecision(

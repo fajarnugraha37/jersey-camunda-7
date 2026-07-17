@@ -49,6 +49,22 @@ public interface DecisionMyBatisMapper {
           published_at AS publishedAt, published_by AS publishedBy, created_at AS createdAt,
           created_by AS createdBy, updated_at AS updatedAt, updated_by AS updatedBy, version
       FROM decision
+      WHERE id = #{id}
+      FOR UPDATE NOWAIT
+      """)
+  DecisionRecord findByIdForUpdate(UUID id);
+
+  @Select(
+      """
+      SELECT
+          id, case_id AS caseId, recommendation_id AS recommendationId, title, summary,
+          violation_proven AS violationProven, sanction_summary AS sanctionSummary,
+          obligation_title AS obligationTitle, obligation_details AS obligationDetails,
+          obligation_due_date AS obligationDueDate, appeal_deadline AS appealDeadline,
+          status, approved_at AS approvedAt, approved_by AS approvedBy,
+          published_at AS publishedAt, published_by AS publishedBy, created_at AS createdAt,
+          created_by AS createdBy, updated_at AS updatedAt, updated_by AS updatedBy, version
+      FROM decision
       WHERE case_id = #{caseId}
       """)
   DecisionRecord findByCaseId(UUID caseId);
@@ -141,7 +157,13 @@ public interface DecisionMyBatisMapper {
   SanctionRecord findSanctionByCaseId(UUID caseId);
 
   @Select(
-      "SELECT COUNT(*) FROM sanction_obligation so JOIN sanction s ON s.id = so.sanction_id WHERE s.case_id = #{caseId} AND so.status = 'ACTIVE'")
+      """
+      SELECT COUNT(*)
+      FROM sanction_obligation so
+      JOIN sanction s ON s.id = so.sanction_id
+      WHERE s.case_id = #{caseId}
+        AND so.status IN ('ACTIVE', 'OVERDUE')
+      """)
   long countActiveObligationsForCase(UUID caseId);
 
   @Select(
@@ -151,7 +173,7 @@ public interface DecisionMyBatisMapper {
           created_at AS createdAt, created_by AS createdBy, updated_at AS updatedAt, updated_by AS updatedBy, version
       FROM sanction_obligation
       WHERE sanction_id = #{sanctionId}
-        AND status = 'ACTIVE'
+        AND status IN ('ACTIVE', 'OVERDUE')
       """)
   SanctionObligationRecord findActiveObligationBySanctionId(UUID sanctionId);
 

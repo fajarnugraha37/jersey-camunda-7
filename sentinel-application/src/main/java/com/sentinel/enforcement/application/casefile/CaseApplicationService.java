@@ -17,6 +17,7 @@ import com.sentinel.enforcement.domain.casefile.CaseActionContext;
 import com.sentinel.enforcement.domain.casefile.CaseAssignment;
 import com.sentinel.enforcement.domain.casefile.CaseConflictException;
 import com.sentinel.enforcement.domain.casefile.CaseRecord;
+import com.sentinel.enforcement.domain.casefile.CaseRelationship;
 import com.sentinel.enforcement.domain.casefile.CaseStatus;
 import com.sentinel.enforcement.domain.casefile.CaseStatusHistoryEntry;
 import com.sentinel.enforcement.domain.report.Report;
@@ -27,6 +28,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -227,6 +229,12 @@ public final class CaseApplicationService {
             current.classification(),
             current.createdBy(),
             CaseAuthorizationScope.RESTRICTED_TO_ASSIGNED_UNITS_WHEN_PRESENT));
+    if (Objects.equals(current.assignedUnitId(), command.assignedUnitId())
+        && Objects.equals(current.assigneeUserId(), command.assigneeUserId())) {
+      throw new CaseConflictException(
+          "NO_EFFECT_ASSIGNMENT",
+          "Case " + current.caseNumber() + " is already assigned to the requested target.");
+    }
 
     Instant now = clock.instant();
     CaseActionContext context =
@@ -332,6 +340,105 @@ public final class CaseApplicationService {
           return null;
         });
     return updated;
+  }
+
+  public CaseRelationshipView createRelationship(
+      ApplicationActor actor, UUID caseId, CreateCaseRelationshipCommand command) {
+    CaseRecord anchorCase = getRequiredCase(caseId);
+    CaseRecord relatedCase = getRequiredCase(command.relatedCaseId());
+    authorizationService.requirePermission(
+        actor,
+        Permission.MANAGE_CASE_RELATIONSHIPS,
+        authorizationContext(
+            anchorCase, CASE_RESOURCE_TYPE, anchorCase.id().toString(), anchorCase.createdBy()));
+    authorizationService.requirePermission(
+        actor,
+        Permission.MANAGE_CASE_RELATIONSHIPS,
+        authorizationContext(
+            relatedCase, CASE_RESOURCE_TYPE, relatedCase.id().toString(), relatedCase.createdBy()));
+
+    UUID parentCaseId =
+        command.direction() == CaseRelationshipReferenceDirection.PARENT_OF
+            ? anchorCase.id()
+            : relatedCase.id();
+    UUID childCaseId =
+        command.direction() == CaseRelationshipReferenceDirection.PARENT_OF
+            ? relatedCase.id()
+            : anchorCase.id();
+    if (caseRepository.wouldCreateRelationshipCycle(parentCaseId, childCaseId)) {
+      throw new CaseConflictException(
+          "CASE_RELATIONSHIP_CYCLE",
+          "Relationship would create a cycle for case " + anchorCase.caseNumber() + ".");
+    }
+
+    Instant now = clock.instant();
+    CaseRelationship relationship =
+        new CaseRelationship(
+            UUID.randomUUID(),
+            parentCaseId,
+            childCaseId,
+            command.relationshipType(),
+            command.relationshipReason(),
+            now,
+            actor.username(),
+            now,
+            actor.username(),
+            0L);
+    AuditEvent auditEvent =
+        new AuditEvent(
+            UUID.randomUUID(),
+            "CaseRelationshipCreated",
+            "USER",
+            actor.username(),
+            String.join(",", actor.roles().stream().sorted().toList()),
+            "CASE_RELATIONSHIP_CREATED",
+            "CASE_RELATIONSHIP",
+            relationship.id().toString(),
+            anchorCase.id(),
+            now,
+            command.correlationId(),
+            command.sourceIp(),
+            "SUCCESS",
+            command.relationshipReason(),
+            null,
+            "parentCaseId="
+                + parentCaseId
+                + ";childCaseId="
+                + childCaseId
+                + ";relationshipType="
+                + command.relationshipType(),
+            "relatedCaseId=" + command.relatedCaseId());
+    transactionManager.required(
+        () -> {
+          caseRepository.createRelationship(relationship);
+          caseRepository.appendAuditEvent(auditEvent);
+          outboxRepository.enqueue(MessagingEventFactory.auditIntegrated(auditEvent, now));
+          return null;
+        });
+    return new CaseRelationshipView(
+        anchorCase.id(),
+        relatedCase.id(),
+        relatedCase.caseNumber(),
+        relatedCase.title(),
+        1,
+        command.direction() == CaseRelationshipReferenceDirection.PARENT_OF
+            ? CaseRelationshipViewDirection.DESCENDANT
+            : CaseRelationshipViewDirection.ANCESTOR,
+        command.relationshipType(),
+        command.relationshipReason(),
+        List.of(anchorCase.id(), relatedCase.id()));
+  }
+
+  public List<CaseRelationshipView> listRelationships(
+      ApplicationActor actor, UUID caseId, ListCaseRelationshipsQuery query) {
+    CaseRecord caseRecord = getRequiredCase(caseId);
+    authorizationService.requirePermission(
+        actor,
+        Permission.READ_CASE,
+        authorizationContext(
+            caseRecord, CASE_RESOURCE_TYPE, caseRecord.id().toString(), caseRecord.createdBy()));
+    return caseRepository.findRelationships(
+        caseId, query.direction(), query.maxDepth(), query.relationshipType());
   }
 
   public AuditEventPage getCaseAuditEvents(

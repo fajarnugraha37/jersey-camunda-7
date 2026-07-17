@@ -1,0 +1,107 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0010-case-relationship-foundation
+      author: codex
+      changes:
+        - createTable:
+            tableName: case_relationship
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: parent_case_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_case_relationship_parent_case
+                    references: case_record(id)
+              - column:
+                  name: child_case_id
+                  type: UUID
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_case_relationship_child_case
+                    references: case_record(id)
+              - column:
+                  name: relationship_type
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: relationship_reason
+                  type: VARCHAR(500)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+        - sql:
+            sql: |
+              ALTER TABLE case_relationship
+                ADD CONSTRAINT ck_case_relationship_type
+                  CHECK (relationship_type IN ('MERGE', 'DERIVATION', 'SPLIT')),
+                ADD CONSTRAINT ck_case_relationship_not_self
+                  CHECK (parent_case_id <> child_case_id),
+                ADD CONSTRAINT ck_case_relationship_version_non_negative
+                  CHECK (version >= 0),
+                ADD CONSTRAINT uk_case_relationship_edge
+                  UNIQUE (parent_case_id, child_case_id, relationship_type);
+        - createIndex:
+            tableName: case_relationship
+            indexName: idx_case_relationship_parent
+            columns:
+              - column:
+                  name: parent_case_id
+              - column:
+                  name: relationship_type
+        - createIndex:
+            tableName: case_relationship
+            indexName: idx_case_relationship_child
+            columns:
+              - column:
+                  name: child_case_id
+              - column:
+                  name: relationship_type
+      rollback:
+        - dropIndex:
+            tableName: case_relationship
+            indexName: idx_case_relationship_child
+        - dropIndex:
+            tableName: case_relationship
+            indexName: idx_case_relationship_parent
+        - sql:
+            sql: |
+              ALTER TABLE case_relationship
+                DROP CONSTRAINT IF EXISTS uk_case_relationship_edge,
+                DROP CONSTRAINT IF EXISTS ck_case_relationship_type,
+                DROP CONSTRAINT IF EXISTS ck_case_relationship_not_self,
+                DROP CONSTRAINT IF EXISTS ck_case_relationship_version_non_negative;
+        - dropTable:
+            tableName: case_relationship

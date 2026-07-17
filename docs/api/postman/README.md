@@ -34,10 +34,12 @@ Variable penting:
 - `accessToken`, `refreshToken`: diisi otomatis setelah login.
 - `reportId`, `reportVersion`: diisi otomatis dari response report.
 - `caseId`, `caseVersion`, `caseNumber`: diisi otomatis dari response case.
+- `relatedCaseId`, `relatedCaseNumber`: dipakai untuk flow relationship antar case.
 - `recommendationId`, `decisionId`, `appealId`: diisi otomatis dari response masing-masing endpoint create.
 - `evidenceId`, `uploadSessionId`, `uploadUrl`, `downloadUrl`: diisi otomatis dari flow evidence.
 - `taskId`: diisi otomatis dari `GET /api/v1/tasks` bila ada task.
 - `workflowCaseId`: diisi otomatis dari list reconciliation atau fallback ke `caseId`.
+- `maintenanceRunId`: diisi otomatis dari endpoint operator batch overdue obligation.
 
 Catatan penting:
 
@@ -207,7 +209,46 @@ Body:
 
 Pastikan `expectedVersion` memakai `caseVersion` terbaru.
 
-### 4.6 Transition Case dan Audit Trail
+### 4.6 Case Relationship Flow
+
+Flow ini dipakai untuk mencoba reference recursive CTE pada lineage case.
+
+1. Buat case pertama seperti pada langkah `4.4`
+2. Salin `caseId` case pertama ke variable collection `relatedCaseId`
+3. Buat case kedua, sehingga variable `caseId` sekarang menunjuk source case yang baru
+4. Login sebagai `triage-jkt`
+5. Jalankan `Cases / Create Case Relationship`
+6. Jalankan `Cases / List Case Relationships`
+
+Endpoint:
+
+- `POST /api/v1/cases/{caseId}/relationships`
+- `GET /api/v1/cases/{caseId}/relationships`
+
+Body create relationship:
+
+```json
+{
+  "relatedCaseId": "{{relatedCaseId}}",
+  "relationshipType": "MERGE",
+  "direction": "PARENT_OF",
+  "relationshipReason": "Administrative merge discovered during triage review."
+}
+```
+
+Query penting untuk list relationship:
+
+- `direction=ANCESTORS|DESCENDANTS|BOTH`
+- `maxDepth`
+- `relationshipType`
+
+Catatan:
+
+- `relationshipType` yang valid saat ini: `MERGE`, `DERIVATION`, `SPLIT`
+- `direction` create yang valid: `PARENT_OF`, `CHILD_OF`
+- Jika edge membentuk cycle transitif, API akan mengembalikan `409 CASE_RELATIONSHIP_CYCLE`
+
+### 4.7 Transition Case dan Audit Trail
 
 Gunakan flow ini bila Anda ingin menguji perubahan state case atau melihat audit event pada case tertentu.
 
@@ -236,7 +277,7 @@ Catatan:
 - Gunakan `targetStatus` yang memang valid dari state case saat ini.
 - Kalau salah urutan state atau `expectedVersion` stale, endpoint ini akan mengembalikan `409`.
 
-### 4.7 Evidence Flow
+### 4.8 Evidence Flow
 
 1. Login sebagai `investigator-jkt`
 2. Jalankan `Evidence / Create Evidence Upload Session`
@@ -287,7 +328,7 @@ Catatan:
 - Untuk trial cepat, gunakan file kecil yang checksum SHA-256-nya Anda hitung sendiri bila ingin finalize benar-benar sukses.
 - Variable `sampleEvidenceSha256` di collection hanyalah placeholder.
 
-### 4.8 Recommendation Flow
+### 4.9 Recommendation Flow
 
 1. Login sebagai `investigator-jkt`
 2. Jalankan `Recommendations / Create Recommendation`
@@ -313,7 +354,7 @@ Policy penting:
 
 - Maker-checker berlaku. User yang membuat recommendation tidak boleh menjadi approver final.
 
-### 4.9 Decision Flow
+### 4.10 Decision Flow
 
 1. Login sebagai `decision-jkt`
 2. Jalankan `Decisions / Create Decision`
@@ -346,7 +387,7 @@ Catatan:
 - `appealDeadline` harus berupa tanggal valid setelah publication window yang sesuai dengan policy aplikasi.
 - Setelah decision dipublish, state dan flow case bisa berubah sehingga request lama dengan `expectedVersion` lama dapat gagal.
 
-### 4.10 Appeal Flow
+### 4.11 Appeal Flow
 
 1. Login sebagai `appeal-jkt`
 2. Jalankan `Appeals / Create Appeal`
@@ -377,7 +418,7 @@ Body decide appeal:
 }
 ```
 
-### 4.11 Tasks Flow
+### 4.12 Tasks Flow
 
 Gunakan flow ini untuk melihat user task workflow aktif.
 
@@ -408,7 +449,7 @@ Query penting pada list task:
 
 `POST /complete` tidak membutuhkan body dan sukses mengembalikan `204 No Content`.
 
-### 4.12 Workflow Reconciliation
+### 4.13 Workflow Reconciliation
 
 Flow ini untuk supervisor/operator saat domain state dan workflow state mismatch.
 
@@ -430,6 +471,41 @@ Body action:
 }
 ```
 
+### 4.14 Maintenance Batch Overdue Obligation
+
+Flow ini dipakai untuk mencoba reference procedure call + table locking untuk operasi maintenance batch.
+
+1. Login sebagai `supervisor-jkt`
+2. Jalankan `Operations / Recalculate Overdue Sanction Obligations`
+3. Catat `runId` yang dikembalikan response
+
+Endpoint:
+
+- `POST /api/v1/operations/sanction-obligations/recalculate-overdue`
+
+Body:
+
+```json
+{
+  "effectiveDate": "2026-07-16"
+}
+```
+
+Response penting:
+
+- `runId` -> disimpan ke `maintenanceRunId`
+- `operationName`
+- `requestedBy`
+- `effectiveDate`
+- `resultStatus`
+- `affectedRows`
+
+Catatan:
+
+- Endpoint ini memang untuk operator maintenance, bukan hot path user biasa
+- Role yang aman dipakai untuk trial lokal: `supervisor-jkt` atau `system-admin`
+- Jika ada batch lain yang memegang lock tabel yang sama, request dapat gagal `409 MAINTENANCE_OPERATION_LOCKED`
+
 ## 5. Seluruh Endpoint yang Tercakup di Collection
 
 - `POST /realms/sentinel/protocol/openid-connect/token`
@@ -441,6 +517,8 @@ Body action:
 - `GET /api/v1/cases`
 - `GET /api/v1/cases/{caseId}`
 - `POST /api/v1/cases/{caseId}/assignments`
+- `POST /api/v1/cases/{caseId}/relationships`
+- `GET /api/v1/cases/{caseId}/relationships`
 - `POST /api/v1/cases/{caseId}/transitions`
 - `GET /api/v1/cases/{caseId}/audit-events`
 - `POST /api/v1/cases/{caseId}/recommendations`
@@ -460,13 +538,14 @@ Body action:
 - `POST /api/v1/tasks/{taskId}/complete`
 - `GET /api/v1/workflow-reconciliation`
 - `POST /api/v1/workflow-reconciliation/{caseId}/actions`
+- `POST /api/v1/operations/sanction-obligations/recalculate-overdue`
 
 ## 6. Troubleshooting Cepat
 
 - `401 Unauthorized`: token belum diambil, expired, atau login ke realm/client salah.
 - `403 Forbidden`: role benar belum tentu punya jurisdiction, assignment, classification clearance, atau permission yang cocok.
 - `404 Not Found`: variable seperti `reportId`, `caseId`, atau `decisionId` belum terisi atau stale.
-- `409 Conflict`: state tidak cocok, maker-checker melanggar policy, atau `expectedVersion` stale.
+- `409 Conflict`: state tidak cocok, maker-checker melanggar policy, `expectedVersion` stale, relationship membentuk cycle, atau batch maintenance bertabrakan dengan lock aktif.
 - Evidence finalize gagal: biasanya object belum benar-benar di-upload ke `uploadUrl`, checksum salah, atau metadata file tidak cocok.
 
 Spesifikasi kontrak sumber tetap ada di `docs/api/openapi.yaml`.

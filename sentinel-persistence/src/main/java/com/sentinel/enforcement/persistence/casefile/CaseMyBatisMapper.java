@@ -304,6 +304,255 @@ public interface CaseMyBatisMapper {
 
   @Insert(
       """
+            INSERT INTO case_relationship (
+                id,
+                parent_case_id,
+                child_case_id,
+                relationship_type,
+                relationship_reason,
+                created_at,
+                created_by,
+                updated_at,
+                updated_by,
+                version
+            ) VALUES (
+                #{id},
+                #{parentCaseId},
+                #{childCaseId},
+                #{relationshipType},
+                #{relationshipReason},
+                #{createdAt},
+                #{createdBy},
+                #{updatedAt},
+                #{updatedBy},
+                #{version}
+            )
+            """)
+  int insertRelationship(CaseRelationshipData relationshipData);
+
+  @Select(
+      """
+            WITH RECURSIVE descendant_lineage AS (
+                SELECT
+                    child_case_id,
+                    ARRAY[
+                        CAST(parent_case_id AS text),
+                        CAST(child_case_id AS text)
+                    ] AS path_case_ids
+                FROM case_relationship
+                WHERE parent_case_id = #{childCaseId}
+                UNION ALL
+                SELECT
+                    relationship.child_case_id,
+                    descendant_lineage.path_case_ids || CAST(relationship.child_case_id AS text)
+                FROM case_relationship relationship
+                JOIN descendant_lineage
+                  ON relationship.parent_case_id = descendant_lineage.child_case_id
+                WHERE NOT (
+                    CAST(relationship.child_case_id AS text) = ANY(descendant_lineage.path_case_ids)
+                )
+            )
+            SELECT EXISTS (
+                SELECT 1
+                FROM descendant_lineage
+                WHERE child_case_id = #{parentCaseId}
+            )
+            """)
+  boolean wouldCreateRelationshipCycle(
+      @Param("parentCaseId") UUID parentCaseId, @Param("childCaseId") UUID childCaseId);
+
+  @Select(
+      """
+            <script>
+            WITH RECURSIVE ancestor_lineage AS (
+                SELECT
+                    relationship.parent_case_id,
+                    relationship.child_case_id,
+                    relationship.relationship_type,
+                    relationship.relationship_reason,
+                    1 AS depth,
+                    ARRAY[
+                        CAST(relationship.child_case_id AS text),
+                        CAST(relationship.parent_case_id AS text)
+                    ] AS path_case_ids
+                FROM case_relationship relationship
+                WHERE relationship.child_case_id = #{caseId}
+                  <if test="relationshipType != null">
+                    AND relationship.relationship_type = #{relationshipType}
+                  </if>
+                UNION ALL
+                SELECT
+                    relationship.parent_case_id,
+                    relationship.child_case_id,
+                    relationship.relationship_type,
+                    relationship.relationship_reason,
+                    ancestor_lineage.depth + 1,
+                    ancestor_lineage.path_case_ids || CAST(relationship.parent_case_id AS text)
+                FROM case_relationship relationship
+                JOIN ancestor_lineage
+                  ON relationship.child_case_id = ancestor_lineage.parent_case_id
+                WHERE ancestor_lineage.depth &lt; #{maxDepth}
+                  AND NOT (
+                    CAST(relationship.parent_case_id AS text) = ANY(ancestor_lineage.path_case_ids)
+                  )
+                  <if test="relationshipType != null">
+                    AND relationship.relationship_type = #{relationshipType}
+                  </if>
+            )
+            SELECT
+                #{caseId} AS caseId,
+                ancestor_lineage.parent_case_id AS relatedCaseId,
+                related.case_number AS relatedCaseNumber,
+                related.title AS relatedCaseTitle,
+                ancestor_lineage.depth AS depth,
+                'ANCESTOR' AS direction,
+                ancestor_lineage.relationship_type AS relationshipType,
+                ancestor_lineage.relationship_reason AS relationshipReason,
+                array_to_string(ancestor_lineage.path_case_ids, ',') AS pathCaseIdsCsv
+            FROM ancestor_lineage
+            JOIN case_record related
+              ON related.id = ancestor_lineage.parent_case_id
+            ORDER BY ancestor_lineage.depth ASC, related.case_number ASC, ancestor_lineage.parent_case_id ASC
+            </script>
+            """)
+  List<CaseRelationshipLineageData> findAncestorRelationships(CaseRelationshipQueryData queryData);
+
+  @Select(
+      """
+            <script>
+            WITH RECURSIVE descendant_lineage AS (
+                SELECT
+                    relationship.parent_case_id,
+                    relationship.child_case_id,
+                    relationship.relationship_type,
+                    relationship.relationship_reason,
+                    1 AS depth,
+                    ARRAY[
+                        CAST(relationship.parent_case_id AS text),
+                        CAST(relationship.child_case_id AS text)
+                    ] AS path_case_ids
+                FROM case_relationship relationship
+                WHERE relationship.parent_case_id = #{caseId}
+                  <if test="relationshipType != null">
+                    AND relationship.relationship_type = #{relationshipType}
+                  </if>
+                UNION ALL
+                SELECT
+                    relationship.parent_case_id,
+                    relationship.child_case_id,
+                    relationship.relationship_type,
+                    relationship.relationship_reason,
+                    descendant_lineage.depth + 1,
+                    descendant_lineage.path_case_ids || CAST(relationship.child_case_id AS text)
+                FROM case_relationship relationship
+                JOIN descendant_lineage
+                  ON relationship.parent_case_id = descendant_lineage.child_case_id
+                WHERE descendant_lineage.depth &lt; #{maxDepth}
+                  AND NOT (
+                    CAST(relationship.child_case_id AS text) = ANY(descendant_lineage.path_case_ids)
+                  )
+                  <if test="relationshipType != null">
+                    AND relationship.relationship_type = #{relationshipType}
+                  </if>
+            )
+            SELECT
+                #{caseId} AS caseId,
+                descendant_lineage.child_case_id AS relatedCaseId,
+                related.case_number AS relatedCaseNumber,
+                related.title AS relatedCaseTitle,
+                descendant_lineage.depth AS depth,
+                'DESCENDANT' AS direction,
+                descendant_lineage.relationship_type AS relationshipType,
+                descendant_lineage.relationship_reason AS relationshipReason,
+                array_to_string(descendant_lineage.path_case_ids, ',') AS pathCaseIdsCsv
+            FROM descendant_lineage
+            JOIN case_record related
+              ON related.id = descendant_lineage.child_case_id
+            ORDER BY descendant_lineage.depth ASC, related.case_number ASC, descendant_lineage.child_case_id ASC
+            </script>
+            """)
+  List<CaseRelationshipLineageData> findDescendantRelationships(
+      CaseRelationshipQueryData queryData);
+
+  @Update(
+      """
+            WITH locked_case AS (
+                SELECT id
+                FROM case_record
+                WHERE id = #{caseId}
+                  AND version = #{expectedVersion}
+                FOR UPDATE
+            ),
+            closed_previous_assignment AS (
+                UPDATE case_assignment
+                SET
+                    is_active = FALSE,
+                    active_case_id = NULL,
+                    released_at = #{assignedAt},
+                    released_by = #{assignedBy},
+                    superseded_by_assignment_id = #{newAssignmentId},
+                    updated_at = #{updatedAt},
+                    updated_by = #{updatedBy},
+                    version = version + 1
+                WHERE case_id IN (SELECT id FROM locked_case)
+                  AND is_active = TRUE
+                RETURNING case_id
+            ),
+            inserted_assignment AS (
+                INSERT INTO case_assignment (
+                    id,
+                    case_id,
+                    assigned_unit_id,
+                    assignee_user_id,
+                    assignment_reason,
+                    assigned_at,
+                    assigned_by,
+                    released_at,
+                    released_by,
+                    superseded_by_assignment_id,
+                    is_active,
+                    active_case_id,
+                    created_at,
+                    created_by,
+                    updated_at,
+                    updated_by,
+                    version
+                )
+                SELECT
+                    #{newAssignmentId},
+                    #{caseId},
+                    #{assignedUnitId},
+                    #{assigneeUserId},
+                    #{assignmentReason},
+                    #{assignedAt},
+                    #{assignedBy},
+                    NULL,
+                    NULL,
+                    NULL,
+                    TRUE,
+                    #{caseId},
+                    #{createdAt},
+                    #{createdBy},
+                    #{updatedAt},
+                    #{updatedBy},
+                    #{newAssignmentVersion}
+                FROM locked_case
+                LEFT JOIN closed_previous_assignment
+                  ON closed_previous_assignment.case_id = locked_case.id
+            )
+            UPDATE case_record
+            SET
+                assigned_unit_id = #{assignedUnitId},
+                assignee_user_id = #{assigneeUserId},
+                updated_at = #{updatedAt},
+                updated_by = #{updatedBy},
+                version = version + 1
+            WHERE id IN (SELECT id FROM locked_case)
+            """)
+  int rotateAssignment(CaseAssignmentRotationData rotationData);
+
+  @Insert(
+      """
             INSERT INTO case_status_history (
                 id,
                 case_id,

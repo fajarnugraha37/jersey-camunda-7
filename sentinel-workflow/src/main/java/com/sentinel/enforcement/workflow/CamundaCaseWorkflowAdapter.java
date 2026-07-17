@@ -282,9 +282,7 @@ final class CamundaCaseWorkflowAdapter implements CaseWorkflowPort {
   @Override
   public boolean correlateAppealFiled(UUID caseId, UUID appealId) {
     return correlateCaseMessage(
-        WorkflowModule.APPEAL_FILED_MESSAGE_NAME,
-        caseId,
-        Map.of("appealId", appealId.toString()));
+        WorkflowModule.APPEAL_FILED_MESSAGE_NAME, caseId, Map.of("appealId", appealId.toString()));
   }
 
   @Override

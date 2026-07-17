@@ -5,6 +5,7 @@ import com.sentinel.enforcement.application.casefile.CaseApplicationService;
 import com.sentinel.enforcement.application.decision.DecisionApplicationService;
 import com.sentinel.enforcement.application.evidence.EvidenceApplicationService;
 import com.sentinel.enforcement.application.health.HealthStatusService;
+import com.sentinel.enforcement.application.operations.MaintenanceOperationApplicationService;
 import com.sentinel.enforcement.application.recommendation.RecommendationApplicationService;
 import com.sentinel.enforcement.application.report.ReportApplicationService;
 import com.sentinel.enforcement.application.security.AuthorizationService;
@@ -22,6 +23,7 @@ public final class ApplicationBinder extends AbstractBinder {
   private final AppealApplicationService appealApplicationService;
   private final WorkflowTaskApplicationService workflowTaskApplicationService;
   private final WorkflowReconciliationApplicationService workflowReconciliationApplicationService;
+  private final MaintenanceOperationApplicationService maintenanceOperationApplicationService;
   private final ReportApplicationService reportApplicationService;
   private final AuthorizationService authorizationService;
   private final TokenVerifier tokenVerifier;
@@ -35,6 +37,7 @@ public final class ApplicationBinder extends AbstractBinder {
       AppealApplicationService appealApplicationService,
       WorkflowTaskApplicationService workflowTaskApplicationService,
       WorkflowReconciliationApplicationService workflowReconciliationApplicationService,
+      MaintenanceOperationApplicationService maintenanceOperationApplicationService,
       ReportApplicationService reportApplicationService,
       AuthorizationService authorizationService,
       TokenVerifier tokenVerifier) {
@@ -46,6 +49,7 @@ public final class ApplicationBinder extends AbstractBinder {
     this.appealApplicationService = appealApplicationService;
     this.workflowTaskApplicationService = workflowTaskApplicationService;
     this.workflowReconciliationApplicationService = workflowReconciliationApplicationService;
+    this.maintenanceOperationApplicationService = maintenanceOperationApplicationService;
     this.reportApplicationService = reportApplicationService;
     this.authorizationService = authorizationService;
     this.tokenVerifier = tokenVerifier;
@@ -62,6 +66,7 @@ public final class ApplicationBinder extends AbstractBinder {
     bind(workflowTaskApplicationService).to(WorkflowTaskApplicationService.class);
     bind(workflowReconciliationApplicationService)
         .to(WorkflowReconciliationApplicationService.class);
+    bind(maintenanceOperationApplicationService).to(MaintenanceOperationApplicationService.class);
     bind(reportApplicationService).to(ReportApplicationService.class);
     bind(authorizationService).to(AuthorizationService.class);
     bind(tokenVerifier).to(TokenVerifier.class);

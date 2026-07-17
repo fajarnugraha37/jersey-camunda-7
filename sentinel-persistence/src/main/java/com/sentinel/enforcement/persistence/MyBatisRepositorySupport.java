@@ -37,4 +37,13 @@ public abstract class MyBatisRepositorySupport {
       }
     }
   }
+
+  protected final <T> T executeBoundSession(Function<SqlSession, T> callback) {
+    SqlSession currentSession = MyBatisSessionContext.currentSession();
+    if (currentSession == null) {
+      throw new IllegalStateException(
+          "This operation requires an active transaction-bound session.");
+    }
+    return callback.apply(currentSession);
+  }
 }

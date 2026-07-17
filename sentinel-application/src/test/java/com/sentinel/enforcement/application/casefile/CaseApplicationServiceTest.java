@@ -23,6 +23,8 @@ import com.sentinel.enforcement.domain.casefile.CaseAssignment;
 import com.sentinel.enforcement.domain.casefile.CaseClassification;
 import com.sentinel.enforcement.domain.casefile.CaseConflictException;
 import com.sentinel.enforcement.domain.casefile.CaseRecord;
+import com.sentinel.enforcement.domain.casefile.CaseRelationship;
+import com.sentinel.enforcement.domain.casefile.CaseRelationshipType;
 import com.sentinel.enforcement.domain.casefile.CaseStatus;
 import com.sentinel.enforcement.domain.casefile.CaseStatusHistoryEntry;
 import com.sentinel.enforcement.domain.report.Report;
@@ -424,6 +426,23 @@ class CaseApplicationServiceTest {
     @Override
     public void transition(
         CaseRecord caseRecord, CaseStatusHistoryEntry statusHistoryEntry, AuditEvent auditEvent) {}
+
+    @Override
+    public void createRelationship(CaseRelationship relationship) {}
+
+    @Override
+    public boolean wouldCreateRelationshipCycle(UUID parentCaseId, UUID childCaseId) {
+      return false;
+    }
+
+    @Override
+    public List<CaseRelationshipView> findRelationships(
+        UUID caseId,
+        CaseRelationshipTraversalDirection direction,
+        int maxDepth,
+        CaseRelationshipType relationshipType) {
+      return List.of();
+    }
 
     @Override
     public List<AuditEvent> findAuditEventsPage(AuditEventPageRequest pageRequest) {

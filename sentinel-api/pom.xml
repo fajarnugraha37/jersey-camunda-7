@@ -90,15 +90,15 @@
         <executions>
           <execution>
             <id>clear-stale-mapstruct-generated-sources</id>
+            <goals>
+              <goal>run</goal>
+            </goals>
             <phase>generate-sources</phase>
             <configuration>
               <target>
                 <delete dir="${project.build.directory}/generated-sources/annotations"/>
               </target>
             </configuration>
-            <goals>
-              <goal>run</goal>
-            </goals>
           </execution>
         </executions>
       </plugin>

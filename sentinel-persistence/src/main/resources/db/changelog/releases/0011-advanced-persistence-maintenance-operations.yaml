@@ -1,0 +1,160 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0011-sanction-obligation-overdue-maintenance
+      author: codex
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE sanction_obligation
+                DROP CONSTRAINT IF EXISTS ck_sanction_obligation_status;
+        - sql:
+            sql: |
+              ALTER TABLE sanction_obligation
+                ADD CONSTRAINT ck_sanction_obligation_status
+                  CHECK (status IN ('ACTIVE', 'OVERDUE', 'SATISFIED', 'CANCELLED'));
+        - createTable:
+            tableName: maintenance_operation_run
+            columns:
+              - column:
+                  name: id
+                  type: UUID
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: operation_name
+                  type: VARCHAR(128)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: requested_by
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: requested_at
+                  type: TIMESTAMPTZ
+                  constraints:
+                    nullable: false
+              - column:
+                  name: completed_at
+                  type: TIMESTAMPTZ
+              - column:
+                  name: effective_date
+                  type: DATE
+                  constraints:
+                    nullable: false
+              - column:
+                  name: result_status
+                  type: VARCHAR(32)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: affected_rows
+                  type: BIGINT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: details_json
+                  type: JSONB
+                  constraints:
+                    nullable: false
+        - sql:
+            sql: |
+              ALTER TABLE maintenance_operation_run
+                ADD CONSTRAINT ck_maintenance_operation_run_status
+                  CHECK (result_status IN ('RUNNING', 'COMPLETED', 'FAILED')),
+                ADD CONSTRAINT ck_maintenance_operation_run_affected_rows_non_negative
+                  CHECK (affected_rows >= 0);
+        - createIndex:
+            tableName: maintenance_operation_run
+            indexName: idx_maintenance_operation_run_name_requested_at
+            columns:
+              - column:
+                  name: operation_name
+              - column:
+                  name: requested_at
+        - sql:
+            splitStatements: false
+            stripComments: false
+            sql: |
+              CREATE OR REPLACE PROCEDURE recalculate_overdue_sanction_obligations(
+                  IN p_effective_date DATE,
+                  IN p_actor VARCHAR,
+                  IN p_run_id UUID
+              )
+              LANGUAGE plpgsql
+              AS $$
+              DECLARE
+                  v_requested_at TIMESTAMPTZ := now();
+                  v_affected_rows BIGINT := 0;
+              BEGIN
+                  INSERT INTO maintenance_operation_run (
+                      id,
+                      operation_name,
+                      requested_by,
+                      requested_at,
+                      completed_at,
+                      effective_date,
+                      result_status,
+                      affected_rows,
+                      details_json
+                  ) VALUES (
+                      p_run_id,
+                      'recalculate-overdue-sanction-obligations',
+                      p_actor,
+                      v_requested_at,
+                      NULL,
+                      p_effective_date,
+                      'RUNNING',
+                      0,
+                      jsonb_build_object('effectiveDate', p_effective_date::text)
+                  );
+
+                  UPDATE sanction_obligation
+                  SET
+                      status = 'OVERDUE',
+                      updated_at = v_requested_at,
+                      updated_by = p_actor,
+                      version = version + 1
+                  WHERE status = 'ACTIVE'
+                    AND due_date < p_effective_date;
+
+                  GET DIAGNOSTICS v_affected_rows = ROW_COUNT;
+
+                  UPDATE maintenance_operation_run
+                  SET
+                      completed_at = now(),
+                      result_status = 'COMPLETED',
+                      affected_rows = v_affected_rows,
+                      details_json =
+                          jsonb_build_object(
+                              'effectiveDate', p_effective_date::text,
+                              'affectedRows', v_affected_rows
+                          )
+                  WHERE id = p_run_id;
+              END;
+              $$;
+      rollback:
+        - sql:
+            sql: DROP PROCEDURE IF EXISTS recalculate_overdue_sanction_obligations(DATE, VARCHAR, UUID);
+        - dropIndex:
+            tableName: maintenance_operation_run
+            indexName: idx_maintenance_operation_run_name_requested_at
+        - sql:
+            sql: |
+              ALTER TABLE maintenance_operation_run
+                DROP CONSTRAINT IF EXISTS ck_maintenance_operation_run_status,
+                DROP CONSTRAINT IF EXISTS ck_maintenance_operation_run_affected_rows_non_negative;
+        - dropTable:
+            tableName: maintenance_operation_run
+        - sql:
+            sql: |
+              ALTER TABLE sanction_obligation
+                DROP CONSTRAINT IF EXISTS ck_sanction_obligation_status;
+        - sql:
+            sql: |
+              ALTER TABLE sanction_obligation
+                ADD CONSTRAINT ck_sanction_obligation_status
+                  CHECK (status IN ('ACTIVE', 'SATISFIED', 'CANCELLED'));
