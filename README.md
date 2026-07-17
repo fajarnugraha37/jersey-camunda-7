@@ -1,6 +1,6 @@
 # Sentinel Enforcement Platform
 
-Sentinel Enforcement Platform adalah project latihan enterprise untuk regulatory enforcement dan complex case management. State repo saat ini mencakup phase 0-8 sesuai roadmap utama: foundation, intake, authentication/authorization, case lifecycle, embedded Camunda workflow, evidence intake berbasis MinIO, Kafka reliability, lalu aggregate recommendation/review/decision/sanction/appeal beserta authorization case-level yang lebih ketat. Repo ini juga masih membawa workflow reconciliation tooling yang sebelumnya sudah ditambahkan sebagai hardening slice tambahan.
+Sentinel Enforcement Platform is an enterprise training project for regulatory enforcement and complex case management. The current repo state covers phases 0-8 according to the main roadmap: foundation, intake, authentication/authorization, case lifecycle, embedded Camunda workflow, MinIO-based evidence intake, Kafka reliability, and aggregate recommendation/review/decision/sanction/appeal with stricter case-level authorization. The repo also still carries workflow reconciliation tooling that was previously added as an additional hardening slice.
 
 ## Architecture Overview
 
