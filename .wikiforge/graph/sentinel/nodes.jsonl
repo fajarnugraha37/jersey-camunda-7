@@ -1,0 +1,72 @@
+{"id":"sentinel:concept:appeal","type":"Concept","title":"appeal","source":"knowledge/relationships.md"}
+{"id":"sentinel:concept:appealdecision","type":"Concept","title":"appealdecision","source":"knowledge/relationships.md"}
+{"id":"sentinel:concept:applicationactor","type":"Concept","title":"applicationactor","source":"knowledge/relationships.md"}
+{"id":"sentinel:concept:auditevent","type":"Concept","title":"auditevent","source":"knowledge/relationships.md"}
+{"id":"sentinel:concept:authorizationservice","type":"Concept","title":"authorizationservice","source":"knowledge/relationships.md"}
+{"id":"sentinel:concept:bearerauthenticationfilter","type":"Concept","title":"bearerauthenticationfilter","source":"knowledge/relationships.md"}
+{"id":"sentinel:concept:caserecord","type":"Concept","title":"caserecord","source":"knowledge/relationships.md"}
+{"id":"sentinel:concept:casestatushistory","type":"Concept","title":"casestatushistory","source":"knowledge/relationships.md"}
+{"id":"sentinel:concept:decision","type":"Concept","title":"decision","source":"knowledge/relationships.md"}
+{"id":"sentinel:concept:decisionversion","type":"Concept","title":"decisionversion","source":"knowledge/relationships.md"}
+{"id":"sentinel:concept:domain-aggregate","type":"Concept","title":"domain aggregate","source":"knowledge/relationships.md"}
+{"id":"sentinel:concept:evidence","type":"Concept","title":"evidence","source":"knowledge/relationships.md"}
+{"id":"sentinel:concept:http-request","type":"Concept","title":"http request","source":"knowledge/relationships.md"}
+{"id":"sentinel:concept:inboxevent","type":"Concept","title":"inboxevent","source":"knowledge/relationships.md"}
+{"id":"sentinel:concept:kafka-topic","type":"Concept","title":"kafka topic","source":"knowledge/relationships.md"}
+{"id":"sentinel:concept:notification","type":"Concept","title":"notification","source":"knowledge/relationships.md"}
+{"id":"sentinel:concept:outboxevent","type":"Concept","title":"outboxevent","source":"knowledge/relationships.md"}
+{"id":"sentinel:concept:outboxevent-kafka","type":"Concept","title":"outboxevent kafka","source":"knowledge/relationships.md"}
+{"id":"sentinel:concept:recommendation","type":"Concept","title":"recommendation","source":"knowledge/relationships.md"}
+{"id":"sentinel:concept:recommendationreview","type":"Concept","title":"recommendationreview","source":"knowledge/relationships.md"}
+{"id":"sentinel:concept:report","type":"Concept","title":"report","source":"knowledge/relationships.md"}
+{"id":"sentinel:concept:rolebasedauthorizationservice","type":"Concept","title":"rolebasedauthorizationservice","source":"knowledge/relationships.md"}
+{"id":"sentinel:concept:sanction","type":"Concept","title":"sanction","source":"knowledge/relationships.md"}
+{"id":"sentinel:concept:sanctionobligation","type":"Concept","title":"sanctionobligation","source":"knowledge/relationships.md"}
+{"id":"sentinel:concept:workflowinstance","type":"Concept","title":"workflowinstance","source":"knowledge/relationships.md"}
+{"id":"sentinel:doc:INSTRUCTIONS","type":"Document","title":"WikiForge Component Documentation Contract","source":"INSTRUCTIONS.md"}
+{"id":"sentinel:doc:architecture/index","type":"Document","title":"Files","source":"architecture/index.md"}
+{"id":"sentinel:doc:architecture/overview","type":"Document","title":"Architecture Overview","source":"architecture/overview.md"}
+{"id":"sentinel:doc:business/business-data","type":"Document","title":"Sentinel Business Entities and Data","source":"business/business-data.md"}
+{"id":"sentinel:doc:business/business-flows","type":"Document","title":"Sentinel End-to-End Business Flows","source":"business/business-flows.md"}
+{"id":"sentinel:doc:business/index","type":"Document","title":"Files","source":"business/index.md"}
+{"id":"sentinel:doc:business/rules-and-validation","type":"Document","title":"Sentinel Business Rules and Validation","source":"business/rules-and-validation.md"}
+{"id":"sentinel:doc:configuration/index","type":"Document","title":"Files","source":"configuration/index.md"}
+{"id":"sentinel:doc:configuration/runtime-configuration","type":"Document","title":"Runtime Configuration","source":"configuration/runtime-configuration.md"}
+{"id":"sentinel:doc:data/consistency","type":"Document","title":"Data Consistency","source":"data/consistency.md"}
+{"id":"sentinel:doc:data/database-programmability","type":"Document","title":"Database Programmability","source":"data/database-programmability.md"}
+{"id":"sentinel:doc:data/database-structure","type":"Document","title":"Database Schema and Entity Relationships","source":"data/database-structure.md"}
+{"id":"sentinel:doc:data/index","type":"Document","title":"Files","source":"data/index.md"}
+{"id":"sentinel:doc:development/change-guide","type":"Document","title":"Change Guide","source":"development/change-guide.md"}
+{"id":"sentinel:doc:development/index","type":"Document","title":"Files","source":"development/index.md"}
+{"id":"sentinel:doc:domain/behavior","type":"Document","title":"Domain Aggregate Behavior","source":"domain/behavior.md"}
+{"id":"sentinel:doc:domain/index","type":"Document","title":"Files","source":"domain/index.md"}
+{"id":"sentinel:doc:files/file-handling-and-formats","type":"Document","title":"File Handling and Formats","source":"files/file-handling-and-formats.md"}
+{"id":"sentinel:doc:files/index","type":"Document","title":"Files","source":"files/index.md"}
+{"id":"sentinel:doc:index","type":"Document","title":"Files","source":"index.md"}
+{"id":"sentinel:doc:integrations/cloud-services","type":"Document","title":"Cloud Services Strategy","source":"integrations/cloud-services.md"}
+{"id":"sentinel:doc:integrations/dependency-matrix","type":"Document","title":"Dependency Matrix","source":"integrations/dependency-matrix.md"}
+{"id":"sentinel:doc:integrations/external-services","type":"Document","title":"External Infrastructure Services","source":"integrations/external-services.md"}
+{"id":"sentinel:doc:integrations/index","type":"Document","title":"Files","source":"integrations/index.md"}
+{"id":"sentinel:doc:integrations/service-to-service","type":"Document","title":"Service-to-Service Integration","source":"integrations/service-to-service.md"}
+{"id":"sentinel:doc:interfaces/contracts","type":"Document","title":"API Contracts","source":"interfaces/contracts.md"}
+{"id":"sentinel:doc:interfaces/endpoint-catalog","type":"Document","title":"REST API Endpoint Catalog","source":"interfaces/endpoint-catalog.md"}
+{"id":"sentinel:doc:interfaces/index","type":"Document","title":"Files","source":"interfaces/index.md"}
+{"id":"sentinel:doc:knowledge/index","type":"Document","title":"Files","source":"knowledge/index.md"}
+{"id":"sentinel:doc:knowledge/relationships","type":"Document","title":"Domain and Architectural Relationships","source":"knowledge/relationships.md"}
+{"id":"sentinel:doc:messaging/event-catalog","type":"Document","title":"Sentinel Event Catalog and Messaging Architecture","source":"messaging/event-catalog.md"}
+{"id":"sentinel:doc:messaging/index","type":"Document","title":"Files","source":"messaging/index.md"}
+{"id":"sentinel:doc:processing/index","type":"Document","title":"Files","source":"processing/index.md"}
+{"id":"sentinel:doc:processing/job-catalog","type":"Document","title":"Job Catalog — Background Processing","source":"processing/job-catalog.md"}
+{"id":"sentinel:doc:quickstart","type":"Document","title":"Sentinel Enforcement Platform — Quickstart","source":"quickstart.md"}
+{"id":"sentinel:doc:reliability/index","type":"Document","title":"Files","source":"reliability/index.md"}
+{"id":"sentinel:doc:reliability/security-operations","type":"Document","title":"Security Operations","source":"reliability/security-operations.md"}
+{"id":"sentinel:doc:runtime/asynchronous-processing","type":"Document","title":"Asynchronous Processing","source":"runtime/asynchronous-processing.md"}
+{"id":"sentinel:doc:runtime/concurrency","type":"Document","title":"Concurrency","source":"runtime/concurrency.md"}
+{"id":"sentinel:doc:runtime/context-propagation","type":"Document","title":"Context Propagation","source":"runtime/context-propagation.md"}
+{"id":"sentinel:doc:runtime/index","type":"Document","title":"Files","source":"runtime/index.md"}
+{"id":"sentinel:doc:runtime/request-flows","type":"Document","title":"Request Flows","source":"runtime/request-flows.md"}
+{"id":"sentinel:doc:runtime/traffic-flows","type":"Document","title":"Traffic Flows","source":"runtime/traffic-flows.md"}
+{"id":"sentinel:doc:security/authentication","type":"Document","title":"Authentication","source":"security/authentication.md"}
+{"id":"sentinel:doc:security/authorization","type":"Document","title":"Authorization","source":"security/authorization.md"}
+{"id":"sentinel:doc:security/cryptography","type":"Document","title":"Cryptography","source":"security/cryptography.md"}
+{"id":"sentinel:doc:security/index","type":"Document","title":"Files","source":"security/index.md"}
