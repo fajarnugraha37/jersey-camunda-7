@@ -410,3 +410,10 @@ flowchart TD
     L --> M[Post-Transition Guards<br/>PhaseSevenCaseProgressionGuard]
     M --> N[Persist & Emit Events]
 ```
+
+## Source References
+
+1. **Domain Aggregates** — `sentinel-domain/src/main/java/.../domain/report/Report.java`, `.../casefile/CaseRecord.java`, `.../evidence/Evidence.java`, `.../evidence/EvidenceUploadSession.java`, `.../recommendation/Recommendation.java`, `.../decision/Decision.java`, `.../sanction/Sanction.java`, `.../sanction/SanctionObligation.java`, `.../appeal/Appeal.java`
+2. **Application Services** — `sentinel-application/src/main/java/.../application/appeal/AppealApplicationService.java`, `.../casefile/CaseApplicationService.java`, `.../casefile/PhaseSevenCaseProgressionGuard.java`, `.../casefile/CaseProgressionGuard.java`, `.../evidence/EvidenceApplicationService.java`, `.../operations/MaintenanceOperationApplicationService.java`
+3. **Authorization** — `sentinel-security/src/main/java/.../security/RoleBasedAuthorizationService.java`, `sentinel-application/src/main/java/.../security/AuthorizationService.java`, `sentinel-application/src/main/java/.../security/Permission.java`
+4. **API Validation** — Request DTOs under `sentinel-api/src/main/java/.../api/`

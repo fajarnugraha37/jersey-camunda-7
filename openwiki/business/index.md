@@ -2,6 +2,7 @@
 type: Documentation Index
 title: "Business"
 description: "Files and subdirectories in Business."
+tags: [sentinel, business, domain, entities, flows]
 ---
 
 # Files

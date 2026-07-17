@@ -53,10 +53,13 @@ Classify important information as **Verified**, **Derived**, **Unknown**, or **C
 - openwiki/processing/job-catalog.md
 - openwiki/quickstart.md
 - openwiki/reliability/security-operations.md
-- openwiki/runtime/concurrency-and-asynchronous-processing.md
+- openwiki/runtime/asynchronous-processing.md
+- openwiki/runtime/concurrency.md
 - openwiki/runtime/context-propagation.md
-- openwiki/runtime/traffic-and-request-flows.md
-- openwiki/security/authentication-and-authorization.md
+- openwiki/runtime/request-flows.md
+- openwiki/runtime/traffic-flows.md
+- openwiki/security/authentication.md
+- openwiki/security/authorization.md
 - openwiki/security/cryptography.md
 
 ## Profile-specific direction

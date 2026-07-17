@@ -2,6 +2,7 @@
 type: Documentation Index
 title: "Configuration"
 description: "Files and subdirectories in Configuration."
+tags: [sentinel, configuration, environment, env-vars]
 ---
 
 # Files

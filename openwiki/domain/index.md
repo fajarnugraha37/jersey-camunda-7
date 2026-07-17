@@ -2,6 +2,7 @@
 type: Documentation Index
 title: "Domain"
 description: "Files and subdirectories in Domain."
+tags: [sentinel, domain, aggregates, state-machine]
 ---
 
 # Files

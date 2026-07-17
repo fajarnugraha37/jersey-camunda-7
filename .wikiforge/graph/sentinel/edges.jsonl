@@ -1,0 +1,128 @@
+{"from":"sentinel:doc:architecture/index","relationship":"LINKS_TO","to":"sentinel:doc:architecture/overview","source":"architecture/index.md"}
+{"from":"sentinel:doc:architecture/overview","relationship":"LINKS_TO","to":"sentinel:doc:runtime/request-flows","source":"architecture/overview.md"}
+{"from":"sentinel:doc:architecture/overview","relationship":"LINKS_TO","to":"sentinel:doc:runtime/context-propagation","source":"architecture/overview.md"}
+{"from":"sentinel:doc:architecture/overview","relationship":"LINKS_TO","to":"sentinel:doc:runtime/asynchronous-processing","source":"architecture/overview.md"}
+{"from":"sentinel:doc:architecture/overview","relationship":"LINKS_TO","to":"sentinel:doc:runtime/concurrency","source":"architecture/overview.md"}
+{"from":"sentinel:doc:architecture/overview","relationship":"LINKS_TO","to":"sentinel:doc:configuration/runtime-configuration","source":"architecture/overview.md"}
+{"from":"sentinel:doc:architecture/overview","relationship":"LINKS_TO","to":"sentinel:doc:development/change-guide","source":"architecture/overview.md"}
+{"from":"sentinel:doc:architecture/overview","relationship":"LINKS_TO","to":"sentinel:doc:data/consistency","source":"architecture/overview.md"}
+{"from":"sentinel:doc:architecture/overview","relationship":"LINKS_TO","to":"sentinel:doc:integrations/cloud-services","source":"architecture/overview.md"}
+{"from":"sentinel:doc:business/index","relationship":"LINKS_TO","to":"sentinel:doc:business/business-data","source":"business/index.md"}
+{"from":"sentinel:doc:business/index","relationship":"LINKS_TO","to":"sentinel:doc:business/business-flows","source":"business/index.md"}
+{"from":"sentinel:doc:business/index","relationship":"LINKS_TO","to":"sentinel:doc:business/rules-and-validation","source":"business/index.md"}
+{"from":"sentinel:doc:business/rules-and-validation","relationship":"LINKS_TO","to":"sentinel:doc:business/business-flows","source":"business/rules-and-validation.md"}
+{"from":"sentinel:doc:configuration/index","relationship":"LINKS_TO","to":"sentinel:doc:configuration/runtime-configuration","source":"configuration/index.md"}
+{"from":"sentinel:doc:data/consistency","relationship":"LINKS_TO","to":"sentinel:doc:data/database-structure","source":"data/consistency.md"}
+{"from":"sentinel:doc:data/consistency","relationship":"LINKS_TO","to":"sentinel:doc:data/database-structure","source":"data/consistency.md"}
+{"from":"sentinel:doc:data/consistency","relationship":"LINKS_TO","to":"sentinel:doc:data/database-structure","source":"data/consistency.md"}
+{"from":"sentinel:doc:data/database-structure","relationship":"LINKS_TO","to":"sentinel:doc:data/database-programmability","source":"data/database-structure.md"}
+{"from":"sentinel:doc:data/database-structure","relationship":"LINKS_TO","to":"sentinel:doc:data/consistency","source":"data/database-structure.md"}
+{"from":"sentinel:doc:data/database-structure","relationship":"LINKS_TO","to":"sentinel:doc:data/database-programmability","source":"data/database-structure.md"}
+{"from":"sentinel:doc:data/database-structure","relationship":"LINKS_TO","to":"sentinel:doc:data/consistency","source":"data/database-structure.md"}
+{"from":"sentinel:doc:data/database-structure","relationship":"LINKS_TO","to":"sentinel:doc:data/consistency","source":"data/database-structure.md"}
+{"from":"sentinel:doc:data/database-structure","relationship":"LINKS_TO","to":"sentinel:doc:data/database-programmability","source":"data/database-structure.md"}
+{"from":"sentinel:doc:data/index","relationship":"LINKS_TO","to":"sentinel:doc:data/consistency","source":"data/index.md"}
+{"from":"sentinel:doc:data/index","relationship":"LINKS_TO","to":"sentinel:doc:data/database-programmability","source":"data/index.md"}
+{"from":"sentinel:doc:data/index","relationship":"LINKS_TO","to":"sentinel:doc:data/database-structure","source":"data/index.md"}
+{"from":"sentinel:doc:development/index","relationship":"LINKS_TO","to":"sentinel:doc:development/change-guide","source":"development/index.md"}
+{"from":"sentinel:doc:domain/index","relationship":"LINKS_TO","to":"sentinel:doc:domain/behavior","source":"domain/index.md"}
+{"from":"sentinel:doc:files/index","relationship":"LINKS_TO","to":"sentinel:doc:files/file-handling-and-formats","source":"files/index.md"}
+{"from":"sentinel:doc:index","relationship":"LINKS_TO","to":"sentinel:doc:quickstart","source":"index.md"}
+{"from":"sentinel:doc:integrations/index","relationship":"LINKS_TO","to":"sentinel:doc:integrations/cloud-services","source":"integrations/index.md"}
+{"from":"sentinel:doc:integrations/index","relationship":"LINKS_TO","to":"sentinel:doc:integrations/dependency-matrix","source":"integrations/index.md"}
+{"from":"sentinel:doc:integrations/index","relationship":"LINKS_TO","to":"sentinel:doc:integrations/external-services","source":"integrations/index.md"}
+{"from":"sentinel:doc:integrations/index","relationship":"LINKS_TO","to":"sentinel:doc:integrations/service-to-service","source":"integrations/index.md"}
+{"from":"sentinel:doc:interfaces/index","relationship":"LINKS_TO","to":"sentinel:doc:interfaces/contracts","source":"interfaces/index.md"}
+{"from":"sentinel:doc:interfaces/index","relationship":"LINKS_TO","to":"sentinel:doc:interfaces/endpoint-catalog","source":"interfaces/index.md"}
+{"from":"sentinel:doc:knowledge/index","relationship":"LINKS_TO","to":"sentinel:doc:knowledge/relationships","source":"knowledge/index.md"}
+{"from":"sentinel:concept:report","relationship":"TRIAGED_INTO_→","to":"sentinel:concept:caserecord","source":"knowledge/relationships.md","evidence":"`Report.triage()` creates `CaseRecord`"}
+{"from":"sentinel:concept:caserecord","relationship":"HAS_→","to":"sentinel:concept:evidence","source":"knowledge/relationships.md","evidence":"`evidence.case_id` → `case_record(id)`"}
+{"from":"sentinel:concept:caserecord","relationship":"HAS_→","to":"sentinel:concept:recommendation","source":"knowledge/relationships.md","evidence":"`recommendation.case_id` → `case_record(id)` (1:1)"}
+{"from":"sentinel:concept:caserecord","relationship":"HAS_→","to":"sentinel:concept:decision","source":"knowledge/relationships.md","evidence":"`decision.case_id` → `case_record(id)` (1:1)"}
+{"from":"sentinel:concept:caserecord","relationship":"HAS_→","to":"sentinel:concept:sanction","source":"knowledge/relationships.md","evidence":"`sanction.case_id` → `case_record(id)`"}
+{"from":"sentinel:concept:caserecord","relationship":"HAS_→","to":"sentinel:concept:appeal","source":"knowledge/relationships.md","evidence":"`appeal.case_id` → `case_record(id)`"}
+{"from":"sentinel:concept:caserecord","relationship":"TRIGGERS_→","to":"sentinel:concept:workflowinstance","source":"knowledge/relationships.md","evidence":"`WorkflowModule` starts process on case creation"}
+{"from":"sentinel:concept:caserecord","relationship":"AUDITS_→","to":"sentinel:concept:auditevent","source":"knowledge/relationships.md","evidence":"`audit_event.case_id` → `case_record(id)`"}
+{"from":"sentinel:concept:caserecord","relationship":"TRANSITIONS_VIA_→","to":"sentinel:concept:casestatushistory","source":"knowledge/relationships.md","evidence":"`case_status_history.case_id` → `case_record(id)`"}
+{"from":"sentinel:concept:recommendation","relationship":"APPROVED_BY_→","to":"sentinel:concept:recommendationreview","source":"knowledge/relationships.md","evidence":"`recommendation_review.recommendation_id` → `recommendation(id)`"}
+{"from":"sentinel:concept:decision","relationship":"VERSIONED_BY_→","to":"sentinel:concept:decisionversion","source":"knowledge/relationships.md","evidence":"`decision_version.decision_id` → `decision(id)`"}
+{"from":"sentinel:concept:decision","relationship":"PRESCRIBES_→","to":"sentinel:concept:sanction","source":"knowledge/relationships.md","evidence":"`sanction.decision_id` → `decision(id)` (1:1)"}
+{"from":"sentinel:concept:sanction","relationship":"TRACKS_→","to":"sentinel:concept:sanctionobligation","source":"knowledge/relationships.md","evidence":"`sanction_obligation.sanction_id` → `sanction(id)` (1:1)"}
+{"from":"sentinel:concept:appeal","relationship":"DECIDED_BY_→","to":"sentinel:concept:appealdecision","source":"knowledge/relationships.md","evidence":"`appeal_decision.appeal_id` → `appeal(id)` (1:1)"}
+{"from":"sentinel:concept:domain-aggregate","relationship":"PUBLISHES_→","to":"sentinel:concept:outboxevent","source":"knowledge/relationships.md","evidence":"Transactional outbox within same DB transaction"}
+{"from":"sentinel:concept:outboxevent-kafka","relationship":"CONSUMED_BY_→","to":"sentinel:concept:inboxevent","source":"knowledge/relationships.md","evidence":"Kafka consumer deduplicates via `eventId`"}
+{"from":"sentinel:concept:kafka-topic","relationship":"ROUTED_TO_→","to":"sentinel:concept:notification","source":"knowledge/relationships.md","evidence":"`KafkaNotificationConsumer` routes to `NotificationCommandHandler`/`NotificationEventHandler`"}
+{"from":"sentinel:concept:http-request","relationship":"FILTERED_BY_→","to":"sentinel:concept:bearerauthenticationfilter","source":"knowledge/relationships.md","evidence":"JWT extraction → `ApplicationActor`"}
+{"from":"sentinel:concept:applicationactor","relationship":"AUTHORIZED_BY_→","to":"sentinel:concept:authorizationservice","source":"knowledge/relationships.md","evidence":"6-axis permission check"}
+{"from":"sentinel:concept:authorizationservice","relationship":"DELEGATES_TO_→","to":"sentinel:concept:rolebasedauthorizationservice","source":"knowledge/relationships.md","evidence":"Role, jurisdiction, classification, unit, conflict, assignment checks"}
+{"from":"sentinel:doc:messaging/index","relationship":"LINKS_TO","to":"sentinel:doc:messaging/event-catalog","source":"messaging/index.md"}
+{"from":"sentinel:doc:processing/index","relationship":"LINKS_TO","to":"sentinel:doc:processing/job-catalog","source":"processing/index.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:domain/behavior","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:files/file-handling-and-formats","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:business/business-flows","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:business/business-flows","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:security/authorization","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:integrations/cloud-services","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:integrations/external-services","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:business/business-flows","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:domain/behavior","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:business/business-flows","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:processing/job-catalog","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:runtime/asynchronous-processing","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:runtime/concurrency","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:integrations/dependency-matrix","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:integrations/cloud-services","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:reliability/security-operations","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:runtime/traffic-flows","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:runtime/request-flows","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:domain/behavior","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:data/database-programmability","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:interfaces/contracts","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:security/authorization","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:messaging/event-catalog","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:runtime/concurrency","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:development/change-guide","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:integrations/dependency-matrix","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:architecture/overview","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:domain/behavior","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:interfaces/endpoint-catalog","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:business/business-data","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:business/business-flows","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:business/rules-and-validation","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:configuration/runtime-configuration","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:data/database-structure","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:data/database-programmability","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:data/consistency","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:development/change-guide","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:files/file-handling-and-formats","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:integrations/external-services","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:integrations/dependency-matrix","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:integrations/service-to-service","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:integrations/cloud-services","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:interfaces/contracts","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:knowledge/relationships","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:messaging/event-catalog","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:processing/job-catalog","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:reliability/security-operations","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:runtime/asynchronous-processing","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:runtime/concurrency","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:runtime/context-propagation","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:runtime/request-flows","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:runtime/traffic-flows","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:security/authentication","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:security/authorization","source":"quickstart.md"}
+{"from":"sentinel:doc:quickstart","relationship":"LINKS_TO","to":"sentinel:doc:security/cryptography","source":"quickstart.md"}
+{"from":"sentinel:doc:reliability/index","relationship":"LINKS_TO","to":"sentinel:doc:reliability/security-operations","source":"reliability/index.md"}
+{"from":"sentinel:doc:runtime/asynchronous-processing","relationship":"LINKS_TO","to":"sentinel:doc:runtime/context-propagation","source":"runtime/asynchronous-processing.md"}
+{"from":"sentinel:doc:runtime/index","relationship":"LINKS_TO","to":"sentinel:doc:runtime/asynchronous-processing","source":"runtime/index.md"}
+{"from":"sentinel:doc:runtime/index","relationship":"LINKS_TO","to":"sentinel:doc:runtime/concurrency","source":"runtime/index.md"}
+{"from":"sentinel:doc:runtime/index","relationship":"LINKS_TO","to":"sentinel:doc:runtime/context-propagation","source":"runtime/index.md"}
+{"from":"sentinel:doc:runtime/index","relationship":"LINKS_TO","to":"sentinel:doc:runtime/request-flows","source":"runtime/index.md"}
+{"from":"sentinel:doc:runtime/index","relationship":"LINKS_TO","to":"sentinel:doc:runtime/traffic-flows","source":"runtime/index.md"}
+{"from":"sentinel:doc:runtime/traffic-flows","relationship":"LINKS_TO","to":"sentinel:doc:runtime/request-flows","source":"runtime/traffic-flows.md"}
+{"from":"sentinel:doc:runtime/traffic-flows","relationship":"LINKS_TO","to":"sentinel:doc:interfaces/endpoint-catalog","source":"runtime/traffic-flows.md"}
+{"from":"sentinel:doc:runtime/traffic-flows","relationship":"LINKS_TO","to":"sentinel:doc:messaging/event-catalog","source":"runtime/traffic-flows.md"}
+{"from":"sentinel:doc:security/authentication","relationship":"LINKS_TO","to":"sentinel:doc:runtime/context-propagation","source":"security/authentication.md"}
+{"from":"sentinel:doc:security/index","relationship":"LINKS_TO","to":"sentinel:doc:security/authentication","source":"security/index.md"}
+{"from":"sentinel:doc:security/index","relationship":"LINKS_TO","to":"sentinel:doc:security/authorization","source":"security/index.md"}
+{"from":"sentinel:doc:security/index","relationship":"LINKS_TO","to":"sentinel:doc:security/cryptography","source":"security/index.md"}

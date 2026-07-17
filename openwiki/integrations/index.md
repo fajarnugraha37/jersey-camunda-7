@@ -2,6 +2,7 @@
 type: Documentation Index
 title: "Integrations"
 description: "Files and subdirectories in Integrations."
+tags: [sentinel, integrations, dependencies, infrastructure, services]
 ---
 
 # Files

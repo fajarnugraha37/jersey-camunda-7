@@ -3,12 +3,13 @@
   "runId": "20260717T161939Z",
   "mode": "generate",
   "startedAt": "2026-07-17T16:19:39.3187642Z",
-  "updatedAt": "2026-07-17T16:47:40.9099758Z",
+  "updatedAt": "2026-07-17T19:36:43.7087372Z",
   "components": {
     "sentinel": {
-      "gitHead": "d84c1b334557ce66ab796fe121928f3a7568619c",
-      "sourceHash": "1b11875ac28a9aeccfe6b4dafb35bafef636ae9fbae258753bab689919e0d8ff",
-      "status": "running",
+      "gitHead": "068c6439f4c2c78e6296b376a6b5320f85f1415c",
+      "docsHash": "9a5123012fbeb480a34b5485d37197529c063958046494f3021adb33f42eb38f",
+      "sourceHash": "83ed4610b344e7903df7f4499a4c389d95d6810e562127b1849cae874e6c48ea",
+      "status": "completed-with-findings",
       "phases": {
         "A00": {
           "status": "completed",
@@ -64,6 +65,48 @@
           "startedAt": "2026-07-17T16:47:34.6705441Z",
           "completedAt": "0001-01-01T00:00:00Z",
           "error": "OpenWiki failed: exit status 1\nThe command line is too long."
+        },
+        "AC90": {
+          "status": "completed",
+          "attempts": 1,
+          "startedAt": "2026-07-17T19:03:04.8323Z",
+          "completedAt": "2026-07-17T19:03:14.0499158Z"
+        },
+        "AS01": {
+          "status": "completed",
+          "attempts": 2,
+          "startedAt": "2026-07-17T18:52:26.8344854Z",
+          "completedAt": "2026-07-17T18:52:32.765019Z"
+        },
+        "AS02": {
+          "status": "completed",
+          "attempts": 1,
+          "startedAt": "2026-07-17T18:52:32.7700345Z",
+          "completedAt": "2026-07-17T18:52:40.0638018Z"
+        },
+        "AS03": {
+          "status": "completed",
+          "attempts": 1,
+          "startedAt": "2026-07-17T18:52:40.0666177Z",
+          "completedAt": "2026-07-17T18:52:46.0330835Z"
+        },
+        "AS04": {
+          "status": "completed",
+          "attempts": 1,
+          "startedAt": "2026-07-17T18:52:46.0368052Z",
+          "completedAt": "2026-07-17T18:52:51.2973796Z"
+        },
+        "AS05": {
+          "status": "completed",
+          "attempts": 1,
+          "startedAt": "2026-07-17T18:52:51.3036109Z",
+          "completedAt": "2026-07-17T19:02:34.3332598Z"
+        },
+        "AS06": {
+          "status": "completed",
+          "attempts": 1,
+          "startedAt": "2026-07-17T19:02:34.5565996Z",
+          "completedAt": "2026-07-17T19:03:04.7833697Z"
         }
       }
     }

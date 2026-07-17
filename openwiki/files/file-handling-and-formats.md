@@ -147,7 +147,7 @@ Source: `WorkflowModule.java` at `/sentinel-workflow/src/main/java/com/sentinel/
 
 A complete Postman collection is at `/docs/api/postman/sentinel-enforcement-platform.postman_collection.json`. See `/docs/api/postman/README.md` for usage instructions.
 
-## Key Source Files
+## Source References
 
 | File | Role |
 |---|---|
@@ -157,4 +157,5 @@ A complete Postman collection is at `/docs/api/postman/sentinel-enforcement-plat
 | `/sentinel-application/src/main/java/com/sentinel/enforcement/application/evidence/EvidenceApplicationService.java` | Upload/download session orchestration, finalize verification |
 | `/docs/api/openapi.yaml` | REST API contract |
 | `/sentinel-workflow/src/main/resources/bpmn/regulatory-enforcement-case.bpmn` | Main BPMN process |
+| `/sentinel-workflow/src/main/resources/bpmn/decision-appeal-review.bpmn` | Appeal BPMN process |
 | `/docs/api/postman/sentinel-enforcement-platform.postman_collection.json` | Postman API collection |

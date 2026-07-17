@@ -13,7 +13,7 @@ The Sentinel Enforcement Platform has **three persistent background jobs**, all 
 
 ```mermaid
 %%{init:{'theme':'default'}}%%
-graph TD
+flowchart TD
     subgraph "MessagingRuntime"
         OP[Outbox Publisher<br/>daemon thread]
         NC[Notification Consumer<br/>daemon thread]

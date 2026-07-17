@@ -315,7 +315,7 @@ This classifier is used by `InboxRepositoryMyBatisAdapter` to detect duplicate i
 
 ---
 
-## Source Files Reference
+## Source References
 
 | File | Path |
 |---|---|

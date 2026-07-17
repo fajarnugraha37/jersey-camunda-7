@@ -13,7 +13,7 @@ This page documents the key relationships between domain concepts, architectural
 
 ```mermaid
 %%{init:{'theme':'default'}}%%
-graph LR
+flowchart LR
     Report -->|triage| CaseRecord
     CaseRecord -->|investigation| Recommendation
     Recommendation -->|review/approve| Decision
@@ -42,7 +42,7 @@ graph LR
 
 ```mermaid
 %%{init:{'theme':'default'}}%%
-graph LR
+flowchart LR
     subgraph "Application Process"
         DomainAggregate -->|state change| OutboxEvent
         OutboxEvent -->|claim & publish| KafkaTopic
@@ -153,7 +153,32 @@ Each Kafka topic in `MessagingTopics.java` (`/sentinel-application/.../applicati
 | `notification.result.v1` | Notification delivery result | Consumer |
 | `audit.integration.v1` | Audit event for external integration | Domain operations |
 
-## Key Source Files
+## Relationship Table
+
+| Subject | Relationship | Object | Evidence |
+|---|---|---|---|
+| Report | triaged into → | CaseRecord | `Report.triage()` creates `CaseRecord` |
+| CaseRecord | has → | Evidence | `evidence.case_id` → `case_record(id)` |
+| CaseRecord | has → | Recommendation | `recommendation.case_id` → `case_record(id)` (1:1) |
+| CaseRecord | has → | Decision | `decision.case_id` → `case_record(id)` (1:1) |
+| CaseRecord | has → | Sanction | `sanction.case_id` → `case_record(id)` |
+| CaseRecord | has → | Appeal | `appeal.case_id` → `case_record(id)` |
+| CaseRecord | triggers → | WorkflowInstance | `WorkflowModule` starts process on case creation |
+| CaseRecord | audits → | AuditEvent | `audit_event.case_id` → `case_record(id)` |
+| CaseRecord | transitions via → | CaseStatusHistory | `case_status_history.case_id` → `case_record(id)` |
+| Recommendation | approved by → | RecommendationReview | `recommendation_review.recommendation_id` → `recommendation(id)` |
+| Decision | versioned by → | DecisionVersion | `decision_version.decision_id` → `decision(id)` |
+| Decision | prescribes → | Sanction | `sanction.decision_id` → `decision(id)` (1:1) |
+| Sanction | tracks → | SanctionObligation | `sanction_obligation.sanction_id` → `sanction(id)` (1:1) |
+| Appeal | decided by → | AppealDecision | `appeal_decision.appeal_id` → `appeal(id)` (1:1) |
+| Domain Aggregate | publishes → | OutboxEvent | Transactional outbox within same DB transaction |
+| OutboxEvent → Kafka | consumed by → | InboxEvent | Kafka consumer deduplicates via `eventId` |
+| Kafka Topic | routed to → | Notification | `KafkaNotificationConsumer` routes to `NotificationCommandHandler`/`NotificationEventHandler` |
+| HTTP Request | filtered by → | BearerAuthenticationFilter | JWT extraction → `ApplicationActor` |
+| ApplicationActor | authorized by → | AuthorizationService | 6-axis permission check |
+| AuthorizationService | delegates to → | RoleBasedAuthorizationService | Role, jurisdiction, classification, unit, conflict, assignment checks |
+
+## Source References
 
 | File | Maps |
 |---|---|

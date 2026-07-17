@@ -481,3 +481,11 @@ The `PhaseSevenCaseProgressionGuard` (`sentinel-application/src/main/java/.../ca
 - Case cannot progress to `DECIDED` until a decision is published
 - Case cannot progress to `UNDER_APPEAL` unless the decision has been published and appeals are permitted
 - Sanction obligations must be satisfied before `CLOSED` transition
+
+## Source References
+
+1. **Domain Aggregates** — `sentinel-domain/src/main/java/.../domain/report/Report.java`, `.../casefile/CaseRecord.java`, `.../evidence/Evidence.java`, `.../evidence/EvidenceUploadSession.java`, `.../recommendation/Recommendation.java`, `.../decision/Decision.java`, `.../sanction/Sanction.java`, `.../appeal/Appeal.java`
+2. **Value Objects & Enums** — `CaseAssignment.java`, `CaseRelationship.java`, `CaseStatusHistoryEntry.java`, `CaseClassification.java`, `EvidenceVersion.java`, `RecommendationReview.java`, `DecisionVersion.java`, `SanctionObligation.java`, `AppealDecision.java`
+3. **Domain Exceptions** — Per-aggregate `*ConflictException` classes in `sentinel-domain/src/main/java/.../domain/`
+4. **Audit** — `sentinel-domain/src/main/java/.../domain/casefile/AuditEvent.java`
+5. **Progression Guard** — `sentinel-application/src/main/java/.../casefile/PhaseSevenCaseProgressionGuard.java`

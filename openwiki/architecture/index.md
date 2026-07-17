@@ -2,6 +2,7 @@
 type: Documentation Index
 title: "Architecture"
 description: "Files and subdirectories in Architecture."
+tags: [sentinel, architecture, modular-monolith, hexagonal]
 ---
 
 # Files

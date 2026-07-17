@@ -2,6 +2,7 @@
 type: Documentation Index
 title: "Files"
 description: "Files and subdirectories in Files."
+tags: [sentinel, files, evidence, minio, storage]
 ---
 
 # Files

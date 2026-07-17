@@ -255,3 +255,11 @@ CaseApplicationService caseApplicationService = new CaseApplicationService(
 ```
 
 **Source:** All files under `sentinel-application/src/main/java/` for port interfaces; `ApplicationRuntime.java` for wiring; each module's adapter implementations.
+
+## Source References
+
+1. **Port Interfaces** — `sentinel-application/src/main/java/.../application/` (CaseRepository, EvidenceRepository, etc.)
+2. **Adapter Implementations** — `sentinel-persistence/src/main/java/.../persistence/`, `sentinel-storage/src/main/java/.../storage/`, `sentinel-messaging/src/main/java/.../messaging/`, `sentinel-workflow/src/main/java/.../workflow/`, `sentinel-security/src/main/java/.../security/`
+3. **Assembly** — `sentinel-bootstrap/src/main/java/.../bootstrap/ApplicationRuntime.java`
+4. **Topics** — `sentinel-application/src/main/java/.../application/messaging/MessagingTopics.java`
+5. **Authorization** — `sentinel-security/src/main/java/.../security/RoleBasedAuthorizationService.java`, `sentinel-security/src/main/java/.../security/KeycloakTokenVerifier.java`

@@ -12,7 +12,7 @@ The Sentinel Enforcement Platform is a modular monolith that depends on six exte
 ## Service Overview
 
 ```mermaid
-graph TB
+flowchart TB
     subgraph "Sentinel Application Container"
         APP["sentinel-app<br/>Grizzly/Jersey HTTP<br/>Port 8080"]
         CAMUNDA["Embedded Camunda 7<br/>(shares PostgreSQL<br/>datasource)"]
@@ -301,3 +301,12 @@ The app container (`sentinel-app`) declares `depends_on` with `condition: servic
 ## Cross-Cutting Configuration
 
 All configuration is loaded from environment variables via `AppConfiguration.fromEnvironment()` (see `AppConfiguration.java`). The record holds 30 fields spanning all services. The application will fail fast at startup if any required variable is missing (via the `required()` helper on line 78 of `AppConfiguration.java`).
+
+## Source References
+
+1. **Infrastructure** — `/docker-compose.yaml`
+2. **Environment Template** — `/.env.example`
+3. **Configuration** — `sentinel-bootstrap/src/main/java/.../bootstrap/AppConfiguration.java`
+4. **Application Runtime** — `sentinel-bootstrap/src/main/java/.../bootstrap/ApplicationRuntime.java`
+5. **Module Configs** — `sentinel-persistence/pom.xml`, `sentinel-messaging/pom.xml`, `sentinel-workflow/pom.xml`, `sentinel-storage/pom.xml`, `sentinel-security/pom.xml`
+6. **Keycloak Realm** — `/deployment/keycloak/realm/sentinel-realm.json`

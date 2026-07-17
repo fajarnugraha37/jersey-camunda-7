@@ -1,6 +1,18 @@
 {
-  "updatedAt": "2026-07-17T16:44:33.886Z",
-  "command": "init",
+  "updatedAt": "2026-07-18T00:00:00.000Z",
+  "command": "wikiforge-validation-repair",
   "gitHead": "99dbb2ae36fbe042365b3ac5420717e3e59fbfdc",
-  "model": "deepseek-v4-flash"
+  "model": "claude",
+  "repairs": [
+    "Added tags front matter to all 16 index.md files and root index.md",
+    "Fixed broken links in quickstart.md, runtime/context-propagation.md, runtime/index.md, security/index.md",
+    "Added quickstart required sections: Business or Product Context, Responsibilities, Non-Responsibilities, System Context, Primary Workflows, Runtime and Deployment Shape, Where to Start in the Code, Safe Change Checklist, Knowledge Gaps, Source References",
+    "Added architecture/overview.md required sections and expanded Source References with ADR table",
+    "Created 5 missing canonical documents: runtime/concurrency.md, runtime/request-flows.md, runtime/traffic-flows.md, security/authentication.md, security/authorization.md",
+    "Added ## Source References sections to 18+ files (business, configuration, data, domain, development, files, integrations, interfaces, messaging, processing, runtime, security)",
+    "Fixed Mermaid diagram types from graph to flowchart in 5 files (cloud-services, external-services, knowledge/relationships, processing/job-catalog, reliability/security-operations)",
+    "Added Subject/Relationship/Object table to knowledge/relationships.md",
+    "Fixed data/consistency.md section heading (Source Files Reference to Source References)",
+    "Added Source References and Knowledge Gaps sections to data/database-structure.md"
+  ]
 }

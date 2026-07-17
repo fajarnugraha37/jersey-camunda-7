@@ -2,6 +2,7 @@
 type: Documentation Index
 title: "Data"
 description: "Files and subdirectories in Data."
+tags: [sentinel, database, schema, consistency, migrations]
 ---
 
 # Files

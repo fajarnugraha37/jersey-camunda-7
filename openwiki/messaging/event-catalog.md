@@ -428,3 +428,9 @@ Both run until the application shuts down.
 | Integration | `audit.integration.v1` | All ApplicationServices | External audit consumers | EventEnvelope |
 | Retry | `*.retry` | KafkaNotificationConsumer | KafkaNotificationConsumer | EventEnvelope + headers |
 | DLQ | `*.dlq` | KafkaNotificationConsumer | Manual investigation | EventEnvelope + headers |
+
+## Source References
+
+1. **Messaging Module** — `sentinel-messaging/src/main/java/.../messaging/KafkaOutboxPublisher.java`, `.../KafkaNotificationConsumer.java`, `.../NotificationCommandHandler.java`, `.../NotificationEventHandler.java`, `.../NotificationEmailSender.java`, `.../MessagingRuntime.java`, `.../MessagingRuntimeConfiguration.java`, `.../EventEnvelopeJsonCodec.java`
+2. **Application Contracts** — `sentinel-application/src/main/java/.../application/messaging/MessagingTopics.java`, `.../OutboxEvent.java`, `.../OutboxRepository.java`, `.../InboxEvent.java`, `.../InboxRepository.java`, `.../NotificationRecord.java`, `.../EventEnvelope.java`, `.../EventActor.java`, `.../MessagingEventFactory.java`
+3. **Application Services** — `sentinel-application/src/main/java/.../application/evidence/EvidenceApplicationService.java`

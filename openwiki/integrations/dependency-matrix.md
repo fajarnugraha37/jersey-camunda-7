@@ -542,3 +542,8 @@ The `ApplicationRuntime.start()` method (`ApplicationRuntime.java` lines 130–3
 11. Start Grizzly HTTP server
 
 **Source:** All module `pom.xml` files in `/sentinel-*/pom.xml`, `ApplicationRuntime.java` at `/sentinel-bootstrap/src/main/java/com/sentinel/enforcement/bootstrap/ApplicationRuntime.java`.
+
+## Source References
+
+1. **Module POMs** — `/sentinel-domain/pom.xml`, `/sentinel-application/pom.xml`, `/sentinel-api/pom.xml`, `/sentinel-persistence/pom.xml`, `/sentinel-messaging/pom.xml`, `/sentinel-workflow/pom.xml`, `/sentinel-security/pom.xml`, `/sentinel-storage/pom.xml`, `/sentinel-observability/pom.xml`, `/sentinel-bootstrap/pom.xml`
+2. **Assembly** — `sentinel-bootstrap/src/main/java/.../bootstrap/ApplicationRuntime.java`

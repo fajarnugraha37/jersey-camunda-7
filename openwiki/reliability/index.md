@@ -2,6 +2,7 @@
 type: Documentation Index
 title: "Reliability"
 description: "Files and subdirectories in Reliability."
+tags: [sentinel, reliability, security, operations, runbook, recovery]
 ---
 
 # Files

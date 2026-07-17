@@ -144,6 +144,159 @@ server.start();
 
 The server listens on the configured HTTP port (default `8080`) and binds all JAX-RS resources. WADL generation is explicitly disabled.
 
+## Architectural Role
+
+Sentinel is the **application and data boundary** for regulatory enforcement case management. It owns the full case lifecycle from report intake through sanction enforcement and appeal, including all domain aggregates, persistence, workflow orchestration, messaging, and file storage. The platform operates as a self-contained modular monolith with **no external application dependencies** — it depends only on infrastructure services (PostgreSQL, Kafka, Keycloak, MinIO).
+
+## Major Components
+
+The platform consists of 11 Maven modules organized in a hexagonal (ports & adapters) architecture:
+
+| Component (Module) | Layer | Purpose |
+|---|---|---|
+| `sentinel-domain` | Core | Domain aggregates, value objects, enums, invariants |
+| `sentinel-application` | Core | Use cases, port interfaces, command/query objects, authorization |
+| `sentinel-api` | Inbound Adapter | JAX-RS REST resources, filters, OpenAPI DTO mapping |
+| `sentinel-persistence` | Outbound Adapter | MyBatis SQL mappers, Liquibase migrations |
+| `sentinel-messaging` | Outbound Adapter | Kafka outbox publisher, notification consumer |
+| `sentinel-storage` | Outbound Adapter | MinIO evidence storage adapter |
+| `sentinel-workflow` | Outbound Adapter | Embedded Camunda BPM workflow adapter |
+| `sentinel-security` | Outbound Adapter | Keycloak JWT verification |
+| `sentinel-observability` | Outbound Adapter | Health checks, metrics, correlation context |
+| `sentinel-bootstrap` | Bootstrap | DI assembly, server startup, schema migration |
+| `sentinel-integration-tests` | Verification | Testcontainers + Karate E2E tests |
+
+## Dependency Direction
+
+Dependency direction is enforced by Maven module dependencies: no adapter module may directly depend on another adapter module. All inter-module communication flows through `sentinel-application` port interfaces.
+
+```
+sentinel-domain (no dependencies)
+    ↓
+sentinel-application (depends on domain)
+    ↓
+Adapter modules (depend on application, optionally domain)
+    ├── sentinel-api (inbound REST)
+    ├── sentinel-persistence (outbound persistence)
+    ├── sentinel-messaging (outbound messaging)
+    ├── sentinel-storage (outbound storage)
+    ├── sentinel-workflow (outbound workflow)
+    ├── sentinel-security (outbound auth)
+    └── sentinel-observability (outbound health)
+    ↓
+sentinel-bootstrap (assembles all adapters)
+    ↓
+sentinel-integration-tests (test scope only)
+```
+
+## Entry Points
+
+| Entry Point | Protocol / Mechanism | Source File |
+|---|---|---|
+| HTTP REST API | HTTP/1.1 on configurable port (default 8080) | `ApplicationRuntime.java` → Grizzly `HttpServer` |
+| Kafka Topics | 9 topics with `.retry`/`.dlq` suffixes | `MessagingTopics.java`, `KafkaOutboxPublisher.java` |
+| Command-line (migration) | `java -jar sentinel-bootstrap.jar migrate` | `DatabaseMigrationMain.java` |
+| Command-line (rollback) | `java -jar sentinel-bootstrap.jar rollback` | `DatabaseRollbackMain.java` |
+
+## Primary Runtime Flow
+
+```mermaid
+sequenceDiagram
+    participant Ext as External Client
+    participant Griz as Grizzly HTTP
+    participant Filter as Auth/Correlation Filters
+    participant Resource as JAX-RS Resource
+    participant AppSvc as Application Service
+    participant Domain as Domain Aggregate
+    participant Out as Outbound Adapter
+    participant Infra as Infrastructure (DB/Kafka/MinIO)
+
+    Ext->>Griz: HTTP Request (port 8080)
+    Griz->>Filter: CorrelationIdFilter → BearerAuthenticationFilter → RequestMetricsFilter
+    Filter->>Resource: JAX-RS Resource Method
+    Resource->>AppSvc: Command/Query DTO
+    AppSvc->>Domain: Domain Command (with auth check)
+    Domain-->>AppSvc: Domain Event / Result
+    AppSvc->>Out: Port Interface Call
+    Out->>Infra: SQL / Kafka / MinIO Call
+    Infra-->>Out: Result
+    Out-->>AppSvc: Port Result
+    AppSvc-->>Resource: Application Result (with new events)
+    Resource-->>Ext: HTTP Response (JSON + MDC cleanup)
+```
+
+The primary request flow follows this path: Grizzly HTTP Server receives the request → JAX-RS Filter Chain (CorrelationIdFilter, BearerAuthenticationFilter, RequestMetricsFilter) → JAX-RS Resource (deserialize DTO, Bean Validation) → Application Service (auth check, domain invocation) → Domain Aggregate (state transition, invariant enforcement) → Port Interface → Outbound Adapter → Infrastructure → Response. Full detail: [Request Flows](../runtime/request-flows.md), [Context Propagation](../runtime/context-propagation.md).
+
+## Background and Asynchronous Processing
+
+- **Outbox Publisher**: Background daemon thread in `MessagingRuntime` polls `outbox_event` table with `FOR UPDATE SKIP LOCKED` and publishes to Kafka. Configurable poll interval (default 5s) and batch size.
+- **Notification Consumer**: Background daemon thread in `MessagingRuntime` consumes from notification topics, deduplicates via `inbox_event` table, and dispatches email via Mailpit.
+- **Camunda Job Executor**: Embedded Camunda engine shares the Grizzly thread pool for BPMN job execution (timer events, async continuations).
+- **Maintenance Operations**: Ad-hoc operations (e.g., `recalculateOverdueSanctionObligations`) triggered via REST API endpoint, run synchronously on the HTTP thread.
+
+See [Asynchronous Processing](../runtime/asynchronous-processing.md) and [Concurrency](../runtime/concurrency.md) for full detail.
+
+## Configuration and Runtime Topology
+
+- **No configuration files**: The platform uses zero `application.properties` or `application.yaml` files. All configuration is via environment variables read by `AppConfiguration.java`.
+- **Default port**: 8080 (overridable via `HTTP_PORT`)
+- **Database**: PostgreSQL via HikariCP connection pool (configurable pool size via `DB_POOL_SIZE`)
+- **Kafka**: Single-node KRaft mode (no ZooKeeper), bootstrap server via `KAFKA_BOOTSTRAP_SERVERS`
+- **MinIO**: S3-compatible object storage, endpoint via `MINIO_ENDPOINT`
+- **Keycloak**: OIDC provider, JWKS endpoint via `KEYCLOAK_JWKS_URL`
+- **Docker Compose**: All infrastructure runs in Docker containers defined in `docker-compose.yaml`
+
+See [Runtime Configuration](../configuration/runtime-configuration.md) for all environment variables.
+
+## Extension Points
+
+| Extension Point | Mechanism | Example |
+|---|---|---|
+| New domain aggregate | Add to `sentinel-domain`, add repository port + adapter, add application service | See Recipe in [Change Guide](../development/change-guide.md) |
+| New REST endpoint | Update `openapi.yaml`, run `make openapi-generate`, add resource class | Contract-first approach (ADR-009) |
+| New Kafka event | Define topic in `MessagingTopics.java`, add outbox event type, add consumer | Transactional outbox pattern |
+| New infrastructure adapter | Implement port interface from `sentinel-application`, register in `ApplicationBinder` | See `MinioEvidenceStorageAdapter` for pattern |
+| New authorization rule | Add `Permission` enum value, add check in `RoleBasedAuthorizationService` | Multi-axis auth |
+
+## Architectural Constraints
+
+1. **Module boundary enforcement**: No adapter module may directly depend on another adapter module.
+2. **Domain purity**: `sentinel-domain` must have zero external dependencies — no framework annotations, no MyBatis/HTTP references.
+3. **Version-based optimistic locking**: Every aggregate root carries a `version` field. See [Data Consistency](../data/consistency.md).
+4. **Transactional outbox**: All domain events destined for Kafka are written to `outbox_event` in the same DB transaction.
+5. **Contract-first API**: All REST API changes start with `docs/api/openapi.yaml`.
+6. **No cloud-specific dependencies**: All infrastructure has local Docker Compose equivalents. See [Cloud Services](../integrations/cloud-services.md).
+
+## Failure Boundaries
+
+| Failure Scenario | Boundary | Behaviour |
+|---|---|---|
+| PostgreSQL down | Persistence adapter | HTTP 500 on any DB operation; health check reports DOWN; startup fails |
+| Kafka unavailable | Messaging adapter | Outbox events queue in DB; published when Kafka recovers |
+| MinIO unavailable | Storage adapter | Evidence upload/download fails; health check reports DOWN |
+| Keycloak unreachable | Auth filter | New token verification fails; cached JWKS remains valid |
+| Camunda engine failure | Workflow adapter | Workflow operations fail; reconciliation detects mismatches |
+
+## Change Risks
+
+| Change Area | Risk | Mitigation |
+|---|---|---|
+| Domain aggregate changes | Breaking existing state machines | Verify all state transitions; run `CaseRecordTest.java` |
+| Database migration | Irreversible schema changes | Add rollback scripts; test `migrate` and `rollback` |
+| API contract changes | Breaking client integrations | Version endpoints; update OpenAPI spec first |
+| Authorization logic | Wrong permission assignments | Test each `Permission` against all roles |
+| Kafka schema changes | Consumer deserialization failures | Add Testcontainers integration tests |
+| Module dependency changes | Violating hexagonal boundaries | Run `mvn dependency:analyze` |
+
+## Knowledge Gaps
+
+- **Thread pool sizing**: Grizzly HTTP thread pool is not explicitly configured; default sizing is opaque.
+- **Load testing evidence**: No load tests or performance benchmarks exist in the repository.
+- **Production deployment topology**: No production deployment configuration exists.
+- **SLA / SLO targets**: No service level agreements or objectives are documented.
+- **Disaster recovery procedures**: Only infrastructure-level runbooks in `/docs/runbooks/` exist.
+- **Capacity planning**: No scalability limits or capacity documentation exists.
+
 ## Architecture Decision Records
 
 ### ADR-001 — Modular Monolith
@@ -206,18 +359,36 @@ The server listens on the configured HTTP port (default `8080`) and binds all JA
 **Decision:** Every action records an `AuditEvent` with actor identity, action type, resource, correlation ID, source IP, before/after summaries, and result.  
 **Consequence:** The `AuditEvent` record (`sentinel-domain/src/main/java/.../casefile/AuditEvent.java`) is the universal audit entry. Service methods construct audit events as part of their command flow. The `CaseResource.GET /api/v1/cases/{caseId}/audit-events` endpoint exposes the trail.
 
-## Key Source
+## Source References
 
-The primary assembly class is `ApplicationRuntime` at:
+### Primary Source Files
 
-```
-sentinel-bootstrap/src/main/java/com/sentinel/enforcement/bootstrap/ApplicationRuntime.java
-```
+| File | Role |
+|---|---|
+| `sentinel-bootstrap/src/main/java/.../ApplicationRuntime.java` | Application assembly, server start, DI wiring |
+| `sentinel-bootstrap/src/main/java/.../ApplicationBinder.java` | HK2 dependency injection binder |
+| `sentinel-bootstrap/src/main/java/.../AppConfiguration.java` | Runtime configuration record |
+| `sentinel-bootstrap/pom.xml` | Module assembly configuration |
+| `sentinel-domain/src/main/java/.../domain/` | All domain aggregates and value objects |
+| `sentinel-application/src/main/java/.../application/` | Application services and port interfaces |
+| `sentinel-api/src/main/java/.../api/` | JAX-RS resource classes and filters |
+| `sentinel-persistence/src/main/resources/db/changelog/` | Liquibase migration files |
+| `sentinel-workflow/src/main/resources/bpmn/` | Camunda BPMN process definitions |
+| `docs/api/openapi.yaml` | OpenAPI contract specification |
+| `docker-compose.yaml` | Infrastructure service definitions |
+| `Makefile` | Build and test targets |
 
-This class:
-- Creates the HikariCP connection pool, MyBatis `SqlSessionFactory`, and all repository adapters
-- Instantiates the `WorkflowRuntime` (embedded Camunda), `MessagingRuntime` (Kafka + outbox/inbox)
-- Wires all application services with their dependencies (transaction manager, repositories, storage, workflow port)
-- Registers all JAX-RS resources, filters, exception mappers, and the HK2 binder
-- Starts the Grizzly HTTP server on the configured port
-- Exposes `start()` (production) and `migrate()` (schema migration) static factory methods
+### Architecture Decision Records
+
+| ADR | Topic | Key Source |
+|---|---|---|
+| ADR-001 | Modular Monolith | Module separation in `pom.xml` files |
+| ADR-002 | Domain State vs Workflow State | `CaseRecord.java`, `WorkflowReconciliationApplicationService.java` |
+| ADR-003 | MyBatis over ORM | `sentinel-persistence/.../persistence/*.java` |
+| ADR-004 | Transactional Outbox | `OutboxEvent.java`, `KafkaOutboxPublisher.java` |
+| ADR-005 | Inbox Idempotency | `InboxEvent.java`, `KafkaNotificationConsumer.java` |
+| ADR-006 | Keycloak Local Auth | `KeycloakTokenVerifier.java`, `BearerAuthenticationFilter.java` |
+| ADR-007 | MinIO Evidence Storage | `MinioEvidenceStorageAdapter.java` |
+| ADR-008 | Optimistic Locking | `CaseRecord.java` version field, MyBatis mappers |
+| ADR-009 | API Contract First | `docs/api/openapi.yaml`, `sentinel-api/pom.xml` |
+| ADR-010 | Audit Log Model | `AuditEvent.java`, `CaseResource.java` |

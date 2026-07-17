@@ -144,3 +144,12 @@ This recipe follows the API-contract-first pattern (see `/docs/adr/ADR-009-api-c
 - `Report` (`/sentinel-domain/src/main/java/com/sentinel/enforcement/domain/report/Report.java`) — Record with constructor validation, `triage()` method with optimistic locking via `expectedVersion`.
 - `CaseRecord` (`/sentinel-domain/src/main/java/com/sentinel/enforcement/domain/casefile/CaseRecord.java`) — Record with `assignTo()`, `transitionTo()` state machine.
 - `Evidence` (`/sentinel-domain/src/main/java/com/sentinel/enforcement/domain/evidence/Evidence.java`) — Record with `activate()` version bump and optimistic locking via `version + 1`.
+
+## Source References
+
+1. **Build System** — `/pom.xml`, `/Makefile`
+2. **API Contract** — `/docs/api/openapi.yaml`, `sentinel-api/pom.xml`
+3. **Domain Aggregates** — `sentinel-domain/src/main/java/.../domain/`
+4. **Application Services** — `sentinel-application/src/main/java/.../application/`
+5. **Persistence** — `sentinel-persistence/src/main/java/.../persistence/`
+6. **Tests** — `sentinel-domain/src/test/java/`, `sentinel-application/src/test/java/`, `sentinel-integration-tests/`

@@ -2,6 +2,7 @@
 type: Documentation Index
 title: "Messaging"
 description: "Files and subdirectories in Messaging."
+tags: [sentinel, messaging, kafka, events, outbox, inbox]
 ---
 
 # Files

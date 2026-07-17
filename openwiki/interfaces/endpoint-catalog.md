@@ -320,3 +320,10 @@ Base path: `/api/v1/operations`
 | 28 | `POST` | `/api/v1/cases/{caseId}/decisions` | Decisions (Case-scoped) |
 | 29 | `POST` | `/api/v1/appeals/{appealId}/decisions` | Appeals |
 | 30 | `POST` | `/api/v1/operations/sanction-obligations/recalculate-overdue` | Maintenance Operations |
+
+## Source References
+
+1. **JAX-RS Resources** — `sentinel-api/src/main/java/.../api/health/HealthResource.java`, `.../report/ReportResource.java`, `.../casefile/CaseResource.java`, `.../evidence/EvidenceResource.java`, `.../evidence/CaseEvidenceResource.java`, `.../workflow/TaskResource.java`, `.../workflow/WorkflowReconciliationResource.java`, `.../recommendation/RecommendationResource.java`, `.../recommendation/CaseRecommendationResource.java`, `.../decision/DecisionResource.java`, `.../decision/CaseDecisionResource.java`, `.../appeal/AppealResource.java`, `.../operations/MaintenanceOperationResource.java`
+2. **Error Handling** — `sentinel-api/src/main/java/.../api/error/ErrorResponseFactory.java`
+3. **Authentication Filter** — `sentinel-api/src/main/java/.../security/BearerAuthenticationFilter.java`
+4. **Cursor Codecs** — CaseCursorCodec, TaskCursorCodec, WorkflowReconciliationCursorCodec, AuditCursorCodec

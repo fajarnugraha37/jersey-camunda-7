@@ -28,7 +28,7 @@ The following table maps each infrastructure service to its cloud counterpart th
 All 7 infrastructure containers are defined in `/docker-compose.yaml`:
 
 ```mermaid
-graph LR
+flowchart LR
     subgraph "Docker Compose — 7 Containers"
         PG[("PostgreSQL 18<br/>5432")]
         KAFKA["Kafka 3.8.1<br/>29092 (KRaft)"]
@@ -131,3 +131,10 @@ Since all integration is through standard protocols and port interfaces, migrati
 | Production deployment | Self-managed containers | Managed services |
 
 **Source:** `/docker-compose.yaml`, `/.env.example`, `AppConfiguration.java`.
+
+## Source References
+
+1. **Infrastructure** — `/docker-compose.yaml`
+2. **Environment Template** — `/.env.example`
+3. **Configuration** — `sentinel-bootstrap/src/main/java/.../bootstrap/AppConfiguration.java`
+4. **Application Runtime** — `sentinel-bootstrap/src/main/java/.../bootstrap/ApplicationRuntime.java`

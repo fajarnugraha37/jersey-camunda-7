@@ -2,6 +2,7 @@
 type: Documentation Index
 title: "Knowledge"
 description: "Files and subdirectories in Knowledge."
+tags: [sentinel, knowledge, relationships, architecture, graph]
 ---
 
 # Files

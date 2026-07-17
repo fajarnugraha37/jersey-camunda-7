@@ -2,6 +2,7 @@
 type: Documentation Index
 title: "Interfaces"
 description: "Files and subdirectories in Interfaces."
+tags: [sentinel, api, rest, endpoints, contracts]
 ---
 
 # Files

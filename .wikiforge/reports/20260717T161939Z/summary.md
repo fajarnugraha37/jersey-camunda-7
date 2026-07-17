@@ -1,6 +1,6 @@
 # WikiForge Run 20260717T161939Z
 
-Generated: 2026-07-17T16:19:39Z
+Generated: 2026-07-17T18:52:26Z
 
 ## Components
 
@@ -9,5 +9,4 @@ Generated: 2026-07-17T16:19:39Z
 
 ## Failures
 
-- **sentinel:** OpenWiki failed: exit status 1
-The command line is too long.
+- **sentinel:** documentation validation failed with score 0

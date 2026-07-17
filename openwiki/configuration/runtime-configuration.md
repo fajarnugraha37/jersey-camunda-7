@@ -117,3 +117,10 @@ Source: `/docker-compose.yaml` lines 156–185 (app service environment block).
 - **All durations** are ISO 8601 format (e.g., `PT15M`, `PT30S`). Parsed via `java.time.Duration.parse()`.
 - **Container hostname overrides**: When running inside Docker Compose, several host-based values (`DB_URL`, `KAFKA_BOOTSTRAP_SERVERS`, `MINIO_ENDPOINT`) are replaced with Docker internal hostnames. Local Maven runs use `localhost` equivalents.
 - **Secrets**: `DB_PASSWORD`, `MINIO_SECRET_KEY`, `POSTGRES_PASSWORD` are plaintext in `.env.example` for local development only. Production deployments should use a secrets manager.
+
+## Source References
+
+1. **Configuration Record** — `sentinel-bootstrap/src/main/java/.../bootstrap/AppConfiguration.java`
+2. **Environment Template** — `/.env.example`
+3. **Infrastructure** — `/docker-compose.yaml`
+4. **Build Targets** — `/Makefile`

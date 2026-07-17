@@ -69,7 +69,7 @@ The `MyBatisRepositorySupport` base class at `/sentinel-persistence/.../persiste
 
 ```mermaid
 %%{init:{'theme':'default'}}%%
-graph TD
+flowchart TD
     subgraph "Outbox Publisher Retry"
         OP[Outbox Publisher] -->|publish fails| Retry1[releaseForRetry<br/>exponential backoff]
         Retry1 -->|retry at available_at| OP

@@ -2,6 +2,7 @@
 type: Documentation Index
 title: "Processing"
 description: "Files and subdirectories in Processing."
+tags: [sentinel, processing, jobs, background, messaging, workflow]
 ---
 
 # Files

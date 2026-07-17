@@ -288,6 +288,15 @@ Each domain exception type has a dedicated JAX-RS `ExceptionMapper` registered i
 - `AuthorizationDeniedExceptionMapper` — maps `AuthorizationDeniedException` to `403`.
 - `EvidenceObjectMissingExceptionMapper` — maps missing evidence to `410`.
 - `EvidenceStorageUnavailableExceptionMapper` — maps storage failures to `503`.
+
+## Source References
+
+1. **OpenAPI Spec** — `/docs/api/openapi.yaml`
+2. **Module Config** — `sentinel-api/pom.xml`
+3. **MapStruct Mappers** — `sentinel-api/src/main/java/.../api/` (ApiCaseMapper, ApiReportMapper, ApiDecisionMapper, ApiEvidenceMapper, ApiAppealMapper, ApiRecommendationMapper, ApiMaintenanceOperationMapper, ApiWorkflowReconciliationMapper, ApiWorkflowTaskMapper)
+4. **Error Handling** — `sentinel-api/src/main/java/.../api/error/ErrorResponseFactory.java` and all `*ExceptionMapper.java` files
+5. **Query Pattern** — `/docs/api/list-query-pattern.md`
+6. **Build** — `/Makefile`
 - `GenericExceptionMapper` — catch-all for unhandled exceptions (returns `500`).
 
 ---

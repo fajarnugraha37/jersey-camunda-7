@@ -445,3 +445,11 @@ The process `decisionAppealReview` handles appeals:
 - **User tasks:** Appeal Review, Appeal Supervisor Override Review
 - **Timer:** Appeal review reminder at `P1D`
 - **Signals:** `GlobalHoldSignal`
+
+## Source References
+
+1. **Application Services** — `sentinel-application/src/main/java/.../application/casefile/CaseApplicationService.java`, `.../evidence/EvidenceApplicationService.java`, `.../workflow/WorkflowTaskApplicationService.java`, `.../workflow/WorkflowReconciliationApplicationService.java`, `.../appeal/AppealApplicationService.java`
+2. **BPMN Process Definitions** — `sentinel-workflow/src/main/resources/bpmn/regulatory-enforcement-case.bpmn`, `sentinel-workflow/src/main/resources/bpmn/decision-appeal-review.bpmn`
+3. **Workflow Adapters** — `sentinel-workflow/src/main/java/.../workflow/CamundaCaseWorkflowAdapter.java`
+4. **Authorization** — `sentinel-security/src/main/java/.../security/RoleBasedAuthorizationService.java`
+5. **Messaging** — `sentinel-messaging/src/main/java/.../messaging/KafkaOutboxPublisher.java`, `.../KafkaNotificationConsumer.java`
