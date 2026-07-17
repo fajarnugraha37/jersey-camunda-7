@@ -1,0 +1,75 @@
+{
+  "version": 2,
+  "runId": "20260717T161939Z",
+  "mode": "generate",
+  "startedAt": "2026-07-17T16:19:39.3187642Z",
+  "updatedAt": "2026-07-17T16:47:40.9099758Z",
+  "components": {
+    "sentinel": {
+      "gitHead": "d84c1b334557ce66ab796fe121928f3a7568619c",
+      "sourceHash": "1b11875ac28a9aeccfe6b4dafb35bafef636ae9fbae258753bab689919e0d8ff",
+      "status": "running",
+      "phases": {
+        "A00": {
+          "status": "completed",
+          "attempts": 1,
+          "startedAt": "2026-07-17T16:19:39.8165012Z",
+          "completedAt": "2026-07-17T16:44:34.214876Z"
+        },
+        "A10": {
+          "status": "completed",
+          "attempts": 1,
+          "startedAt": "2026-07-17T16:44:34.2185103Z",
+          "completedAt": "2026-07-17T16:46:55.894739Z"
+        },
+        "A20": {
+          "status": "completed",
+          "attempts": 1,
+          "startedAt": "2026-07-17T16:46:55.8991128Z",
+          "completedAt": "2026-07-17T16:47:03.558342Z"
+        },
+        "A30": {
+          "status": "completed",
+          "attempts": 1,
+          "startedAt": "2026-07-17T16:47:03.5608748Z",
+          "completedAt": "2026-07-17T16:47:09.6750467Z"
+        },
+        "A40": {
+          "status": "completed",
+          "attempts": 1,
+          "startedAt": "2026-07-17T16:47:09.6785363Z",
+          "completedAt": "2026-07-17T16:47:14.7934962Z"
+        },
+        "A50": {
+          "status": "completed",
+          "attempts": 1,
+          "startedAt": "2026-07-17T16:47:14.7977171Z",
+          "completedAt": "2026-07-17T16:47:19.7548456Z"
+        },
+        "A60": {
+          "status": "completed",
+          "attempts": 1,
+          "startedAt": "2026-07-17T16:47:19.7582975Z",
+          "completedAt": "2026-07-17T16:47:26.7585604Z"
+        },
+        "A70": {
+          "status": "completed",
+          "attempts": 1,
+          "startedAt": "2026-07-17T16:47:26.7623466Z",
+          "completedAt": "2026-07-17T16:47:34.6662868Z"
+        },
+        "A80": {
+          "status": "failed",
+          "attempts": 1,
+          "startedAt": "2026-07-17T16:47:34.6705441Z",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "error": "OpenWiki failed: exit status 1\nThe command line is too long."
+        }
+      }
+    }
+  },
+  "system": {
+    "status": "",
+    "phases": {}
+  }
+}

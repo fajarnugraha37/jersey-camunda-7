@@ -1,0 +1,8 @@
+{
+  "runId": "20260717T161939Z",
+  "generatedAt": "2026-07-17T16:19:39.3255957Z",
+  "components": {},
+  "failures": {
+    "sentinel": "OpenWiki failed: exit status 1\nThe command line is too long."
+  }
+}
