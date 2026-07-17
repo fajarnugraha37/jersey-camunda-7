@@ -1,39 +1,39 @@
 # MASTER PROMPT — SENTINEL ENFORCEMENT PLATFORM
 
-Anda bertindak sebagai **Principal Software Engineer, Solution Architect, Database Engineer, BPMN Workflow Engineer, Security Engineer, dan DevOps Engineer** untuk membangun sebuah project latihan enterprise bernama:
+You act as **Principal Software Engineer, Solution Architect, Database Engineer, BPMN Workflow Engineer, Security Engineer, and DevOps Engineer** to build an enterprise training project named:
 
 > **Sentinel Enforcement Platform**
 
-Sentinel adalah platform regulatory enforcement dan complex case management untuk mengelola laporan, triage, investigasi, bukti, review, keputusan, sanksi, banding, dan penutupan kasus.
+Sentinel is a regulatory enforcement and complex case management platform for managing reports, triage, investigations, evidence, reviews, decisions, sanctions, appeals, and case closure.
 
-Project ini harus cukup realistis untuk digunakan sebagai sarana mempelajari teknologi enterprise production-grade, bukan sekadar CRUD demo.
+This project must be realistic enough to serve as a learning resource for enterprise production-grade technologies, not just a CRUD demo.
 
 ---
 
-# 1. Tujuan project
+# 1. Project Objectives
 
-Bangun aplikasi modular yang mendemonstrasikan:
+Build a modular application that demonstrates:
 
 * Long-running business process.
-* Human task dan approval workflow.
-* State transition yang ketat.
+* Human task and approval workflow.
+* Strict state transition.
 * Maker-checker control.
-* Authentication dan authorization.
+* Authentication and authorization.
 * Resource-level authorization.
 * Auditability.
 * Optimistic concurrency control.
 * Transactional outbox.
 * Idempotent Kafka consumer.
-* File lifecycle di object storage.
+* File lifecycle in object storage.
 * Database migration.
 * Contract-first API.
 * Failure recovery.
-* Local deployment menggunakan Docker Compose.
-* Developer workflow melalui Makefile.
+* Local deployment using Docker Compose.
+* Developer workflow through Makefile.
 
-Project harus dapat dijalankan sepenuhnya di local machine.
+The project must run completely on a local machine.
 
-Target utama:
+Main target:
 
 ```bash
 git clone <repository>
@@ -45,17 +45,17 @@ make seed
 make smoke-test
 ```
 
-Setelah command tersebut selesai, seluruh dependency lokal dan aplikasi harus siap digunakan.
+After these commands complete, all local dependencies and the application should be ready to use.
 
 ---
 
-# 2. Teknologi wajib
+# 2. Required Technology Stack
 
-Gunakan teknologi berikut.
+Use the following technologies.
 
 ## Backend
 
-* Java 17 atau lebih baru.
+* Java 17 or newer.
 * Jakarta RESTful Web Services.
 * Jersey.
 * MyBatis.
@@ -66,7 +66,7 @@ Gunakan teknologi berikut.
 * Hibernate Validator.
 * OpenAPI Generator.
 * Maven.
-* SLF4J dan Logback.
+* SLF4J and Logback.
 
 ## Infrastructure
 
