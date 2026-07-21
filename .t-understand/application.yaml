@@ -1,0 +1,21 @@
+schema_id: https://t-understand.dev/schemas/application-manifest.schema.json
+schema_version: 1.0.0
+application:
+  id: onboard
+  name: .onboard
+  description: Auto-managed by the t-understand agent
+workspace_model: single-repo
+repositories:
+- id: onboard
+  name: .onboard
+  role: application-repository
+  vcs: git
+  identity:
+    type: remote
+    value: github.com/fajarnugraha37/jersey-camunda-7
+  source_access: READ_ONLY
+  remote_hint: ssh://github.com/fajarnugraha37/jersey-camunda-7.git
+  tags:
+  - auto-discovered
+created_at: '2026-07-21T18:06:09Z'
+updated_at: '2026-07-21T18:06:09Z'
